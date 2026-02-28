@@ -4,10 +4,11 @@ import { PermutationCard } from './PermutationCard'
 import { TreeModal } from './TreeModal'
 import type { PermutationResult } from '../useAllPermutations'
 
-const CARD = 160
-const GAP  = 12
-const STEP = CARD + GAP  // 172 px per cell
-const PAD  = 28
+const CARD     = 160
+const GAP      = 12
+const STEP     = CARD + GAP   // 172 px — distance between card origins
+const MAX_COLS = 50            // cap columns so the grid stays ~50×50
+const OVERSCAN = 2             // extra rows/cols to render beyond viewport edges
 
 interface Props {
   permutations: PermutationResult[]
@@ -17,35 +18,32 @@ interface Props {
 }
 
 export function InfiniteGrid({ permutations, ids, showFlags, hasFilters }: Props) {
-  const [selected, setSelected] = useState<number | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  // Track previous tile dimensions so we can preserve the user's scroll offset
-  // when the grid expands as new pages are loaded.
-  const prevTile = useRef({ w: 0, h: 0 })
+  const [selected, setSelected]   = useState<number | null>(null)
+  const containerRef               = useRef<HTMLDivElement>(null)
+  const [scroll, setScroll]        = useState({ x: 0, y: 0 })
+  const rafRef                     = useRef(0)
+  const prevTile                   = useRef({ w: 0, h: 0 })
 
-  // Flatten to visible-only list
   const visible = useMemo(
     () => permutations.filter((_, i) => showFlags[i]),
     [permutations, showFlags]
   )
   const N = visible.length
 
-  // Approximately-square grid: columns ≈ √N
-  const cols = N > 0 ? Math.ceil(Math.sqrt(N)) : 1
-  const rows = N > 0 ? Math.ceil(N / cols)     : 1
+  // Fixed-width grid capped at MAX_COLS — gives a ~50×50 layout for 2500 items
+  const cols = N > 0 ? Math.min(MAX_COLS, Math.ceil(Math.sqrt(N))) : 1
+  const rows = N > 0 ? Math.ceil(N / cols) : 1
 
-  // Tile dimensions (one full copy of the grid)
-  const tileW = PAD * 2 + cols * STEP - GAP
-  const tileH = PAD * 2 + rows * STEP - GAP
+  // Seamless tile: distance from last card edge to first card of next tile = GAP
+  // tileW = cols * STEP  →  gap between tiles = STEP - CARD = GAP  ✓
+  const tileW = cols * STEP
+  const tileH = rows * STEP
 
-  // Use looping torus when the tile is large enough for the viewport not to
-  // show its edges. N >= 25 produces a 5×5 grid (~904 px) which comfortably
-  // exceeds typical viewport heights after subtracting the bars.
   const shouldLoop = N >= 25
 
-  // When tile dimensions change (more items loaded), preserve the user's scroll
-  // offset from the center tile origin. On initial load (prevTile = {0,0}) just center.
-  // Reset prevTile when N drops to 0 (filter change) so next load re-centers.
+  // On tile-dimension change, preserve the user's offset from center-tile origin.
+  // First load (prevTile = {0,0}) just centers.
+  // N → 0 resets so the next load re-centers.
   useEffect(() => {
     if (N === 0) { prevTile.current = { w: 0, h: 0 }; return }
     if (!shouldLoop) return
@@ -58,30 +56,35 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters }: Props
     requestAnimationFrame(() => {
       c.scrollLeft = tileW + offsetX
       c.scrollTop  = tileH + offsetY
+      setScroll({ x: tileW + offsetX, y: tileH + offsetY })
     })
   }, [shouldLoop, tileW, tileH, N])
 
-  // Clear selection when permutations are reset
   useEffect(() => { if (N === 0) setSelected(null) }, [N])
 
-  // Torus teleport: when scroll exits center-tile range, jump by one tile
+  // Torus teleport — rAF throttled so it fires at most once per frame
   const handleScroll = useCallback(() => {
     if (!shouldLoop) return
-    const c = containerRef.current
-    if (!c || !tileW || !tileH) return
-    let sx = c.scrollLeft, sy = c.scrollTop, moved = false
-    if      (sx <  tileW)      { sx += tileW; moved = true }
-    else if (sx >= 2 * tileW)  { sx -= tileW; moved = true }
-    if      (sy <  tileH)      { sy += tileH; moved = true }
-    else if (sy >= 2 * tileH)  { sy -= tileH; moved = true }
-    if (moved) { c.scrollLeft = sx; c.scrollTop = sy }
+    if (rafRef.current) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0
+      const c = containerRef.current
+      if (!c || !tileW || !tileH) return
+      let sx = c.scrollLeft, sy = c.scrollTop, moved = false
+      if      (sx <  tileW)      { sx += tileW; moved = true }
+      else if (sx >= 2 * tileW)  { sx -= tileW; moved = true }
+      if      (sy <  tileH)      { sy += tileH; moved = true }
+      else if (sy >= 2 * tileH)  { sy -= tileH; moved = true }
+      if (moved) { c.scrollLeft = sx; c.scrollTop = sy }
+      setScroll({ x: c.scrollLeft, y: c.scrollTop })
+    })
   }, [shouldLoop, tileW, tileH])
 
   if (N === 0) return null
 
   const selectedPerm = selected !== null ? visible[selected] ?? null : null
 
-  // ── Small grid (no looping) ─────────────────────────────────────────────
+  // ── Small grid (N < 25): no looping, plain CSS grid ─────────────────────
   if (!shouldLoop) {
     return (
       <>
@@ -93,7 +96,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters }: Props
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, ${CARD}px)`,
             gap: GAP,
-            padding: PAD,
+            padding: GAP,
           }}>
             {visible.map((perm, i) => (
               <PermutationCard
@@ -112,36 +115,49 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters }: Props
     )
   }
 
-  // ── Looping torus grid (N >= 25) ────────────────────────────────────────
-  // Each card is placed absolutely in 3×3 tile copies so that scrolling in
-  // any direction wraps seamlessly. The torus teleport keeps the viewport
-  // locked to the center copy at all times.
+  // ── Looping torus with virtual rendering ─────────────────────────────────
+  // Only cards whose absolute position falls within scroll + overscan are
+  // mounted.  For a 2500-item 50×50 grid the viewport shows ~11×5 = ~55 cards
+  // instead of the 22 500 that full DOM rendering would require.
+  const vpW = containerRef.current?.clientWidth  || window.innerWidth
+  const vpH = containerRef.current?.clientHeight || window.innerHeight - (hasFilters ? 88 : 48)
+
   const cards: React.ReactNode[] = []
-  for (let i = 0; i < N; i++) {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const cx  = PAD + col * STEP
-    const cy  = PAD + row * STEP
-    for (let tx = 0; tx < 3; tx++) {
-      for (let ty = 0; ty < 3; ty++) {
-        cards.push(
-          <div
-            key={`${i}-${tx}-${ty}`}
-            style={{
-              position: 'absolute',
-              left:   tx * tileW + cx,
-              top:    ty * tileH + cy,
-              width:  CARD,
-              height: CARD,
-            }}
-          >
-            <PermutationCard
-              result={visible[i]}
-              visible={true}
-              onClick={() => setSelected(i)}
-            />
-          </div>
-        )
+  for (let tx = 0; tx < 3; tx++) {
+    const tileX = tx * tileW
+    const c0 = Math.max(0,        Math.floor((scroll.x - OVERSCAN * STEP - tileX) / STEP))
+    const c1 = Math.min(cols - 1, Math.floor((scroll.x + vpW + OVERSCAN * STEP - tileX) / STEP))
+    if (c0 > c1) continue
+
+    for (let ty = 0; ty < 3; ty++) {
+      const tileY = ty * tileH
+      const r0 = Math.max(0,        Math.floor((scroll.y - OVERSCAN * STEP - tileY) / STEP))
+      const r1 = Math.min(rows - 1, Math.floor((scroll.y + vpH + OVERSCAN * STEP - tileY) / STEP))
+      if (r0 > r1) continue
+
+      for (let col = c0; col <= c1; col++) {
+        for (let row = r0; row <= r1; row++) {
+          const i = row * cols + col
+          if (i >= N) continue
+          cards.push(
+            <div
+              key={`${i}-${tx}-${ty}`}
+              style={{
+                position: 'absolute',
+                left:   tileX + col * STEP,
+                top:    tileY + row * STEP,
+                width:  CARD,
+                height: CARD,
+              }}
+            >
+              <PermutationCard
+                result={visible[i]}
+                visible={true}
+                onClick={() => setSelected(i)}
+              />
+            </div>
+          )
+        }
       }
     }
   }

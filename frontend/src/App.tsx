@@ -21,26 +21,16 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(emptyFilters())
 
   // ── DB mode ───────────────────────────────────────────────────────────────
-  const { state: dbState, load, loadMore } = usePermutationsDB()
+  const { state: dbState, load, loadRandom } = usePermutationsDB()
 
-  // Load on mount (DB mode)
-  useEffect(() => {
-    if (dbMode) load(emptyFilters())
-  }, [dbMode, load])
+  const hasActiveFilters = Object.values(filters).some(v => v !== '')
 
-  // Reload when filters change (DB mode)
+  // Load on mount and whenever filters change
   useEffect(() => {
-    if (dbMode) load(filters)
-  }, [dbMode, filters, load])
-
-  // Auto-load more pages until 2 000 items are loaded (or no more remain).
-  // Simple effect-based trigger — no IntersectionObserver needed for a looping grid.
-  const AUTO_LOAD_LIMIT = 2000
-  useEffect(() => {
-    if (!dbMode || !dbState.hasMore || dbState.loading || dbState.loadingMore) return
-    if (dbState.permutations.length >= AUTO_LOAD_LIMIT) return
-    loadMore()
-  }, [dbMode, dbState.hasMore, dbState.loading, dbState.loadingMore, dbState.permutations.length, loadMore])
+    if (!dbMode) return
+    if (hasActiveFilters) load(filters)
+    else loadRandom()
+  }, [dbMode, filters])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chain mode handlers ───────────────────────────────────────────────────
   const ids = useMemo(() => parseIds(idsRaw), [idsRaw])
@@ -51,6 +41,10 @@ export default function App() {
     if (err) return
     setFilters(emptyFilters())
     preview(ids)
+  }
+
+  function handleShuffle() {
+    loadRandom()
   }
 
   // ── Derive display values ─────────────────────────────────────────────────
@@ -65,10 +59,8 @@ export default function App() {
           ? matchesFilters(p.nodeAbcd.attributes, filters)
           : true
       )
-  const visibleCount  = showFlags.filter(Boolean).length
-  const hasActiveFilters = Object.values(filters).some(v => v !== '')
-  // Keep FilterBar visible while loading or when filters are active (so user can clear them)
-  const showFilters = dbMode
+  const visibleCount     = showFlags.filter(Boolean).length
+  const showFilters      = dbMode
     ? dbState.total > 0 || dbState.loading || hasActiveFilters
     : permutations.length > 0
 
@@ -92,7 +84,8 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           total={dbMode ? dbState.total : permutations.length}
-          visible={dbMode ? dbState.total : visibleCount}
+          visible={dbMode ? dbState.permutations.length : visibleCount}
+          onShuffle={dbMode && !hasActiveFilters ? handleShuffle : undefined}
         />
       )}
       {dbMode && !dbState.loading && hasActiveFilters && dbState.total === 0 && (
@@ -106,7 +99,7 @@ export default function App() {
         showFlags={showFlags}
         hasFilters={showFilters}
       />
-      {dbMode && dbState.loadingMore && (
+      {dbMode && dbState.loading && (
         <div style={{
           position: 'fixed', bottom: '1rem', right: '1rem',
           background: '#1a1a1a', border: '1px solid #333', borderRadius: '3px',

@@ -47,9 +47,10 @@ interface FilterBarProps {
   onChange: (f: Filters) => void
   total: number
   visible: number
+  onShuffle?: () => void
 }
 
-export function FilterBar({ filters, onChange, total, visible }: FilterBarProps) {
+export function FilterBar({ filters, onChange, total, visible, onShuffle }: FilterBarProps) {
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
   }
@@ -68,6 +69,9 @@ export function FilterBar({ filters, onChange, total, visible }: FilterBarProps)
       <span className="filter-count">Showing {visible} / {total}</span>
       {isActive && (
         <button type="button" className="filter-clear" onClick={clearAll}>Clear</button>
+      )}
+      {onShuffle && (
+        <button type="button" className="filter-shuffle" onClick={onShuffle}>↻ Shuffle</button>
       )}
     </div>
   )

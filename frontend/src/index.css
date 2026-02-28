@@ -156,6 +156,19 @@ body {
 }
 .filter-clear:hover { color: #ccc; }
 
+.filter-shuffle {
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #888;
+  font-family: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.15rem 0.5rem;
+  flex-shrink: 0;
+}
+.filter-shuffle:hover { color: #ccc; border-color: #555; }
+
 /* ─── Grid viewport ───────────────────────────────────────── */
 .grid-viewport {
   position: fixed;
