@@ -1,4 +1,5 @@
 // frontend/src/components/FilterBar.tsx
+import { useState, useEffect } from 'react'
 import type { Attribute } from '../utils'
 
 export interface Filters {
@@ -45,17 +46,32 @@ function FilterSelect({ label, options, value, onChange }: FilterSelectProps) {
 interface FilterBarProps {
   filters: Filters
   onChange: (f: Filters) => void
-  total: number
   visible: number
   onShuffle?: () => void
 }
 
-export function FilterBar({ filters, onChange, total, visible, onShuffle }: FilterBarProps) {
+const SHUFFLE_COOLDOWN = 60  // seconds
+
+export function FilterBar({ filters, onChange, visible, onShuffle }: FilterBarProps) {
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const id = setInterval(() => setCooldown(s => s - 1), 1000)
+    return () => clearInterval(id)
+  }, [cooldown])
+
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
   }
 
   function clearAll() { onChange(emptyFilters()) }
+
+  function handleShuffle() {
+    if (!onShuffle || cooldown > 0) return
+    onShuffle()
+    setCooldown(SHUFFLE_COOLDOWN)
+  }
 
   const isActive = Object.values(filters).some(v => v !== '')
 
@@ -66,12 +82,21 @@ export function FilterBar({ filters, onChange, total, visible, onShuffle }: Filt
       <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)} />
       <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)} />
       <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)} />
-      <span className="filter-count">Showing {visible} / {total}</span>
+      <span className="filter-count">
+        Showing {visible}
+      </span>
       {isActive && (
         <button type="button" className="filter-clear" onClick={clearAll}>Clear</button>
       )}
       {onShuffle && (
-        <button type="button" className="filter-shuffle" onClick={onShuffle}>↻ Shuffle</button>
+        <button
+          type="button"
+          className="filter-shuffle"
+          onClick={handleShuffle}
+          disabled={cooldown > 0}
+        >
+          {cooldown > 0 ? `↻ ${cooldown}s` : '↻ Shuffle'}
+        </button>
       )}
     </div>
   )

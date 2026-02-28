@@ -83,7 +83,6 @@ export default function App() {
         <FilterBar
           filters={filters}
           onChange={setFilters}
-          total={dbMode ? dbState.total : permutations.length}
           visible={dbMode ? dbState.permutations.length : visibleCount}
           onShuffle={dbMode && !hasActiveFilters ? handleShuffle : undefined}
         />

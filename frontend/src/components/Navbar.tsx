@@ -10,7 +10,7 @@ interface NavbarProps {
   dbTotal?: number
 }
 
-export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, dbTotal }: NavbarProps) {
+export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode }: NavbarProps) {
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     onPreview()
@@ -22,7 +22,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, db
       <div className="nav-center">
         {dbMode ? (
           <span className="nav-db-status">
-            {loading ? 'Loading…' : dbTotal !== undefined ? `${dbTotal.toLocaleString()} permutations` : ''}
+            {loading ? 'Loading…' : ''}
           </span>
         ) : (
           <form onSubmit={handleSubmit} aria-label="form">

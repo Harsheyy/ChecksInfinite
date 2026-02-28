@@ -49,31 +49,31 @@ describe('matchesFilters', () => {
 
 describe('FilterBar', () => {
   it('renders 5 select dropdowns', () => {
-    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} total={24} visible={24} />)
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} />)
     const selects = screen.getAllByRole('combobox')
     expect(selects).toHaveLength(5)
   })
 
-  it('shows Showing X / Y count', () => {
-    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} total={24} visible={18} />)
-    expect(screen.getByText(/18 \/ 24/)).toBeInTheDocument()
+  it('shows Showing X count', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={18} />)
+    expect(screen.getByText(/Showing 18/)).toBeInTheDocument()
   })
 
   it('calls onChange when a select changes', () => {
     const onChange = vi.fn()
-    render(<FilterBar filters={emptyFilters()} onChange={onChange} total={24} visible={24} />)
+    render(<FilterBar filters={emptyFilters()} onChange={onChange} visible={24} />)
     const selects = screen.getAllByRole('combobox')
     fireEvent.change(selects[0], { target: { value: '80' } })
     expect(onChange).toHaveBeenCalledWith({ ...emptyFilters(), checks: '80' })
   })
 
   it('shows Clear button when any filter is active', () => {
-    render(<FilterBar filters={{ ...emptyFilters(), checks: '80' }} onChange={vi.fn()} total={24} visible={10} />)
+    render(<FilterBar filters={{ ...emptyFilters(), checks: '80' }} onChange={vi.fn()} visible={10} />)
     expect(screen.getByRole('button', { name: /Clear/ })).toBeInTheDocument()
   })
 
   it('hides Clear button when no filters active', () => {
-    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} total={24} visible={24} />)
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} />)
     expect(screen.queryByRole('button', { name: /Clear/ })).toBeNull()
   })
 
@@ -83,7 +83,6 @@ describe('FilterBar', () => {
       <FilterBar
         filters={{ ...emptyFilters(), checks: '80' }}
         onChange={onChange}
-        total={24}
         visible={10}
       />
     )
