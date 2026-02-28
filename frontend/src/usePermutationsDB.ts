@@ -60,10 +60,10 @@ interface PermRow {
 const QUERY_SELECT = `
   keeper_1_id, burner_1_id, keeper_2_id, burner_2_id,
   abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift,
-  keeper_1:checks!keeper_1_id(check_struct),
-  burner_1:checks!burner_1_id(check_struct),
-  keeper_2:checks!keeper_2_id(check_struct),
-  burner_2:checks!burner_2_id(check_struct)
+  keeper_1:checks!permutations_keeper_1_id_fkey(check_struct),
+  burner_1:checks!permutations_burner_1_id_fkey(check_struct),
+  keeper_2:checks!permutations_keeper_2_id_fkey(check_struct),
+  burner_2:checks!permutations_burner_2_id_fkey(check_struct)
 `
 
 // Composite structs are computed eagerly (fast), SVGs are lazy getters —
@@ -228,6 +228,7 @@ export function usePermutationsDB() {
         )
       )
 
+      for (const r of results) { if (r.error) throw r.error }
       const allRows = results.flatMap(r => (r.data ?? []) as unknown as PermRow[])
       setState({
         permutations: allRows.map(rowToPermutationResult),
