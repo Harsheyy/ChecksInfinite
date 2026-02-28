@@ -7,12 +7,18 @@ interface CheckCardProps {
   loading?: boolean
   error?: string
   label?: string
+  sublabel?: string
 }
 
-export function CheckCard({ name, svg, attributes, loading, error, label }: CheckCardProps) {
+export function CheckCard({ name, svg, attributes, loading, error, label, sublabel }: CheckCardProps) {
   return (
     <div className="check-card">
-      {label && <div className="check-card-label">{label}</div>}
+      {(label || sublabel) && (
+        <div className="check-card-label-row">
+          {label && <span className="check-card-label">{label}</span>}
+          {sublabel && <span className="check-card-sublabel">{sublabel}</span>}
+        </div>
+      )}
       {loading && <div className="check-card-loading">Loading…</div>}
       {error && <div className="check-card-error">{error}</div>}
       {!loading && !error && (

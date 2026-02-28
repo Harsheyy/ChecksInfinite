@@ -90,10 +90,11 @@ body {
   font-family: inherit;
   font-size: 0.75rem;
   padding: 0.3rem 0.75rem;
-  cursor: not-allowed;
+  cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
 }
+.nav-wallet:hover { border-color: #555; color: #999; }
 
 /* ─── Filter strip ────────────────────────────────────────── */
 .filter-strip {
@@ -312,7 +313,9 @@ body {
   flex-direction: column;
   gap: 0.75rem;
 }
+.check-card-label-row { display: flex; align-items: baseline; gap: 0.5rem; }
 .check-card-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; }
+.check-card-sublabel { font-size: 0.7rem; color: #888; margin-left: auto; }
 .check-card-name  { font-size: 0.95rem; color: #ccc; }
 .check-card-svg svg { width: 100%; height: auto; display: block; }
 .check-card-attrs { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -321,3 +324,28 @@ body {
 .check-card-attr dd { color: #ddd; }
 .check-card-loading { color: #666; font-size: 0.85rem; }
 .check-card-error   { color: #f87171; font-size: 0.82rem; line-height: 1.4; }
+
+/* ─── Tree modal — buy row ────────────────────────────────── */
+.tree-buy-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+.tree-buy-btn {
+  background: #eee;
+  color: #111;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.tree-buy-btn:hover:not(:disabled) { background: #fff; }
+.tree-buy-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.tree-buy-btn--done  { background: #1a3d1a; color: #4ade80; cursor: default; }
+.tree-buy-btn--error { background: #3d1a1a; color: #f87171; }

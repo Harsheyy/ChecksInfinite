@@ -5,7 +5,9 @@
 Checks Infinite is a tool for exploring composite permutations of [Checks VV](https://checks.art) NFTs. Given a set of Checks tokens, it computes every valid 2-level composite tree (A+B → L1a, C+D → L1b, L1a+L1b → ABCD) and displays the results in an infinite scrollable grid. The app supports two modes:
 
 - **Chain mode** — user enters token IDs; data is fetched live from Ethereum via Alchemy
-- **DB mode** — permutations are precomputed and stored in Supabase; the frontend just queries
+- **DB mode** — permutations are precomputed and stored in Supabase; the frontend queries and renders client-side SVGs
+
+The inventory source is the **TokenStrategy wallet** (`0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc`), which holds all listed Checks NFTs. Transfers into/out of this wallet are synced in real-time via an Alchemy webhook.
 
 ---
 
@@ -13,11 +15,13 @@ Checks Infinite is a tool for exploring composite permutations of [Checks VV](ht
 
 ```
 Infinite/
-├── frontend/          React app (Vite + TypeScript)
+├── frontend/          React app (Vite + TypeScript + wagmi)
 │   └── src/
 │       ├── App.tsx                     Root component, mode switching
-│       ├── main.tsx                    React entry point
+│       ├── main.tsx                    React entry point (WagmiProvider + QueryClientProvider)
 │       ├── index.css                   All styles
+│       ├── wagmiConfig.ts              wagmi config (mainnet, injected connector, Alchemy RPC)
+│       ├── tokenStrategyAbi.ts         ABI for TokenStrategy contract (nftForSale, sellTargetNFT)
 │       ├── client.ts                   Viem Ethereum RPC client
 │       ├── checksAbi.ts                Checks contract ABI fragments
 │       ├── checksArtJS.ts              JS port of ChecksArt.sol (rendering engine)
@@ -25,13 +29,14 @@ Infinite/
 │       ├── supabaseClient.ts           Supabase JS client (DB mode)
 │       ├── useAllPermutations.ts       Chain mode hook (fetch + compute on client)
 │       ├── usePermutationsDB.ts        DB mode hook (query Supabase)
+│       ├── test-utils.tsx              WagmiWrapper helper for tests
 │       └── components/
-│           ├── Navbar.tsx              Top bar: token input (chain) or count (DB)
+│           ├── Navbar.tsx              Top bar: token input (chain) or count (DB) + wallet connect
 │           ├── FilterBar.tsx           5 dropdowns: Checks/ColorBand/Gradient/Speed/Shift
 │           ├── InfiniteGrid.tsx        Torus infinite scroll grid of PermutationCards
 │           ├── PermutationCard.tsx     Single card showing the ABCD composite SVG
 │           ├── CheckCard.tsx           Reusable card: SVG + attribute list
-│           └── TreeModal.tsx           Full composite tree overlay on card click
+│           └── TreeModal.tsx           Full composite tree overlay + "Buy All 4" button
 │
 ├── backend/           Node.js scripts (tsx, no bundler)
 │   ├── .env.example                   Required env vars template
@@ -40,17 +45,22 @@ Infinite/
 │   ├── lib/
 │   │   └── engine.ts                  Backend port of checksArtJS + utils (Buffer-safe)
 │   └── scripts/
-│       ├── backfill.ts                Fetch checks from chain → Supabase checks table
+│       ├── backfill.ts                Fetch checks from TokenStrategy wallet → tokenstr_checks table
 │       └── compute-permutations.ts    Compute P(n,4) attributes → permutations table
 │
 ├── supabase/
 │   ├── functions/
-│   │   └── checks-webhook/
-│   │       └── index.ts               Deno edge function: Alchemy → checks table sync
+│   │   ├── checks-webhook/
+│   │   │   └── index.ts               Deno edge function: Alchemy Transfer events → tokenstr_checks sync
+│   │   └── tokenstr-webhook/
+│   │       └── index.ts               Deno edge function: TokenStrategy wallet activity → tokenstr_checks
 │   └── migrations/
 │       ├── 001_checks_backend.sql     Base schema: checks, permutations, listed_checks, sync_log
-│       ├── 002_permutations_nullable_svgs.sql  (superseded by 003)
-│       └── 003_drop_abcd_svg.sql      Drop SVG columns; truncate; switch to client-side render
+│       ├── 002_permutations_nullable_svgs.sql
+│       ├── 003_drop_abcd_svg.sql      Drop SVG columns from permutations; switch to client-side render
+│       ├── 004_...                    (earlier migrations)
+│       ├── 005_rename_checks_table.sql  ALTER TABLE checks RENAME TO tokenstr_checks
+│       └── 006_drop_listed_checks_view.sql  DROP VIEW listed_checks (replaced by direct table query)
 │
 ├── Source/            Solidity source files (reference only, not compiled here)
 │   └── *.sol          checks.sol, ChecksArt.sol, ChecksMetadata.sol, etc.
@@ -65,7 +75,34 @@ Infinite/
 ## Frontend
 
 ### `src/main.tsx`
-Entry point. Mounts `<App>` inside React `StrictMode`.
+Entry point. Wraps `<App>` in `WagmiProvider` (with `wagmiConfig`) and `QueryClientProvider` (for wagmi's internal React Query usage), inside React `StrictMode`.
+
+---
+
+### `src/wagmiConfig.ts`
+Creates the wagmi config for Ethereum mainnet with the injected connector (MetaMask / browser wallet).
+
+```typescript
+export const wagmiConfig  // wagmi Config: mainnet, injected(), Alchemy HTTP transport
+```
+
+Uses `VITE_ALCHEMY_API_KEY` for the RPC transport. Falls back to the public RPC if no key is set.
+
+---
+
+### `src/tokenStrategyAbi.ts`
+ABI fragments and contract address for the TokenStrategy contract.
+
+```typescript
+export const TOKEN_STRATEGY_ADDRESS  // '0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc'
+
+export const tokenStrategyAbi = [
+  // nftForSale(tokenId) → uint256 — returns listed price in wei
+  // sellTargetNFT(payableAmount, tokenId) — payable, buys the NFT at the listed price
+]
+```
+
+Used by `TreeModal` to read prices and execute buys.
 
 ---
 
@@ -73,10 +110,10 @@ Entry point. Mounts `<App>` inside React `StrictMode`.
 Root component. Detects mode via `hasSupabase()` and renders the right data source.
 
 **DB mode behaviour:**
-- On mount → `load(emptyFilters())`
+- On mount → `loadRandom()` (random page of permutations)
 - On filter change → `load(filters)` (server-side filtering)
-- `IntersectionObserver` on a 1px sentinel div at the bottom → calls `loadMore()` to paginate
-- `Navbar` shows permutation count instead of token ID input
+- No filter active → `loadRandom()` on shuffle button click
+- `Navbar` shows nothing in center (no token input)
 
 **Chain mode behaviour:**
 - User types token IDs → `handlePreview()` validates and calls `preview(ids)`
@@ -89,6 +126,9 @@ Root component. Detects mode via `hasSupabase()` and renders the right data sour
 | `filters` | `Filters` | Active filter values for all 5 dropdowns |
 | `chainState` | `AllPermutationsState` | All permutation results from chain hook |
 | `dbState` | `DBPermutationsState` | Paginated results from DB hook |
+| `dbMode` | `boolean` | `true` when Supabase env vars are present |
+
+`dbMode` is passed down the tree: `App → InfiniteGrid → TreeModal`.
 
 ---
 
@@ -160,7 +200,6 @@ EIGHTY_COLORS   // 80 hex color strings — the full checks palette
 ```
 
 **Core functions:**
-
 ```typescript
 random(input: bigint, max: bigint): bigint
 // keccak256(abi.encodePacked(uint256)) % max
@@ -186,7 +225,7 @@ colorBandIndex(check, divisorIndex): number
 computeGenesJS(keeper, burner): { gradient, colorBand }
 gradientIndex(check, divisorIndex): number
 
-// L2 helpers (added for DB mode):
+// L2 helpers:
 CD_VIRTUAL_ID = 65535
 computeL2(l1a, l1b): CheckStruct
 // Wires l1a's composite pointer to CD_VIRTUAL_ID, then simulateCompositeJS(l1a, l1b, CD_VIRTUAL_ID)
@@ -236,7 +275,7 @@ Phase 1 (parallel multicall):
 Phase 2 (parallel multicall):
 - `simulateComposite × n(n-1)` ordered pairs → all L1 CheckStructs
 - Builds L1 SVGs via `generateSVGJS` (no additional RPC needed)
-- Computes ABCD via `computeL2JS` (local function, same logic as `computeL2` in checksArtJS)
+- Computes ABCD via `computeL2` + `generateSVGJS` (JS only)
 - Updates all permutation results
 
 **`generatePermDefs(ids)`** — generates all P(n,4) ordered 4-tuples as `PermutationDef[]`.
@@ -244,19 +283,16 @@ Phase 2 (parallel multicall):
 ---
 
 ### `src/usePermutationsDB.ts`
-**DB mode hook.** Queries the Supabase `permutations` table.
+**DB mode hook.** Queries the Supabase `permutations` table (joined to `tokenstr_checks`).
 
 **`load(filters)`** — initial load / filter change:
-- Resets state, queries page 0
-- Server-side filter pushdown (all 5 attributes)
+- Resets state, queries with server-side filter pushdown (all 5 attributes)
 - Converts rows → `PermutationResult[]` via `rowToPermutationResult`
 
-**`loadMore()`** — pagination:
-- Fetches next PAGE_SIZE (100) rows from `offsetRef.current`
-- Appends to existing permutations
+**`loadRandom()`** — loads a random page of permutations (no filters).
 
 **`rowToPermutationResult(row)`** — converts a Supabase row to `PermutationResult`:
-- Uses `checks.svg` (pre-fetched via join) for nodeA/B/C/D
+- Uses `tokenstr_checks.svg` (pre-fetched via join) for nodeA/B/C/D
 - Calls `computeAllNodes(row)` for L1a, L1b, ABCD SVGs
 
 **`computeAllNodes(row)`** — client-side SVG computation:
@@ -275,13 +311,14 @@ abcd = computeL2(l1a, l1b)
 ```sql
 SELECT keeper_1_id, burner_1_id, keeper_2_id, burner_2_id,
        abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift,
-       keeper_1:checks!keeper_1_id(svg, check_struct),
-       burner_1:checks!burner_1_id(svg, check_struct),
-       keeper_2:checks!keeper_2_id(svg, check_struct),
-       burner_2:checks!burner_2_id(svg, check_struct)
+       keeper_1:tokenstr_checks!keeper_1_id(svg, check_struct),
+       burner_1:tokenstr_checks!burner_1_id(svg, check_struct),
+       keeper_2:tokenstr_checks!keeper_2_id(svg, check_struct),
+       burner_2:tokenstr_checks!burner_2_id(svg, check_struct)
 FROM permutations
 [WHERE abcd_checks=? AND ...]
-RANGE(offset, offset+99)
+ORDER BY random()
+LIMIT page_size
 ```
 
 ---
@@ -291,11 +328,14 @@ RANGE(offset, offset+99)
 ### `Navbar.tsx`
 Fixed top bar (48px height).
 - **Chain mode:** Token ID text input + "Preview →" submit button
-- **DB mode:** Shows `"{total} permutations"` count (no input)
+- **DB mode:** Center is empty (no input needed)
+- Wallet connect button (right side) — uses wagmi `useAccount` / `useConnect` / `useDisconnect`
+  - Disconnected: shows "Connect Wallet"
+  - Connected: shows abbreviated address (`0x1234…abcd`)
 - Shows error string below the form when set
 
 ### `FilterBar.tsx`
-5 `<select>` dropdowns: Checks, Color Band, Gradient, Speed, Shift.
+5 `<select>` dropdowns: Checks, Color Band, Gradient, Speed, Shift. Includes a count of visible results and a "Shuffle" button (DB mode only, when no filters active).
 
 ```typescript
 export function matchesFilters(attributes: Attribute[], filters: Filters): boolean
@@ -306,12 +346,23 @@ export function matchesFilters(attributes: Attribute[], filters: Filters): boole
 In DB mode, filters are applied server-side in the Supabase query — `matchesFilters` is not called.
 
 ### `InfiniteGrid.tsx`
-**Torus infinite scroll** — renders a 3×3 grid of identical `GridTile` instances. On scroll, the viewport teleports by one tile dimension when the edge is crossed, creating the illusion of infinite content.
+**Torus infinite scroll** with virtual rendering. Maintains a 3×3 grid of tile copies for the illusion of infinite content. On scroll, teleports by one tile dimension when the edge is crossed.
 
-- Center tile gets `divRef` (used to measure tile dimensions)
-- `handleScroll` — if `scrollLeft < tileWidth`, jump forward by tileWidth; if `scrollLeft >= 2×tileWidth`, jump back
-- On `permutations.length` change: scroll to center tile
-- Click on a card → sets `selectedIndex` → renders `TreeModal`
+- `N < 25` → plain CSS grid (no looping), renders all cards directly
+- `N ≥ 25` → virtual torus: only cards in viewport + overscan are mounted (`~55 DOM nodes` for a 2500-item grid)
+- Click on a card → `setSelected(i)` → renders `<TreeModal>`
+- Passes `dbMode` prop down to `TreeModal`
+
+Props:
+```typescript
+interface Props {
+  permutations: PermutationResult[]
+  ids: string[]
+  showFlags: boolean[]
+  hasFilters?: boolean
+  dbMode?: boolean
+}
+```
 
 ### `PermutationCard.tsx`
 Single card in the grid. Shows the ABCD composite SVG.
@@ -329,14 +380,25 @@ Reusable display card with optional label. Shows:
 ### `TreeModal.tsx`
 Full-screen overlay showing the complete composite tree for a selected permutation.
 
-Layout (3 rows):
+Layout (3 rows + buy row):
 ```
 Row 1: [Keeper A] [Burn B]     [Keeper C] [Burn D]
 Row 2:     [L1a composite]         [L1b composite]
 Row 3:           [ABCD final composite]
+Row 4:         [Buy All 4 (X ETH)]   ← DB mode only
 ```
 
 Labels come from `def.tokenIds` (DB mode) or `ids[def.indices[i]]` (chain mode).
+
+In **DB mode**, lazy-loads individual check SVGs from `tokenstr_checks` (they are omitted from the grid query to keep payloads small).
+
+**Buy button (DB mode only):**
+- Uses `useReadContracts` to call `nftForSale(tokenId)` for all 4 tokens → gets price in wei
+- Shows total price formatted as ETH
+- On click: calls `sellTargetNFT(price, tokenId)` with `value: price` for each token sequentially (4 wallet prompts)
+- States: fetching prices → ready (shows total ETH) → buying N/4 → done / error
+- Disabled if wallet not connected or prices not yet loaded
+
 Close: click overlay, click ✕ button, or press Escape.
 
 ---
@@ -356,18 +418,16 @@ checkStructFromJSON(j: CheckStructJSON): CheckStruct
 // Converts string seed → BigInt; restores full CheckStruct
 ```
 
-Everything else (`simulateCompositeJS`, `generateSVGJS`, `colorIndexes`, etc.) is identical to the frontend version.
-
 ### `backend/scripts/backfill.ts`
-Populates the `checks` table from on-chain data.
+Populates `tokenstr_checks` from the TokenStrategy wallet holdings.
 
 **Flow:**
-1. Query `vv_checks_listings` WHERE `source = 'tokenworks'` → get token IDs
+1. Call Alchemy `getNFTsForOwner(TOKEN_STRATEGY_ADDRESS, { contractAddresses: [CHECKS_CONTRACT] })` → get all token IDs held by the wallet
 2. In `--incremental` mode: skip tokens with `last_synced_at > 24h ago`
 3. For each batch of 500:
-   - **Phase A (multicall client):** `ownerOf` + `getCheck` for all 500 — cheap, aggregate fine
-   - **Phase B (direct client, 20 concurrent):** `tokenURI` for valid tokens only — expensive SVG gen on-chain, must NOT use multicall (gas limit: 550M; each tokenURI ~2M gas)
-4. Build row objects, upsert to `checks` table
+   - **Phase A (multicall client):** `ownerOf` + `getCheck` — cheap, aggregate fine
+   - **Phase B (direct client, 20 concurrent):** `tokenURI` — expensive SVG gen on-chain, must NOT use multicall (gas limit: 550M; each tokenURI ~2M gas)
+4. Build row objects, upsert to `tokenstr_checks` table
 
 **Two viem clients:**
 - `viemClient` — `batch: { multicall: true }` — for cheap calls
@@ -375,15 +435,16 @@ Populates the `checks` table from on-chain data.
 
 **Run:**
 ```bash
-cd backend && npm run backfill
-npm run backfill:incremental  # skip recently synced
+cd backend
+node --env-file=.env node_modules/.bin/tsx scripts/backfill.ts
+node --env-file=.env node_modules/.bin/tsx scripts/backfill.ts --incremental
 ```
 
 ### `backend/scripts/compute-permutations.ts`
-Generates all P(n,4) composite attribute combinations.
+Generates all P(n,4) composite attribute combinations and stores them in `permutations`.
 
 **Flow:**
-1. Load `listed_checks` view (joins `checks` + `vv_checks_listings`)
+1. Load all non-burned tokens from `tokenstr_checks` (`.eq('is_burned', false)`)
 2. Group by `checks_count` (only tokens with same count can be composited)
 3. Cap each group at `MAX_GROUP_SIZE` (default 30) to limit P(n,4) scale
 4. For each ordered 4-tuple (p0, p1, p2, p3):
@@ -397,9 +458,9 @@ Generates all P(n,4) composite attribute combinations.
 
 **Run:**
 ```bash
-npm run compute-permutations
-npm run compute-permutations:incremental  # skip already-computed rows
-MAX_GROUP_SIZE=10 npm run compute-permutations  # small test run
+node --env-file=.env node_modules/.bin/tsx scripts/compute-permutations.ts
+node --env-file=.env node_modules/.bin/tsx scripts/compute-permutations.ts --incremental
+MAX_GROUP_SIZE=10 node --env-file=.env node_modules/.bin/tsx scripts/compute-permutations.ts
 ```
 
 ---
@@ -408,7 +469,7 @@ MAX_GROUP_SIZE=10 npm run compute-permutations  # small test run
 
 ### Schema
 
-**`checks` table** — one row per on-chain token
+**`tokenstr_checks` table** — one row per Checks NFT held by the TokenStrategy wallet
 ```sql
 token_id        bigint PRIMARY KEY
 owner           text
@@ -427,10 +488,10 @@ created_at      timestamptz
 **`permutations` table** — one row per ordered (keeper1, burner1, keeper2, burner2) 4-tuple
 ```sql
 id              bigserial PRIMARY KEY
-keeper_1_id     bigint REFERENCES checks
-burner_1_id     bigint REFERENCES checks
-keeper_2_id     bigint REFERENCES checks
-burner_2_id     bigint REFERENCES checks
+keeper_1_id     bigint REFERENCES tokenstr_checks
+burner_1_id     bigint REFERENCES tokenstr_checks
+keeper_2_id     bigint REFERENCES tokenstr_checks
+burner_2_id     bigint REFERENCES tokenstr_checks
 abcd_checks     smallint
 abcd_color_band text
 abcd_gradient   text
@@ -441,37 +502,38 @@ UNIQUE(keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
 ```
 No SVG columns — all SVGs computed client-side from `check_struct` data.
 
-**`listed_checks` view**
-```sql
-SELECT checks.* FROM checks
-JOIN vv_checks_listings ON vv_checks_listings.token_id = checks.token_id::text
-WHERE source = 'tokenworks' AND NOT is_burned
-```
-
 **`sync_log` table** — audit trail for script runs
 ```sql
-id, job ('backfill'|'permutations'|'webhook'), status ('running'|'done'|'error'),
+id, job ('backfill'|'permutations'|'tokenstr-webhook'|'checks-webhook'),
+status ('running'|'done'|'error'),
 tokens_processed, perms_computed, error_message, started_at, finished_at
 ```
 
-### Edge Function: `checks-webhook`
-Deno function deployed to Supabase. Receives Alchemy "Address Activity" webhooks for the Checks contract.
+### Edge Function: `tokenstr-webhook`
+Deno function deployed to Supabase. Receives Alchemy "Address Activity" webhooks watching the **TokenStrategy wallet** (`0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc`) for Checks ERC-721 transfers.
 
-**Trigger:** Any Transfer event on `0x036721e5a769cc48b3189efbb9cce4471e8a48b1`
+**Trigger:** Any ERC-721 transfer where `from` or `to` is the TokenStrategy wallet
 
 **Logic:**
-- Verifies Alchemy HMAC signature (`WEBHOOK_SIGNING_KEY`)
-- Parses `Transfer(from, to, tokenId)` events from log topics
-- `to == 0x0` → mark token burned, delete permutations where it was a burner
-- Otherwise → re-fetch `ownerOf` + `tokenURI` + `getCheck` via raw JSON-RPC, upsert to `checks`
-- Logs to `sync_log`
+- Token received (to = TokenStrategy) → `refetchAndUpsert` into `tokenstr_checks` via Alchemy NFT API + `tokenURI` + `getCheck`
+- Token sent (from = TokenStrategy) → delete from `tokenstr_checks` + clean up related `permutations` rows
+- Logs to `sync_log` with job `'tokenstr-webhook'`
 
-**Deploy:** `supabase functions deploy checks-webhook`
+**Important:** JWT verification must be **disabled** in Supabase dashboard (Edge Functions → tokenstr-webhook → disable JWT verification). Alchemy sends unsigned requests.
+
+**Deploy:**
+```bash
+supabase functions deploy tokenstr-webhook
+```
 
 **Required secrets:**
 ```
-SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALCHEMY_API_KEY, WEBHOOK_SIGNING_KEY
+SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALCHEMY_API_KEY
 ```
+(No signing key — verification is disabled.)
+
+### Edge Function: `checks-webhook`
+Deno function watching the Checks contract (`0x036721e5a769cc48b3189efbb9cce4471e8a48b1`) for Transfer events. Still active for catching burns and general token movement. Writes to `tokenstr_checks`.
 
 ---
 
@@ -491,39 +553,42 @@ User enters IDs
 
 ### DB Mode (Supabase-backed)
 ```
-App loads → usePermutationsDB.load(emptyFilters())
-  → Supabase query: permutations JOIN checks × 4 (with joins for check_struct + svg)
+App loads → usePermutationsDB.loadRandom()
+  → Supabase query: permutations JOIN tokenstr_checks × 4
   → rowToPermutationResult × PAGE_SIZE
-      checks.svg → nodeA/B/C/D (pre-stored)
+      tokenstr_checks.svg → nodeA/B/C/D (pre-stored)
       computeAllNodes: simulateCompositeJS × 2 + computeL2 + generateSVGJS × 3 (JS)
   → InfiniteGrid renders results
-  → scroll to bottom → loadMore() → next page
 
 Filter change → load(newFilters)
   → Supabase: WHERE abcd_checks=? AND ... (server-side)
-  → fresh results replace previous page
+  → fresh results replace previous
+
+TreeModal opened → loads individual SVGs for the 4 leaf tokens
+  → useReadContracts: nftForSale(tokenId) × 4 → prices in wei
+  → Buy All 4 button shows total ETH price
+  → Click → sellTargetNFT(price, tokenId) × 4 (sequential wallet prompts)
 ```
 
-### Backfill Pipeline (one-time + cron)
+### Sync Pipeline (real-time + backfill)
 ```
-vv_checks_listings (external, daily cron)
-  → backfill.ts reads token IDs WHERE source='tokenworks'
-      ownerOf + getCheck via multicall (batch 500)
-      tokenURI via direct parallel eth_call (concurrent 20)
-  → checks table
+NFT transferred into/out of TokenStrategy wallet
+  → Alchemy Address Activity webhook
+  → tokenstr-webhook edge function
+  → tokenstr_checks: upsert (received) or delete + cleanup permutations (sent)
 
-checks table
-  → compute-permutations.ts reads listed_checks view
+One-time / periodic backfill:
+  → backfill.ts
+      Alchemy getNFTsForOwner(TOKEN_STRATEGY_ADDRESS)
+      tokenURI + getCheck per token (concurrent eth_call, no multicall)
+  → tokenstr_checks table
+
+tokenstr_checks
+  → compute-permutations.ts
       groups by checks_count
-      simulateCompositeJS × 2 per tuple (JS only, no RPC)
-      computeL2 (JS only)
-      mapCheckAttributes → 5 attribute values
+      simulateCompositeJS × 2 per 4-tuple (JS only, no RPC)
+      computeL2 → mapCheckAttributes → 5 attribute values
   → permutations table (50 rows/batch)
-
-Transfer events on-chain
-  → Alchemy webhook → checks-webhook edge function
-  → updates checks table (owner, is_burned, check_struct)
-  → deletes stale permutation rows for burned tokens
 ```
 
 ---
@@ -532,7 +597,7 @@ Transfer events on-chain
 
 **`frontend/.env`**
 ```
-VITE_ALCHEMY_API_KEY=    # RPC key (chain mode)
+VITE_ALCHEMY_API_KEY=    # RPC key (chain mode + wagmi transport)
 VITE_SUPABASE_URL=       # Supabase project URL (DB mode, optional)
 VITE_SUPABASE_ANON_KEY=  # Supabase anon key (DB mode, optional)
 ```
@@ -541,7 +606,7 @@ VITE_SUPABASE_ANON_KEY=  # Supabase anon key (DB mode, optional)
 ```
 SUPABASE_URL=            # Same Supabase project URL
 SUPABASE_SERVICE_KEY=    # Service role key (full DB access)
-ALCHEMY_API_KEY=         # RPC key for backfill script
+ALCHEMY_API_KEY=         # RPC key + NFT API key for backfill script
 ```
 
 **Supabase edge function secrets** (set via `supabase secrets set`)
@@ -549,7 +614,6 @@ ALCHEMY_API_KEY=         # RPC key for backfill script
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 ALCHEMY_API_KEY
-WEBHOOK_SIGNING_KEY      # From Alchemy webhook settings
 ```
 
 ---
@@ -561,6 +625,8 @@ WEBHOOK_SIGNING_KEY      # From Alchemy webhook settings
 | SVGs not stored in `permutations` | ~10KB/row × 657k rows = ~6.5GB. Computed client-side in ~1ms/SVG using the JS engine |
 | `tokenURI` NOT multicalled | Each call generates SVG on-chain (~2M gas). 500 × 2M = 1B gas > 550M limit. Uses concurrent direct `eth_call` instead |
 | `seed` stored as string in jsonb | `CheckStruct.seed` is `uint256` (bigint in JS). JSON.stringify loses precision on large ints. String survives the round-trip |
-| `listed_checks` view not a materialized view | Re-evaluates against live `vv_checks_listings` automatically when the cron updates listings |
+| `tokenstr_checks` not `listed_checks` view | Data source is now the TokenStrategy wallet directly — `backfill.ts` uses Alchemy `getNFTsForOwner` and the webhook watches wallet activity. No external listings table needed |
+| Webhook JWT verification disabled | Alchemy webhook requests have no Supabase JWT. The function is not sensitive (it re-fetches data from the chain before upserting), so disabling JWT is safe |
 | `burnerVirtualId` parameter | The on-chain composite stores the burner's token ID in `composites[divisorIndex]`. The JS engine needs this to build the recursive color resolution map |
 | DB mode filters server-side | With 657k+ rows, client-side filtering would require loading all rows. Supabase index on each attribute column makes server-side filters fast |
+| `sellTargetNFT` not `buyTargetNFT` | The TokenStrategy contract uses `sellTargetNFT(payableAmount, tokenId)` as the public buy function. Price is read via `nftForSale(tokenId)` and sent as both the function arg and `msg.value` |

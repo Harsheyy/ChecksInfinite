@@ -1,6 +1,7 @@
 import { render, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { InfiniteGrid } from './InfiniteGrid'
+import { WagmiWrapper } from '../test-utils'
 import type { PermutationResult } from '../useAllPermutations'
 
 // Mock IntersectionObserver (not available in jsdom)
@@ -20,17 +21,21 @@ function makePermutation(label: string): PermutationResult {
   }
 }
 
+function renderGrid(props: Parameters<typeof InfiniteGrid>[0]) {
+  return render(<WagmiWrapper><InfiniteGrid {...props} /></WagmiWrapper>)
+}
+
 describe('InfiniteGrid', () => {
   it('renders nothing when permutations is empty', () => {
-    const { container } = render(<InfiniteGrid permutations={[]} ids={[]} showFlags={[]} />)
+    const { container } = renderGrid({ permutations: [], ids: [], showFlags: [] })
     expect(container.firstChild).toBeNull()
   })
 
   it('renders 9 tile copies when permutations are present', () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true],
+    })
     // 9 tiles × 1 card each = 9 .perm-card or .perm-card-spacer elements
     const cards = container.querySelectorAll('.perm-card, .perm-card-spacer')
     expect(cards.length).toBe(9)
@@ -38,9 +43,9 @@ describe('InfiniteGrid', () => {
 
   it('opens TreeModal when a card is clicked', () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true],
+    })
     const card = container.querySelector('.perm-card') as HTMLElement
     fireEvent.click(card)
     expect(document.querySelector('.tree-modal-overlay')).toBeTruthy()
@@ -48,25 +53,25 @@ describe('InfiniteGrid', () => {
 
   it('adds grid-viewport--with-filters class when hasFilters is true', () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} hasFilters={true} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true], hasFilters: true,
+    })
     expect(container.querySelector('.grid-viewport--with-filters')).toBeTruthy()
   })
 
   it('does not add grid-viewport--with-filters class when hasFilters is false', () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} hasFilters={false} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true], hasFilters: false,
+    })
     expect(container.querySelector('.grid-viewport--with-filters')).toBeNull()
   })
 
   it('teleports scrollLeft back to center when scrolled past right tile', async () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true],
+    })
     const viewport = container.querySelector('.grid-viewport') as HTMLElement
     // tileRef is attached to the center (5th) .infinite-tile in the 3x3 grid
     const tiles = container.querySelectorAll('.infinite-tile')
@@ -88,9 +93,9 @@ describe('InfiniteGrid', () => {
 
   it('teleports scrollLeft forward when scrolled before left tile', async () => {
     const perms = [makePermutation('A▸B, C▸D')]
-    const { container } = render(
-      <InfiniteGrid permutations={perms} ids={['1','2','3','4']} showFlags={[true]} />
-    )
+    const { container } = renderGrid({
+      permutations: perms, ids: ['1','2','3','4'], showFlags: [true],
+    })
     const viewport = container.querySelector('.grid-viewport') as HTMLElement
     // tileRef is attached to the center (5th) .infinite-tile in the 3x3 grid
     const tiles = container.querySelectorAll('.infinite-tile')

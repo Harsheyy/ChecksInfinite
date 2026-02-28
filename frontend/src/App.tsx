@@ -97,6 +97,7 @@ export default function App() {
         ids={ids}
         showFlags={showFlags}
         hasFilters={showFilters}
+        dbMode={dbMode}
       />
       {dbMode && dbState.loading && (
         <div style={{
