@@ -1,0 +1,21 @@
+{
+  "name": "backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "backfill": "tsx --env-file=.env scripts/backfill.ts",
+    "backfill:incremental": "tsx --env-file=.env scripts/backfill.ts --incremental",
+    "compute-permutations": "tsx --env-file=.env scripts/compute-permutations.ts",
+    "compute-permutations:incremental": "tsx --env-file=.env scripts/compute-permutations.ts --incremental"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "viem": "^2.46.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.19.4",
+    "typescript": "~5.9.3"
+  }
+}

@@ -1,0 +1,96 @@
+export const CHECKS_ABI = [
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'simulateCompositeSVG',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'burnId', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'simulateComposite',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'burnId', type: 'uint256' },
+    ],
+    outputs: [
+      {
+        name: 'check',
+        type: 'tuple',
+        components: [
+          {
+            name: 'stored',
+            type: 'tuple',
+            components: [
+              { name: 'composites', type: 'uint16[6]' },
+              { name: 'colorBands', type: 'uint8[5]' },
+              { name: 'gradients', type: 'uint8[5]' },
+              { name: 'divisorIndex', type: 'uint8' },
+              { name: 'epoch', type: 'uint32' },
+              { name: 'seed', type: 'uint16' },
+              { name: 'day', type: 'uint24' },
+            ],
+          },
+          { name: 'isRevealed', type: 'bool' },
+          { name: 'seed', type: 'uint256' },
+          { name: 'checksCount', type: 'uint8' },
+          { name: 'hasManyChecks', type: 'bool' },
+          { name: 'composite', type: 'uint16' },
+          { name: 'isRoot', type: 'bool' },
+          { name: 'colorBand', type: 'uint8' },
+          { name: 'gradient', type: 'uint8' },
+          { name: 'direction', type: 'uint8' },
+          { name: 'speed', type: 'uint8' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getCheck',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [
+      {
+        name: 'check',
+        type: 'tuple',
+        components: [
+          {
+            name: 'stored',
+            type: 'tuple',
+            components: [
+              { name: 'composites', type: 'uint16[6]' },
+              { name: 'colorBands', type: 'uint8[5]' },
+              { name: 'gradients', type: 'uint8[5]' },
+              { name: 'divisorIndex', type: 'uint8' },
+              { name: 'epoch', type: 'uint32' },
+              { name: 'seed', type: 'uint16' },
+              { name: 'day', type: 'uint24' },
+            ],
+          },
+          { name: 'isRevealed', type: 'bool' },
+          { name: 'seed', type: 'uint256' },
+          { name: 'checksCount', type: 'uint8' },
+          { name: 'hasManyChecks', type: 'bool' },
+          { name: 'composite', type: 'uint16' },
+          { name: 'isRoot', type: 'bool' },
+          { name: 'colorBand', type: 'uint8' },
+          { name: 'gradient', type: 'uint8' },
+          { name: 'direction', type: 'uint8' },
+          { name: 'speed', type: 'uint8' },
+        ],
+      },
+    ],
+  },
+] as const
