@@ -26,7 +26,7 @@ export function TreeModal({ result, ids, onClose }: TreeModalProps) {
     if (!supabase || nodeA.svg) return  // chain mode already has SVGs
     const tokenIds = [id0, id1, id2, id3].map(Number)
     supabase
-      .from('checks')
+      .from('tokenstr_checks')
       .select('token_id, svg')
       .in('token_id', tokenIds)
       .then(({ data }) => {

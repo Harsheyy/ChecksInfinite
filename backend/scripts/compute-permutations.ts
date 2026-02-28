@@ -71,8 +71,9 @@ async function main() {
     // 1. Load listed checks (non-burned, joined with vv_checks_listings)
     console.log('Loading listed checks from Supabase...')
     const { data: rows, error } = await supabase
-      .from('listed_checks')
+      .from('tokenstr_checks')
       .select('token_id, checks_count, check_struct')
+      .eq('is_burned', false)
       .order('checks_count')
 
     if (error) throw error

@@ -1,4 +1,5 @@
 import { type FormEvent } from 'react'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
 
 interface NavbarProps {
   ids: string
@@ -11,9 +12,22 @@ interface NavbarProps {
 }
 
 export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode }: NavbarProps) {
+  const { address, isConnected } = useAccount()
+  const { connect, connectors }  = useConnect()
+  const { disconnect }           = useDisconnect()
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     onPreview()
+  }
+
+  function handleWallet() {
+    if (isConnected) {
+      disconnect()
+    } else {
+      const injected = connectors.find(c => c.id === 'injected')
+      if (injected) connect({ connector: injected })
+    }
   }
 
   return (
@@ -41,7 +55,9 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode }: 
         )}
         {error && <div className="nav-error">{error}</div>}
       </div>
-      <button type="button" className="nav-wallet" disabled>Connect Wallet</button>
+      <button type="button" className="nav-wallet" onClick={handleWallet}>
+        {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Connect Wallet'}
+      </button>
     </nav>
   )
 }

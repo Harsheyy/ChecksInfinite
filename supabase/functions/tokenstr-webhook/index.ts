@@ -1,29 +1,34 @@
 /**
- * checks-webhook — Supabase Edge Function
+ * tokenstr-webhook — Supabase Edge Function
  *
- * Receives Alchemy "Address Activity" webhook payloads for the Checks contract.
- * Parses Transfer events, updates the `checks` table, and logs to `sync_log`.
+ * Receives Alchemy "Address Activity" webhook payloads for the TokenStrategy wallet.
+ * Tracks ERC-721 Checks tokens entering or leaving the wallet:
+ *   - Token received → fetch from chain and upsert into tokenstr_checks
+ *   - Token sent     → delete from tokenstr_checks and clean up permutations
  *
- * Deploy: supabase functions deploy checks-webhook
+ * Deploy: supabase functions deploy tokenstr-webhook
  *
  * Required secrets (set via: supabase secrets set KEY=value):
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
  *   ALCHEMY_API_KEY
- *   WEBHOOK_SIGNING_KEY  (from Alchemy webhook settings — used to verify payloads)
+ *   TOKENSTR_WEBHOOK_SIGNING_KEY  (from Alchemy webhook settings)
+ *
+ * Alchemy setup: create an "Address Activity" webhook monitoring
+ *   0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc on Ethereum Mainnet,
+ *   pointed at <supabase-url>/functions/v1/tokenstr-webhook
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CHECKS_CONTRACT = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
-const ZERO_ADDRESS    = '0x0000000000000000000000000000000000000000'
+const TOKENSTR_WALLET = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
 
 // ERC-721 Transfer topic: keccak256("Transfer(address,address,uint256)")
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 
 Deno.serve(async (req: Request) => {
-  // ── Verify Alchemy signature ──────────────────────────────────────────────
-  const signingKey = Deno.env.get('WEBHOOK_SIGNING_KEY')
+  const signingKey = Deno.env.get('TOKENSTR_WEBHOOK_SIGNING_KEY')
   if (signingKey) {
     const signature = req.headers.get('x-alchemy-signature')
     const body      = await req.text()
@@ -31,7 +36,6 @@ Deno.serve(async (req: Request) => {
     if (!valid) {
       return new Response('Unauthorized', { status: 401 })
     }
-    // Re-parse since we consumed the body
     return handlePayload(JSON.parse(body))
   }
 
@@ -47,57 +51,48 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
   const alchemyKey = Deno.env.get('ALCHEMY_API_KEY')!
 
   const logId = await startLog(supabase)
-  const affectedTokenIds = new Set<number>()
+  let processed = 0
 
   try {
-    // Collect Transfer events from all activities
     const activities: AlchemyActivity[] = payload.event?.activity ?? []
 
     for (const activity of activities) {
       if (!activity.log) continue
       const log = activity.log
 
-      // Filter: must be from our contract and be a Transfer event
+      // Only care about the Checks VV contract
       if (log.address.toLowerCase() !== CHECKS_CONTRACT) continue
       if (!log.topics[0] || log.topics[0].toLowerCase() !== TRANSFER_TOPIC) continue
 
-      const from    = '0x' + log.topics[1].slice(26)
-      const to      = '0x' + log.topics[2].slice(26)
+      const from    = '0x' + log.topics[1].slice(26).toLowerCase()
+      const to      = '0x' + log.topics[2].slice(26).toLowerCase()
       const tokenId = Number(BigInt(log.topics[3]))
 
-      if (to.toLowerCase() === ZERO_ADDRESS) {
-        // Burn: mark token as burned
+      if (to === TOKENSTR_WALLET) {
+        // Token arrived in our wallet — fetch from chain and upsert
+        console.log(`Token ${tokenId} received by TokenStrategy wallet — upserting.`)
+        await refetchAndUpsert(tokenId, alchemyKey, supabase)
+        processed++
+      } else if (from === TOKENSTR_WALLET) {
+        // Token left our wallet — delete and clean up permutations
+        console.log(`Token ${tokenId} left TokenStrategy wallet — deleting.`)
         await supabase
           .from('tokenstr_checks')
-          .update({ is_burned: true, owner: ZERO_ADDRESS, last_synced_at: new Date().toISOString() })
+          .delete()
           .eq('token_id', tokenId)
 
-        // Clean up permutations where this token was a burner (now invalid)
         await supabase
           .from('permutations')
           .delete()
-          .or(`burner_1_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
+          .or(`keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
 
-        console.log(`Token ${tokenId} burned — marked and permutations cleaned.`)
-      } else {
-        // Transfer: update owner and re-fetch from chain
-        affectedTokenIds.add(tokenId)
-
-        // If this was a keeper in a composite, the keeper's check_struct changed — re-fetch it too
-        if (from.toLowerCase() !== ZERO_ADDRESS) {
-          affectedTokenIds.add(tokenId)
-        }
+        processed++
       }
+      // Transfers not involving our wallet are ignored
     }
 
-    // Re-fetch all affected tokens from chain
-    if (affectedTokenIds.size > 0) {
-      console.log(`Re-fetching ${affectedTokenIds.size} affected tokens...`)
-      await refetchTokens([...affectedTokenIds], alchemyKey, supabase)
-    }
-
-    await finishLog(supabase, logId, 'done', affectedTokenIds.size)
-    return new Response(JSON.stringify({ ok: true, processed: affectedTokenIds.size }), {
+    await finishLog(supabase, logId, 'done', processed)
+    return new Response(JSON.stringify({ ok: true, processed }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
@@ -110,55 +105,48 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
   }
 }
 
-// ─── Chain fetch ─────────────────────────────────────────────────────────────
+// ─── Chain fetch ──────────────────────────────────────────────────────────────
 
-async function refetchTokens(
-  tokenIds: number[],
+async function refetchAndUpsert(
+  tokenId: number,
   alchemyKey: string,
   supabase: ReturnType<typeof createClient>
 ) {
   const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
 
-  for (const tokenId of tokenIds) {
-    try {
-      // Batch tokenURI + getCheck + ownerOf in one eth_call multicall
-      const [uriResult, checkResult, ownerResult] = await Promise.all([
-        ethCall(rpcUrl, CHECKS_CONTRACT, tokenURICalldata(tokenId)),
-        ethCall(rpcUrl, CHECKS_CONTRACT, getCheckCalldata(tokenId)),
-        ethCall(rpcUrl, CHECKS_CONTRACT, ownerOfCalldata(tokenId)),
-      ])
+  const [uriResult, checkResult, ownerResult] = await Promise.all([
+    ethCall(rpcUrl, CHECKS_CONTRACT, tokenURICalldata(tokenId)),
+    ethCall(rpcUrl, CHECKS_CONTRACT, getCheckCalldata(tokenId)),
+    ethCall(rpcUrl, CHECKS_CONTRACT, ownerOfCalldata(tokenId)),
+  ])
 
-      if (!uriResult || !checkResult || !ownerResult) continue
-
-      const owner = '0x' + ownerResult.slice(26)
-      const isBurned = owner.toLowerCase() === ZERO_ADDRESS
-
-      const svg = decodeTokenURISVG(uriResult)
-      const checkStruct = decodeGetCheck(checkResult)
-
-      const attrs = decodeTokenURIAttrs(uriResult)
-
-      await supabase.from('tokenstr_checks').upsert({
-        token_id:      tokenId,
-        owner,
-        is_burned:     isBurned,
-        checks_count:  Number(attrs['Checks'] ?? 0),
-        color_band:    attrs['Color Band'] ?? null,
-        gradient:      attrs['Gradient'] ?? null,
-        speed:         attrs['Speed'] ?? null,
-        shift:         attrs['Shift'] ?? null,
-        svg,
-        check_struct:  checkStruct,
-        last_synced_at: new Date().toISOString(),
-      }, { onConflict: 'token_id' })
-    } catch (err) {
-      console.error(`Failed to refetch token ${tokenId}:`, err)
-    }
+  if (!uriResult || !checkResult || !ownerResult) {
+    console.warn(`Token ${tokenId}: one or more eth_calls returned null — skipping.`)
+    return
   }
+
+  const owner      = '0x' + ownerResult.slice(26)
+  const isBurned   = owner.toLowerCase() === '0x0000000000000000000000000000000000000000'
+  const svg        = decodeTokenURISVG(uriResult)
+  const checkStruct = decodeGetCheck(checkResult)
+  const attrs      = decodeTokenURIAttrs(uriResult)
+
+  await supabase.from('tokenstr_checks').upsert({
+    token_id:      tokenId,
+    owner,
+    is_burned:     isBurned,
+    checks_count:  Number(attrs['Checks'] ?? 0),
+    color_band:    attrs['Color Band'] ?? null,
+    gradient:      attrs['Gradient'] ?? null,
+    speed:         attrs['Speed'] ?? null,
+    shift:         attrs['Shift'] ?? null,
+    svg,
+    check_struct:  checkStruct,
+    last_synced_at: new Date().toISOString(),
+  }, { onConflict: 'token_id' })
 }
 
 // ─── Raw eth_call helpers ─────────────────────────────────────────────────────
-// The edge function doesn't bundle viem, so we use raw JSON-RPC.
 
 async function ethCall(rpcUrl: string, to: string, data: string): Promise<string | null> {
   const res = await fetch(rpcUrl, {
@@ -190,8 +178,7 @@ function ownerOfCalldata(tokenId: number): string {
 }
 
 function decodeTokenURISVG(abiEncodedString: string): string {
-  // ABI-encoded string: offset (32 bytes) + length (32 bytes) + data
-  const hex = abiEncodedString.slice(2)
+  const hex    = abiEncodedString.slice(2)
   const offset = parseInt(hex.slice(0, 64), 16) * 2
   const len    = parseInt(hex.slice(offset, offset + 64), 16)
   const strHex = hex.slice(offset + 64, offset + 64 + len * 2)
@@ -204,7 +191,7 @@ function decodeTokenURISVG(abiEncodedString: string): string {
 }
 
 function decodeTokenURIAttrs(abiEncodedString: string): Record<string, string> {
-  const hex = abiEncodedString.slice(2)
+  const hex    = abiEncodedString.slice(2)
   const offset = parseInt(hex.slice(0, 64), 16) * 2
   const len    = parseInt(hex.slice(offset, offset + 64), 16)
   const strHex = hex.slice(offset + 64, offset + 64 + len * 2)
@@ -220,10 +207,6 @@ function decodeTokenURIAttrs(abiEncodedString: string): Record<string, string> {
 }
 
 function decodeGetCheck(hex: string): Record<string, unknown> {
-  // Return the raw hex for storage — the permutation script will decode it
-  // using viem on the backend. The edge function just needs to store what it gets.
-  // For now store a minimal shape with the raw result so the backfill script
-  // can re-parse it properly on the next run.
   return { _raw: hex }
 }
 
@@ -263,7 +246,7 @@ async function verifyAlchemySignature(
 async function startLog(supabase: ReturnType<typeof createClient>): Promise<number> {
   const { data } = await supabase
     .from('sync_log')
-    .insert({ job: 'webhook', status: 'running' })
+    .insert({ job: 'tokenstr-webhook', status: 'running' })
     .select('id')
     .single()
   return data?.id ?? 0

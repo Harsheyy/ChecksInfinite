@@ -69,7 +69,7 @@ async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStru
   const map = new Map<number, CheckStructJSON>()
   for (let i = 0; i < ids.length; i += BATCH) {
     const { data, error } = await supabase
-      .from('checks')
+      .from('tokenstr_checks')
       .select('token_id, check_struct')
       .in('token_id', ids.slice(i, i + BATCH))
     if (error) throw error

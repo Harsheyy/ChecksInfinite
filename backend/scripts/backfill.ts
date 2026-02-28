@@ -1,6 +1,6 @@
 /**
- * backfill.ts — fetches all TokenWorks-listed checks from the chain and
- * upserts them into the `checks` Supabase table.
+ * backfill.ts — fetches all Checks held by the TokenStrategy wallet from
+ * the Alchemy NFT API and upserts them into the `tokenstr_checks` Supabase table.
  *
  * Usage:
  *   npx tsx scripts/backfill.ts              # full run
@@ -18,6 +18,7 @@ const SUPABASE_URL      = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const ALCHEMY_KEY       = process.env.ALCHEMY_API_KEY!
 const CHECKS_CONTRACT   = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1' as const
+const TOKENSTR_WALLET   = '0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc'
 const BATCH             = 500   // for cheap calls (ownerOf, getCheck) via multicall
 const URI_CONCURRENCY   = 20    // tokenURI: parallel individual eth_calls (no multicall)
 const INCREMENTAL       = process.argv.includes('--incremental')
@@ -39,7 +40,6 @@ const viemClient = createPublicClient({
 })
 
 // No-multicall client — for tokenURI which generates SVG on-chain (~2M gas each).
-// Each call gets its own gas budget; multicall would aggregate them and blow the limit.
 const viemClientDirect = createPublicClient({
   chain: mainnet,
   transport: http(`https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`),
@@ -107,6 +107,34 @@ function getAttr(attributes: { trait_type: string; value: string }[], name: stri
   return attributes.find(a => a.trait_type === name)?.value ?? null
 }
 
+// Fetch all Checks token IDs held by the TokenStrategy wallet via Alchemy NFT API
+async function fetchWalletTokenIds(): Promise<number[]> {
+  const base = `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTsForOwner`
+  const ids: number[] = []
+  let pageKey: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      owner: TOKENSTR_WALLET,
+      'contractAddresses[]': CHECKS_CONTRACT,
+      withMetadata: 'false',
+      pageSize: '100',
+      ...(pageKey ? { pageKey } : {}),
+    })
+
+    const res  = await fetch(`${base}?${params}`)
+    if (!res.ok) throw new Error(`Alchemy NFT API error: ${res.status} ${await res.text()}`)
+    const json = await res.json() as { ownedNfts: { tokenId: string }[]; pageKey?: string }
+
+    for (const nft of json.ownedNfts) {
+      ids.push(Number(nft.tokenId))
+    }
+    pageKey = json.pageKey
+  } while (pageKey)
+
+  return ids
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -114,28 +142,22 @@ async function main() {
   let tokensProcessed = 0
 
   try {
-    // 1. Fetch listed token IDs from Supabase
-    console.log('Fetching TokenWorks listings...')
-    const { data: listings, error: listingsError } = await supabase
-      .from('vv_checks_listings')
-      .select('token_id')
-      .eq('source', 'tokenworks')
+    // 1. Fetch token IDs from the TokenStrategy wallet
+    console.log(`Fetching Checks held by TokenStrategy wallet (${TOKENSTR_WALLET})...`)
+    let allIds = await fetchWalletTokenIds()
+    console.log(`Found ${allIds.length} tokens.`)
 
-    if (listingsError) throw listingsError
-    if (!listings || listings.length === 0) {
-      console.log('No listed tokens found.')
+    if (allIds.length === 0) {
+      console.log('No tokens found in wallet.')
       await finishLog(logId, 'done', 0)
       return
     }
-
-    let allIds = listings.map((l: { token_id: string }) => Number(l.token_id))
-    console.log(`Found ${allIds.length} listed tokens.`)
 
     // 2. In incremental mode, skip tokens synced in the last 24h
     if (INCREMENTAL) {
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const { data: synced } = await supabase
-        .from('checks')
+        .from('tokenstr_checks')
         .select('token_id')
         .gt('last_synced_at', cutoff)
 
@@ -166,15 +188,13 @@ async function main() {
         ),
       ])
 
-      // Collect only the valid token indices (token exists on-chain)
       const validIndices = ids
         .map((_, i) => i)
         .filter(i => ownerResults[i].status === 'fulfilled' && checkResults[i].status === 'fulfilled')
 
       console.log(`  ${validIndices.length}/${ids.length} tokens exist on-chain`)
 
-      // Phase B: tokenURI — each call is a direct eth_call (no multicall aggregation).
-      // Run URI_CONCURRENCY at a time to avoid hammering the RPC.
+      // Phase B: tokenURI — direct eth_calls, URI_CONCURRENCY at a time
       const uriResults: PromiseSettledResult<string>[] = new Array(ids.length).fill({ status: 'rejected', reason: 'skipped' })
       for (let s = 0; s < validIndices.length; s += URI_CONCURRENCY) {
         const subIndices = validIndices.slice(s, s + URI_CONCURRENCY)
@@ -225,7 +245,7 @@ async function main() {
 
       if (rows.length > 0) {
         const { error } = await supabase
-          .from('checks')
+          .from('tokenstr_checks')
           .upsert(rows, { onConflict: 'token_id' })
         if (error) throw error
         tokensProcessed += rows.length
