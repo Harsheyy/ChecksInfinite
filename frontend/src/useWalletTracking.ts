@@ -10,6 +10,6 @@ export function useWalletTracking(address: string | undefined, isConnected: bool
     const normalized = address.toLowerCase()
     if (logged.current === normalized) return  // already logged this address in this session
     logged.current = normalized
-    supabase.rpc('log_wallet_connect', { p_address: normalized }).then(() => {}).catch(err => console.warn('[analytics] log_wallet_connect failed:', err))
+    supabase.rpc('log_wallet_connect', { p_address: normalized }).then(() => {}, err => console.warn('[analytics] log_wallet_connect failed:', err))
   }, [address, isConnected])
 }
