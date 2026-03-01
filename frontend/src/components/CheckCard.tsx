@@ -1,5 +1,7 @@
 import type { Attribute } from '../utils'
 
+const COMPACT_ATTRS = ['Checks', 'Color Band']
+
 interface CheckCardProps {
   name: string
   svg: string
@@ -8,9 +10,14 @@ interface CheckCardProps {
   error?: string
   label?: string
   sublabel?: string
+  compact?: boolean
 }
 
-export function CheckCard({ name, svg, attributes, loading, error, label, sublabel }: CheckCardProps) {
+export function CheckCard({ name, svg, attributes, loading, error, label, sublabel, compact }: CheckCardProps) {
+  const visibleAttrs = compact
+    ? attributes.filter(a => COMPACT_ATTRS.includes(a.trait_type))
+    : attributes
+
   return (
     <div className="check-card">
       {(label || sublabel) && (
@@ -25,13 +32,10 @@ export function CheckCard({ name, svg, attributes, loading, error, label, sublab
         <>
           <h2 className="check-card-name">{name}</h2>
           {svg && (
-            <div
-              className="check-card-svg"
-              dangerouslySetInnerHTML={{ __html: svg }}
-            />
+            <div className="check-card-svg" dangerouslySetInnerHTML={{ __html: svg }} />
           )}
           <dl className="check-card-attrs">
-            {attributes.map((attr) => (
+            {visibleAttrs.map((attr) => (
               <div key={attr.trait_type} className="check-card-attr">
                 <dt>{attr.trait_type}</dt>
                 <dd>{attr.value}</dd>

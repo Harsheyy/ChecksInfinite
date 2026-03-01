@@ -30,4 +30,23 @@ describe('CheckCard', () => {
     render(<CheckCard name="" svg="" attributes={[]} error="Token not found" />)
     expect(screen.getByText('Token not found')).toBeInTheDocument()
   })
+
+  it('compact: renders only Checks and Color Band attributes', () => {
+    const attrs = [
+      { trait_type: 'Checks', value: '20' },
+      { trait_type: 'Color Band', value: 'Sixty' },
+      { trait_type: 'Speed', value: '2x' },
+      { trait_type: 'Gradient', value: 'None' },
+    ]
+    render(<CheckCard name="Token" svg="<svg/>" attributes={attrs} compact />)
+    expect(screen.getByText('Checks')).toBeInTheDocument()
+    expect(screen.getByText('Color Band')).toBeInTheDocument()
+    expect(screen.queryByText('Speed')).toBeNull()
+    expect(screen.queryByText('Gradient')).toBeNull()
+  })
+
+  it('compact: still renders the token name and svg', () => {
+    render(<CheckCard name="Token #42" svg="<svg/>" attributes={[]} compact />)
+    expect(screen.getByText('Token #42')).toBeInTheDocument()
+  })
 })
