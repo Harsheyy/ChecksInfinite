@@ -176,4 +176,24 @@ describe('FilterBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /OR/ }))
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ idMode: 'or' }))
   })
+
+  it('does not render price slider when priceRange is not provided', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} />)
+    expect(screen.queryByLabelText(/min cost/i)).toBeNull()
+    expect(screen.queryByLabelText(/max cost/i)).toBeNull()
+  })
+
+  it('renders price slider when priceRange is provided', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} priceRange={{ min: 0.1, max: 1.0 }} />)
+    const sliders = screen.getAllByRole('slider')
+    expect(sliders.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('price slider onChange updates minCost', () => {
+    const onChange = vi.fn()
+    render(<FilterBar filters={emptyFilters()} onChange={onChange} visible={24} priceRange={{ min: 0.1, max: 1.0 }} />)
+    const sliders = screen.getAllByRole('slider')
+    fireEvent.change(sliders[0], { target: { value: '0.3' } })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minCost: 0.3 }))
+  })
 })

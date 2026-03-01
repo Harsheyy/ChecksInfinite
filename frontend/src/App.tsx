@@ -5,7 +5,7 @@ import { Navbar } from './components/Navbar'
 import { FilterBar, emptyFilters, hasActiveFilters, matchesFilters, type Filters } from './components/FilterBar'
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
-import { usePermutationsDB } from './usePermutationsDB'
+import { usePermutationsDB, usePriceBounds } from './usePermutationsDB'
 import { useMyChecks } from './useMyChecks'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase } from './supabaseClient'
@@ -46,6 +46,10 @@ export default function App() {
   const myChecksEnabled = dbMode && viewMode === 'my-checks' && isConnected
   const myChecks = useMyChecks(address, myChecksEnabled)
   const myCheckPerms = useMyCheckPermutations(myChecks.checks)
+
+  // ── Price bounds (DB / Token Works mode only) ─────────────────────────────
+  const priceBoundsEnabled = dbMode && viewMode === 'token-works'
+  const priceBounds = usePriceBounds(priceBoundsEnabled)
 
   // Generate permutations when checks load
   useEffect(() => {
@@ -125,6 +129,7 @@ export default function App() {
           onChange={setFilters}
           visible={isMyChecksMode ? visibleCount : dbMode ? dbState.permutations.length : visibleCount}
           onShuffle={(isMyChecksMode || (dbMode && !activeFilters)) ? handleShuffle : undefined}
+          priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
@@ -144,6 +149,7 @@ export default function App() {
         hasFilters={showFilters}
         dbMode={dbMode}
         hideBuy={isMyChecksMode}
+        filtersTall={!!(showFilters && priceBoundsEnabled && priceBounds)}
       />
       {(dbMode && (isMyChecksMode ? myChecks.loading : dbState.loading)) && (
         <div style={{

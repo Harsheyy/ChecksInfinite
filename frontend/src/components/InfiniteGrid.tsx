@@ -17,9 +17,10 @@ interface Props {
   hasFilters?: boolean
   dbMode?: boolean
   hideBuy?: boolean
+  filtersTall?: boolean
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode, hideBuy }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode, hideBuy, filtersTall }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -92,12 +93,20 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
 
   const selectedPerm = selected !== null ? visible[selected] ?? null : null
 
+  const viewportClass = `grid-viewport${
+    hasFilters
+      ? filtersTall
+        ? ' grid-viewport--with-filters-tall'
+        : ' grid-viewport--with-filters'
+      : ''
+  }`
+
   // ── Small grid (N < 25): no looping, plain CSS grid ─────────────────────
   if (!shouldLoop) {
     return (
       <>
         <div
-          className={`grid-viewport${hasFilters ? ' grid-viewport--with-filters' : ''}`}
+          className={viewportClass}
           ref={containerRef}
           onClick={handleBackdropClick}
         >
@@ -129,7 +138,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
   // mounted.  For a 2500-item 50×50 grid the viewport shows ~11×5 = ~55 cards
   // instead of the 22 500 that full DOM rendering would require.
   const vpW = containerRef.current?.clientWidth  || window.innerWidth
-  const vpH = containerRef.current?.clientHeight || window.innerHeight - (hasFilters ? 88 : 48)
+  const vpH = containerRef.current?.clientHeight || window.innerHeight - (hasFilters ? (filtersTall ? 120 : 88) : 48)
 
   const cards: React.ReactNode[] = []
   for (let tx = 0; tx < 3; tx++) {

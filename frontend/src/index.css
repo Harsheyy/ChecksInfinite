@@ -129,15 +129,77 @@ body {
 .filter-strip {
   position: fixed;
   top: 48px; left: 0; right: 0;
-  height: 40px;
+  min-height: 40px;
   background: #111;
   border-bottom: 1px solid #222;
   display: flex;
-  align-items: center;
-  padding: 0 28px;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: stretch;
   z-index: 9;
-  overflow: hidden;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 28px;
+}
+
+.filter-row--price {
+  min-height: 32px;
+  height: 32px;
+  border-top: 1px solid #1a1a1a;
+  padding: 0 28px;
+  gap: 0.6rem;
+}
+
+.filter-price-track {
+  position: relative;
+  flex: 1;
+  max-width: 200px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.filter-price-range {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  height: 4px;
+}
+
+.filter-price-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: all;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ccc;
+  cursor: pointer;
+  border: none;
+}
+
+.filter-price-range::-webkit-slider-runnable-track {
+  background: #333;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.filter-price-val {
+  font-size: 0.68rem;
+  color: #888;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 3.5rem;
 }
 
 .filter-select-label {
@@ -246,6 +308,10 @@ body {
 
 .grid-viewport--with-filters {
   top: 88px;
+}
+
+.grid-viewport--with-filters-tall {
+  top: 120px;
 }
 
 /* ─── Permutation card ────────────────────────────────────── */
