@@ -150,6 +150,25 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
     return ids.size
   }, [permutations])
 
+  useEffect(() => {
+    if (!attributeCounts) return
+    const check = (key: keyof Pick<Filters, 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift'>, map: Map<string, number>) => {
+      const val = filters[key]
+      return val && !map.has(val) ? key : null
+    }
+    const toReset = [
+      check('checks',    attributeCounts.checks),
+      check('colorBand', attributeCounts.colorBand),
+      check('gradient',  attributeCounts.gradient),
+      check('speed',     attributeCounts.speed),
+      check('shift',     attributeCounts.shift),
+    ].filter((k): k is 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift' => k !== null)
+    if (toReset.length > 0) {
+      const patch = Object.fromEntries(toReset.map(k => [k, ''])) as Partial<Filters>
+      onChange({ ...filters, ...patch })
+    }
+  }, [attributeCounts])  // eslint-disable-line react-hooks/exhaustive-deps
+
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
   }
@@ -313,7 +332,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Color Band</span>
-                <select className="filter-select filter-select--full" value={filters.colorBand} onChange={e => update('colorBand', e.target.value)}>
+                <select data-testid="mobile-colorband-select" className="filter-select filter-select--full" value={filters.colorBand} onChange={e => update('colorBand', e.target.value)}>
                   <option value="">All</option>
                   {COLOR_BAND_OPTIONS
                     .filter(o => !attributeCounts || (attributeCounts.colorBand.get(o) ?? 0) > 0)

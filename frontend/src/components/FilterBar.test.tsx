@@ -263,12 +263,20 @@ describe('FilterBar', () => {
     render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={2} permutations={perms} />)
     // Open mobile panel
     fireEvent.click(screen.getByText('Filters'))
-    // After panel opens, there are 10 comboboxes total: 5 desktop + 5 panel
-    // Color Band is index 1 desktop, index 6 panel (5 + 1)
-    const selects = screen.getAllByRole('combobox')
-    const panelColorBandSelect = selects[6]
+    const panelColorBandSelect = screen.getByTestId('mobile-colorband-select')
     const options = Array.from(panelColorBandSelect.querySelectorAll('option')).map(o => o.textContent)
     expect(options).toContain('Eighty (2)')
     expect(options.some(t => t?.startsWith('Sixty'))).toBe(false)
+  })
+
+  it('resets a filter value that no longer appears in the new permutations', () => {
+    const onChange = vi.fn()
+    // Start with colorBand filter set to 'Sixty'
+    const filters = { ...emptyFilters(), colorBand: 'Sixty' }
+    // Permutations only have 'Eighty' — Sixty count = 0
+    const perms = [makePermutation('Eighty', '20')]
+    render(<FilterBar filters={filters} onChange={onChange} visible={1} permutations={perms} />)
+    // The effect should have called onChange to reset colorBand to ''
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ colorBand: '' }))
   })
 })
