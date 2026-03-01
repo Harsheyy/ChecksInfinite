@@ -44,7 +44,7 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(emptyFilters())
 
   // ── DB / Token Works mode ─────────────────────────────────────────────────
-  const { state: dbState, loadRandom } = usePermutationsDB()
+  const { state: dbState, loadRandom, shuffle: shuffleDB } = usePermutationsDB()
 
   useEffect(() => {
     if (!dbMode || viewMode !== 'token-works') return
@@ -92,7 +92,7 @@ export default function App() {
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
     else if (viewMode === 'search-wallet') searchCheckPerms.shuffle()
-    else loadRandom(true)  // force=true bypasses sessionStorage cache
+    else shuffleDB()
   }
 
   // ── Derive display values ─────────────────────────────────────────────────

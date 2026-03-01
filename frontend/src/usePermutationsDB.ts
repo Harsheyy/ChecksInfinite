@@ -6,8 +6,6 @@ import type { PermutationResult } from './useAllPermutations'
 import { readCache, writeCache } from './permutationsCache'
 
 const RANDOM_TOTAL  = 2500   // items loaded for the random browse view
-const NUM_SEGMENTS  = 5      // parallel fetches to get diverse rows
-const SEG_SIZE      = RANDOM_TOTAL / NUM_SEGMENTS  // 500 per segment
 
 // CheckStruct stored in Supabase has seed as string (bigint serialization)
 interface CheckStructJSON {
@@ -195,7 +193,6 @@ export function usePermutationsDB() {
     total: 0,
   })
 
-  // On cache hit, skip DB entirely. Pass force=true (Shuffle) to bypass cache.
   const loadRandom = useCallback(async (force = false) => {
     if (!supabase) return
 
@@ -215,40 +212,16 @@ export function usePermutationsDB() {
 
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
-      // Get total row count
-      const { count: totalCount, error: cntErr } = await supabase
+      const { data, error } = await supabase
         .from('permutations')
-        .select('keeper_1_id', { count: 'exact', head: true })
-      if (cntErr) throw cntErr
-      const total = totalCount ?? 0
+        .select(PERM_SELECT)
+        .order('rank_score', { ascending: false })
+        .limit(RANDOM_TOTAL)
 
-      if (total === 0) {
-        setState({ permutations: [], loading: false, error: '', total: 0 })
-        return
-      }
+      if (error) throw error
 
-      // Split dataset into NUM_SEGMENTS equal bands; pick a random start in each
-      const segLen = Math.floor(total / NUM_SEGMENTS)
-      const offsets = Array.from({ length: NUM_SEGMENTS }, (_, i) => {
-        const lo = i * segLen
-        const hi = Math.max(lo, (i + 1) * segLen - SEG_SIZE)
-        return lo + Math.floor(Math.random() * Math.max(1, hi - lo + 1))
-      })
-
-      // Step 1: fetch basic perm rows in parallel (no join — no 500 errors)
-      const results = await Promise.all(
-        offsets.map(offset =>
-          supabase!
-            .from('permutations')
-            .select(PERM_SELECT)
-            .range(offset, offset + SEG_SIZE - 1)
-        )
-      )
-      for (const r of results) { if (r.error) throw r.error }
-      const basicRows = results.flatMap(r => (r.data ?? []) as unknown as PermRowBasic[])
-
-      // Step 2: fetch all needed check_structs in one batched query
-      const rows = await attachChecks(basicRows)
+      const basicRows = (data ?? []) as unknown as PermRowBasic[]
+      const rows      = await attachChecks(basicRows)
 
       writeCache(rows)
 
@@ -256,7 +229,7 @@ export function usePermutationsDB() {
         permutations: rows.map(rowToPermutationResult),
         loading: false,
         error: '',
-        total,
+        total: rows.length,
       })
     } catch (e) {
       const msg = (e as { message?: string })?.message ?? String(e)
@@ -264,7 +237,21 @@ export function usePermutationsDB() {
     }
   }, [])
 
-  return { state, loadRandom }
+  // Client-side Fisher-Yates shuffle of the already-loaded permutations.
+  // No re-fetch needed — the ranked set is stable.
+  const shuffle = useCallback(() => {
+    setState(prev => {
+      if (prev.permutations.length === 0) return prev
+      const arr = [...prev.permutations]
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[arr[i], arr[j]] = [arr[j], arr[i]]
+      }
+      return { ...prev, permutations: arr }
+    })
+  }, [])
+
+  return { state, loadRandom, shuffle }
 }
 
 export function usePriceBounds(enabled: boolean) {

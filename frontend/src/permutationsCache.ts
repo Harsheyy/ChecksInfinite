@@ -1,7 +1,7 @@
 // frontend/src/permutationsCache.ts
 import type { PermRow } from './usePermutationsDB'
 
-const CACHE_KEY = 'checks-infinite-perms-v1'
+const CACHE_KEY = 'checks-infinite-perms-v2'
 
 export function readCache(): PermRow[] | null {
   try {
