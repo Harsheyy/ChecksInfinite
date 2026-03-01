@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { FilterBar, emptyFilters, matchesFilters } from './FilterBar'
 import type { Filters } from './FilterBar'
 import type { Attribute } from '../utils'
+import type { PermutationResult } from '../useAllPermutations'
 
 describe('emptyFilters', () => {
   it('returns all empty strings / defaults', () => {
@@ -195,5 +196,62 @@ describe('FilterBar', () => {
     const sliders = screen.getAllByRole('slider')
     fireEvent.change(sliders[0], { target: { value: '0.3' } })
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minCost: 0.3 }))
+  })
+
+  function makePermutation(
+    colorBand: string,
+    checks: string,
+    tokenIds: [string, string, string, string] = ['1','2','3','4'],
+  ): PermutationResult {
+    return {
+      def: { indices: [0,1,2,3], label: 'test', tokenIds },
+      nodeA: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeB: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeC: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeD: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeL1a: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeL1b: { name:'', svg:'', attributes:[], loading:false, error:'' },
+      nodeAbcd: {
+        name: 'Final Composite',
+        svg: '',
+        attributes: [
+          { trait_type: 'Color Band', value: colorBand },
+          { trait_type: 'Checks', value: checks },
+        ],
+        loading: false,
+        error: '',
+      },
+    }
+  }
+
+  it('shows count next to Color Band option when permutations provided', () => {
+    const perms = [
+      makePermutation('Eighty', '20'),
+      makePermutation('Eighty', '20'),
+      makePermutation('Sixty', '10'),
+    ]
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={3} permutations={perms} />)
+    const selects = screen.getAllByRole('combobox')
+    const colorBandSelect = selects[1]  // index 1 = Color Band
+    const options = Array.from(colorBandSelect.querySelectorAll('option')).map(o => o.textContent)
+    expect(options).toContain('Eighty (2)')
+    expect(options).toContain('Sixty (1)')
+  })
+
+  it('hides zero-count options when permutations provided', () => {
+    const perms = [makePermutation('Eighty', '20')]
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={1} permutations={perms} />)
+    const selects = screen.getAllByRole('combobox')
+    const colorBandSelect = selects[1]
+    const options = Array.from(colorBandSelect.querySelectorAll('option')).map(o => o.textContent)
+    expect(options.some(t => t?.startsWith('Sixty'))).toBe(false)
+  })
+
+  it('shows all options when no permutations provided', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={0} />)
+    const selects = screen.getAllByRole('combobox')
+    const colorBandSelect = selects[1]
+    const options = Array.from(colorBandSelect.querySelectorAll('option')).map(o => o.value).filter(v => v !== '')
+    expect(options).toEqual(['Eighty','Sixty','Forty','Twenty','Ten','Five','One'])
   })
 })

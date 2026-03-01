@@ -1,6 +1,7 @@
 // frontend/src/components/FilterBar.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Attribute } from '../utils'
+import type { PermutationResult } from '../useAllPermutations'
 
 export interface Filters {
   checks: string
@@ -56,9 +57,14 @@ interface FilterSelectProps {
   options: string[]
   value: string
   onChange: (v: string) => void
+  counts?: Map<string, number>
 }
 
-function FilterSelect({ label, options, value, onChange }: FilterSelectProps) {
+function FilterSelect({ label, options, value, onChange, counts }: FilterSelectProps) {
+  const visibleOptions = counts
+    ? options.filter(opt => (counts.get(opt) ?? 0) > 0)
+    : options
+
   return (
     <label className="filter-select-label">
       <span className="filter-select-name">{label}</span>
@@ -68,7 +74,11 @@ function FilterSelect({ label, options, value, onChange }: FilterSelectProps) {
         onChange={e => onChange(e.target.value)}
       >
         <option value="">All</option>
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        {visibleOptions.map(opt => (
+          <option key={opt} value={opt}>
+            {counts ? `${opt} (${counts.get(opt) ?? 0})` : opt}
+          </option>
+        ))}
       </select>
     </label>
   )
@@ -80,11 +90,12 @@ interface FilterBarProps {
   visible: number
   onShuffle?: () => void
   priceRange?: { min: number; max: number }
+  permutations?: PermutationResult[]  // visible permutations for counts
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -101,6 +112,43 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [panelOpen])
+
+  const attributeCounts = useMemo(() => {
+    if (!permutations?.length) return null
+    const counts = {
+      checks:    new Map<string, number>(),
+      colorBand: new Map<string, number>(),
+      gradient:  new Map<string, number>(),
+      speed:     new Map<string, number>(),
+      shift:     new Map<string, number>(),
+    }
+    const traitMap: Array<[keyof typeof counts, string]> = [
+      ['checks',    'Checks'    ],
+      ['colorBand', 'Color Band'],
+      ['gradient',  'Gradient'  ],
+      ['speed',     'Speed'     ],
+      ['shift',     'Shift'     ],
+    ]
+    for (const p of permutations) {
+      for (const [key, traitType] of traitMap) {
+        const attr = p.nodeAbcd.attributes.find(a => a.trait_type === traitType)
+        if (attr) {
+          const val = String(attr.value)
+          counts[key].set(val, (counts[key].get(val) ?? 0) + 1)
+        }
+      }
+    }
+    return counts
+  }, [permutations])
+
+  const uniqueCheckIdCount = useMemo(() => {
+    if (!permutations?.length) return null
+    const ids = new Set<string>()
+    for (const p of permutations) {
+      for (const id of p.def.tokenIds ?? []) ids.add(id)
+    }
+    return ids.size
+  }, [permutations])
 
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
@@ -187,11 +235,11 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
               <button type="button" className={`filter-mode-btn${filters.idMode === 'or'  ? ' filter-mode-btn--active' : ''}`} onClick={() => update('idMode', 'or')}  aria-label="OR">OR</button>
             </div>
           )}
-          <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)} />
-          <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} />
-          <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)} />
-          <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)} />
-          <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)} />
+          <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)}    counts={attributeCounts?.checks} />
+          <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} counts={attributeCounts?.colorBand} />
+          <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
+          <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)}     counts={attributeCounts?.speed} />
+          <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)}     counts={attributeCounts?.shift} />
           <PriceSlider />
           <span className="filter-count">Showing {visible}</span>
           {isActive && <button type="button" className="filter-clear" onClick={clearAll}>Clear</button>}
@@ -253,7 +301,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 <span className="filter-select-name">Checks</span>
                 <select className="filter-select filter-select--full" value={filters.checks} onChange={e => update('checks', e.target.value)}>
                   <option value="">All</option>
-                  {CHECKS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {CHECKS_OPTIONS
+                    .filter(o => !attributeCounts || (attributeCounts.checks.get(o) ?? 0) > 0)
+                    .map(o => (
+                      <option key={o} value={o}>
+                        {attributeCounts ? `${o} (${attributeCounts.checks.get(o) ?? 0})` : o}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -261,7 +315,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 <span className="filter-select-name">Color Band</span>
                 <select className="filter-select filter-select--full" value={filters.colorBand} onChange={e => update('colorBand', e.target.value)}>
                   <option value="">All</option>
-                  {COLOR_BAND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {COLOR_BAND_OPTIONS
+                    .filter(o => !attributeCounts || (attributeCounts.colorBand.get(o) ?? 0) > 0)
+                    .map(o => (
+                      <option key={o} value={o}>
+                        {attributeCounts ? `${o} (${attributeCounts.colorBand.get(o) ?? 0})` : o}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -269,7 +329,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 <span className="filter-select-name">Gradient</span>
                 <select className="filter-select filter-select--full" value={filters.gradient} onChange={e => update('gradient', e.target.value)}>
                   <option value="">All</option>
-                  {GRADIENT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {GRADIENT_OPTIONS
+                    .filter(o => !attributeCounts || (attributeCounts.gradient.get(o) ?? 0) > 0)
+                    .map(o => (
+                      <option key={o} value={o}>
+                        {attributeCounts ? `${o} (${attributeCounts.gradient.get(o) ?? 0})` : o}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -277,7 +343,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 <span className="filter-select-name">Speed</span>
                 <select className="filter-select filter-select--full" value={filters.speed} onChange={e => update('speed', e.target.value)}>
                   <option value="">All</option>
-                  {SPEED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {SPEED_OPTIONS
+                    .filter(o => !attributeCounts || (attributeCounts.speed.get(o) ?? 0) > 0)
+                    .map(o => (
+                      <option key={o} value={o}>
+                        {attributeCounts ? `${o} (${attributeCounts.speed.get(o) ?? 0})` : o}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -285,7 +357,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 <span className="filter-select-name">Shift</span>
                 <select className="filter-select filter-select--full" value={filters.shift} onChange={e => update('shift', e.target.value)}>
                   <option value="">All</option>
-                  {SHIFT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {SHIFT_OPTIONS
+                    .filter(o => !attributeCounts || (attributeCounts.shift.get(o) ?? 0) > 0)
+                    .map(o => (
+                      <option key={o} value={o}>
+                        {attributeCounts ? `${o} (${attributeCounts.shift.get(o) ?? 0})` : o}
+                      </option>
+                    ))}
                 </select>
               </div>
 
