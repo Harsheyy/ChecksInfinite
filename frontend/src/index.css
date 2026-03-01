@@ -125,6 +125,29 @@ body {
   border-left: 1px solid #333;
 }
 
+/* ─── Search Wallet input ──────────────────────────────────── */
+.view-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.search-wallet-input {
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+  width: 280px;
+  outline: none;
+}
+.search-wallet-input::placeholder { color: #555; }
+.search-wallet-input:focus { border-color: #555; }
+.search-wallet-input--invalid { border-color: #7f1d1d; color: #f87171; }
+
 /* ─── Filter strip ────────────────────────────────────────── */
 .filter-strip {
   position: fixed;

@@ -1,6 +1,8 @@
 import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 
+type ViewMode = 'token-works' | 'my-checks' | 'search-wallet'
+
 interface NavbarProps {
   ids: string
   loading: boolean
@@ -9,11 +11,14 @@ interface NavbarProps {
   error: string
   dbMode?: boolean
   dbTotal?: number
-  viewMode?: 'token-works' | 'my-checks'
-  onViewModeChange?: (mode: 'token-works' | 'my-checks') => void
+  viewMode?: ViewMode
+  onViewModeChange?: (mode: ViewMode) => void
+  showSearchWallet?: boolean
+  searchWalletAddress?: string
+  onSearchWalletAddressChange?: (addr: string) => void
 }
 
-export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, viewMode, onViewModeChange }: NavbarProps) {
+export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, viewMode, onViewModeChange, showSearchWallet, searchWalletAddress = '', onSearchWalletAddressChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
@@ -32,6 +37,9 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
       if (injected) connect({ connector: injected })
     }
   }
+
+  const isValidAddress = (addr: string) => /^0x[0-9a-fA-F]{40}$/.test(addr)
+  const addressInputInvalid = searchWalletAddress.length > 0 && !isValidAddress(searchWalletAddress)
 
   return (
     <nav className="navbar" aria-label="main navigation">
@@ -64,15 +72,33 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
         {error && <div className="nav-error">{error}</div>}
       </div>
       {viewMode && onViewModeChange && (
-        <div className="view-toggle">
-          <button
-            className={`view-toggle-btn${viewMode === 'token-works' ? ' view-toggle-btn--active' : ''}`}
-            onClick={() => onViewModeChange('token-works')}
-          >Token Works</button>
-          <button
-            className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
-            onClick={() => onViewModeChange('my-checks')}
-          >My Checks</button>
+        <div className="view-toggle-row">
+          <div className="view-toggle">
+            <button
+              className={`view-toggle-btn${viewMode === 'token-works' ? ' view-toggle-btn--active' : ''}`}
+              onClick={() => onViewModeChange('token-works')}
+            >Token Works</button>
+            <button
+              className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
+              onClick={() => onViewModeChange('my-checks')}
+            >My Checks</button>
+            {showSearchWallet && (
+              <button
+                className={`view-toggle-btn${viewMode === 'search-wallet' ? ' view-toggle-btn--active' : ''}`}
+                onClick={() => onViewModeChange('search-wallet')}
+              >Search Wallet</button>
+            )}
+          </div>
+          {viewMode === 'search-wallet' && showSearchWallet && (
+            <input
+              type="text"
+              className={`search-wallet-input${addressInputInvalid ? ' search-wallet-input--invalid' : ''}`}
+              placeholder="Wallet address (0x...)"
+              value={searchWalletAddress}
+              onChange={e => onSearchWalletAddressChange?.(e.target.value)}
+              spellCheck={false}
+            />
+          )}
         </div>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>
