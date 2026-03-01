@@ -167,7 +167,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
       const patch = Object.fromEntries(toReset.map(k => [k, ''])) as Partial<Filters>
       onChange({ ...filters, ...patch })
     }
-  }, [attributeCounts])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attributeCounts])  // eslint-disable-line react-hooks/exhaustive-deps -- intentional: fires only on dataset change; onChange is always stable (setFilters), filters read from current render
 
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
