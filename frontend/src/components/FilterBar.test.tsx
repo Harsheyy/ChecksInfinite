@@ -279,4 +279,15 @@ describe('FilterBar', () => {
     // The effect should have called onChange to reset colorBand to ''
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ colorBand: '' }))
   })
+
+  it('shows tooltip text with unique check ID count when permutations provided', () => {
+    const perms = [
+      makePermutation('Eighty', '20', ['10','11','12','13']),
+      makePermutation('Sixty',  '10', ['10','14','15','16']),
+    ]
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={2} permutations={perms} />)
+    // 7 unique IDs: 10,11,12,13,14,15,16
+    const tooltip = screen.getAllByText(/7 unique Check IDs/)
+    expect(tooltip[0]).toBeInTheDocument()
+  })
 })

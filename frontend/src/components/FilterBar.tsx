@@ -260,7 +260,17 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)}     counts={attributeCounts?.speed} />
           <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)}     counts={attributeCounts?.shift} />
           <PriceSlider />
-          <span className="filter-count">Showing {visible}</span>
+          <span className="filter-count">
+            Showing {visible}
+            {uniqueCheckIdCount != null && (
+              <span className="info-icon-wrapper">
+                <span className="info-icon">ⓘ</span>
+                <span className="info-tooltip" role="tooltip">
+                  Showing a sample of all permutations. This sample draws from {uniqueCheckIdCount} unique Check IDs.
+                </span>
+              </span>
+            )}
+          </span>
           {isActive && <button type="button" className="filter-clear" onClick={clearAll}>Clear</button>}
           {onShuffle && (
             <button type="button" className="filter-shuffle" onClick={handleShuffle} disabled={cooldown > 0}>
@@ -278,7 +288,17 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           >
             {isActive ? `${activeCount} Filter${activeCount !== 1 ? 's' : ''}` : 'Filters'}
           </button>
-          <span className="filter-count">Showing {visible}</span>
+          <span className="filter-count">
+            Showing {visible}
+            {uniqueCheckIdCount != null && (
+              <span className="info-icon-wrapper">
+                <span className="info-icon">ⓘ</span>
+                <span className="info-tooltip" role="tooltip">
+                  Showing a sample of all permutations. This sample draws from {uniqueCheckIdCount} unique Check IDs.
+                </span>
+              </span>
+            )}
+          </span>
           {isActive && <button type="button" className="filter-clear" onClick={clearAll}>Clear</button>}
           {onShuffle && (
             <button type="button" className="filter-shuffle" onClick={handleShuffle} disabled={cooldown > 0}>
