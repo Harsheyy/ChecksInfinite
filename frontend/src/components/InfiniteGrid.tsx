@@ -64,7 +64,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
 
   useEffect(() => { if (N === 0) setSelected(null) }, [N])
 
-  function handleBackdropMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
     if (selected === null) return
     const target = e.target as Element
     if (!target.closest('.perm-card')) setSelected(null)
@@ -99,7 +99,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
         <div
           className={`grid-viewport${hasFilters ? ' grid-viewport--with-filters' : ''}`}
           ref={containerRef}
-          onMouseDown={handleBackdropMouseDown}
+          onClick={handleBackdropClick}
         >
           <div style={{
             display: 'grid',
@@ -177,7 +177,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
         className={`grid-viewport${hasFilters ? ' grid-viewport--with-filters' : ''}`}
         ref={containerRef}
         onScroll={handleScroll}
-        onMouseDown={handleBackdropMouseDown}
+        onClick={handleBackdropClick}
       >
         <div style={{ position: 'relative', width: tileW * 3, height: tileH * 3 }}>
           {cards}
