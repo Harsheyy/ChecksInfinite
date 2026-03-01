@@ -14,7 +14,7 @@ export function emptyFilters(): Filters {
   return { checks: '', colorBand: '', gradient: '', speed: '', shift: '' }
 }
 
-const CHECKS_OPTIONS    = ['1', '5', '10', '20', '40', '80']
+const CHECKS_OPTIONS    = ['20', '10', '5', '4', '1']
 const COLOR_BAND_OPTIONS = ['Eighty', 'Sixty', 'Forty', 'Twenty', 'Ten', 'Five', 'One']
 const GRADIENT_OPTIONS  = ['None', 'Linear', 'Double Linear', 'Reflected', 'Double Angled', 'Angled', 'Linear Z']
 const SPEED_OPTIONS     = ['0.5x', '1x', '2x']

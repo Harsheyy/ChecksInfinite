@@ -63,8 +63,8 @@ describe('FilterBar', () => {
     const onChange = vi.fn()
     render(<FilterBar filters={emptyFilters()} onChange={onChange} visible={24} />)
     const selects = screen.getAllByRole('combobox')
-    fireEvent.change(selects[0], { target: { value: '80' } })
-    expect(onChange).toHaveBeenCalledWith({ ...emptyFilters(), checks: '80' })
+    fireEvent.change(selects[0], { target: { value: '20' } })
+    expect(onChange).toHaveBeenCalledWith({ ...emptyFilters(), checks: '20' })
   })
 
   it('shows Clear button when any filter is active', () => {
@@ -88,5 +88,15 @@ describe('FilterBar', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: /Clear/ }))
     expect(onChange).toHaveBeenCalledWith(emptyFilters())
+  })
+
+  it('Checks dropdown has options 20, 10, 5, 4, 1 in that order (no 40 or 80)', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} />)
+    const selects = screen.getAllByRole('combobox')
+    const checksSelect = selects[0]
+    const options = Array.from(checksSelect.querySelectorAll('option'))
+      .map(o => o.value)
+      .filter(v => v !== '')
+    expect(options).toEqual(['20', '10', '5', '4', '1'])
   })
 })
