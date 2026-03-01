@@ -384,6 +384,7 @@ body {
   bottom: calc(100% + 6px);
   right: 0;
   width: 220px;
+  max-width: calc(100vw - 2rem);
   background: #222;
   border: 1px solid #444;
   border-radius: 4px;
@@ -397,7 +398,8 @@ body {
   transition: opacity 0.1s;
 }
 
-.info-icon-wrapper:hover .info-tooltip {
+.info-icon-wrapper:hover .info-tooltip,
+.info-icon-wrapper:focus .info-tooltip {
   visibility: visible;
   opacity: 1;
 }

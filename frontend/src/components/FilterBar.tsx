@@ -263,8 +263,8 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           <span className="filter-count">
             Showing {visible}
             {uniqueCheckIdCount != null && (
-              <span className="info-icon-wrapper">
-                <span className="info-icon">ⓘ</span>
+              <span className="info-icon-wrapper" tabIndex={0} aria-label="info">
+                <span className="info-icon" aria-hidden="true">ⓘ</span>
                 <span className="info-tooltip" role="tooltip">
                   Showing a sample of all permutations. This sample draws from {uniqueCheckIdCount} unique Check IDs.
                 </span>
@@ -291,8 +291,8 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           <span className="filter-count">
             Showing {visible}
             {uniqueCheckIdCount != null && (
-              <span className="info-icon-wrapper">
-                <span className="info-icon">ⓘ</span>
+              <span className="info-icon-wrapper" tabIndex={0} aria-label="info">
+                <span className="info-icon" aria-hidden="true">ⓘ</span>
                 <span className="info-tooltip" role="tooltip">
                   Showing a sample of all permutations. This sample draws from {uniqueCheckIdCount} unique Check IDs.
                 </span>
