@@ -171,14 +171,15 @@ body {
 
 .filter-price-range {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   width: 100%;
+  height: 100%;
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   pointer-events: none;
-  height: 4px;
 }
 
 .filter-price-range::-webkit-slider-thumb {
