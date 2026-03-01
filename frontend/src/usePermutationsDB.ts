@@ -3,12 +3,11 @@ import { supabase } from './supabaseClient'
 import { simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap } from './checksArtJS'
 import { mapCheckAttributes, type CheckStruct } from './utils'
 import type { PermutationResult } from './useAllPermutations'
-import type { Filters } from './components/FilterBar'
+import { readCache, writeCache } from './permutationsCache'
 
 const RANDOM_TOTAL  = 2500   // items loaded for the random browse view
 const NUM_SEGMENTS  = 5      // parallel fetches to get diverse rows
 const SEG_SIZE      = RANDOM_TOTAL / NUM_SEGMENTS  // 500 per segment
-const FILTERED_LIMIT = 2500  // max rows returned for a filtered query
 
 // CheckStruct stored in Supabase has seed as string (bigint serialization)
 interface CheckStructJSON {
@@ -196,60 +195,24 @@ export function usePermutationsDB() {
     total: 0,
   })
 
-  // Load filtered results (up to FILTERED_LIMIT rows, all server-side filtered)
-  const load = useCallback(async (filters: Filters) => {
+  // On cache hit, skip DB entirely. Pass force=true (Shuffle) to bypass cache.
+  const loadRandom = useCallback(async (force = false) => {
     if (!supabase) return
-    setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
-    try {
-      let q = supabase
-        .from('permutations')
-        .select(PERM_SELECT, { count: 'exact' })
-        .range(0, FILTERED_LIMIT - 1)
 
-      if (filters.checks)    q = q.eq('abcd_checks',     Number(filters.checks))
-      if (filters.colorBand) q = q.eq('abcd_color_band', filters.colorBand)
-      if (filters.gradient)  q = q.eq('abcd_gradient',   filters.gradient)
-      if (filters.speed)     q = q.eq('abcd_speed',      filters.speed)
-      if (filters.shift)     q = q.eq('abcd_shift',      filters.shift)
-
-      const idList = filters.idInput.trim()
-        ? filters.idInput.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0)
-        : []
-
-      if (idList.length > 0) {
-        const useAnd = idList.length >= 4 && filters.idMode === 'and'
-        if (useAnd) {
-          q = q.in('keeper_1_id', idList).in('burner_1_id', idList).in('keeper_2_id', idList).in('burner_2_id', idList)
-        } else {
-          const ids = idList.join(',')
-          q = q.or(`keeper_1_id.in.(${ids}),burner_1_id.in.(${ids}),keeper_2_id.in.(${ids}),burner_2_id.in.(${ids})`)
-        }
+    // Cache hit — skip DB entirely
+    if (!force) {
+      const cached = readCache()
+      if (cached) {
+        setState({
+          permutations: cached.map(rowToPermutationResult),
+          loading: false,
+          error: '',
+          total: cached.length,
+        })
+        return
       }
-
-      if (filters.minCost !== null) q = q.gte('total_cost', filters.minCost)
-      if (filters.maxCost !== null) q = q.lte('total_cost', filters.maxCost)
-
-      const { data, error, count } = await q
-      if (error) throw error
-
-      const basicRows = (data ?? []) as unknown as PermRowBasic[]
-      const rows = await attachChecks(basicRows)
-      setState({
-        permutations: rows.map(rowToPermutationResult),
-        loading: false,
-        error: '',
-        total: count ?? 0,
-      })
-    } catch (e) {
-      const msg = (e as { message?: string })?.message ?? String(e)
-      setState(prev => ({ ...prev, loading: false, error: msg }))
     }
-  }, [])
 
-  // Fetch RANDOM_TOTAL items from NUM_SEGMENTS non-overlapping random sections
-  // of the full dataset — fast (parallel range scans) and visually diverse.
-  const loadRandom = useCallback(async () => {
-    if (!supabase) return
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
       // Get total row count
@@ -287,6 +250,8 @@ export function usePermutationsDB() {
       // Step 2: fetch all needed check_structs in one batched query
       const rows = await attachChecks(basicRows)
 
+      writeCache(rows)
+
       setState({
         permutations: rows.map(rowToPermutationResult),
         loading: false,
@@ -299,7 +264,7 @@ export function usePermutationsDB() {
     }
   }, [])
 
-  return { state, load, loadRandom }
+  return { state, loadRandom }
 }
 
 export function usePriceBounds(enabled: boolean) {
