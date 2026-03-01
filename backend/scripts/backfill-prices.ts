@@ -80,12 +80,15 @@ async function main() {
       .filter(Boolean)
 
     if (upsertRows.length > 0) {
-      const { error: upsertErr } = await supabase
-        .from('tokenstr_checks')
-        .upsert(upsertRows, { onConflict: 'token_id' })
-      if (upsertErr) throw upsertErr
-      updated += upsertRows.length
-      console.log(`  Updated ${upsertRows.length} prices (${updated} total)`)
+      const updateResults = await Promise.allSettled(
+        upsertRows.map(row =>
+          supabase.from('tokenstr_checks').update({ eth_price: row!.eth_price }).eq('token_id', row!.token_id)
+        )
+      )
+      const failed = updateResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error))
+      if (failed.length > 0) console.warn(`  ${failed.length} updates failed`)
+      updated += upsertRows.length - failed.length
+      console.log(`  Updated ${upsertRows.length - failed.length} prices (${updated} total)`)
     }
   }
 
