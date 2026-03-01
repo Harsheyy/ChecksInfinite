@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { TreePanel } from './TreePanel'
 import { WagmiWrapper } from '../test-utils'
 import type { PermutationResult } from '../useAllPermutations'

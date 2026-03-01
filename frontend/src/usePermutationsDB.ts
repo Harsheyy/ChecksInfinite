@@ -172,7 +172,7 @@ function rowToPermutationResult(row: PermRow): PermutationResult {
       label:    `#${id0}▸#${id1}, #${id2}▸#${id3}`,
       tokenIds: [id0, id1, id2, id3],
     },
-    // Individual check SVGs fetched lazily by TreeModal on demand
+    // Individual check SVGs fetched lazily by TreePanel on demand
     nodeA: { name: `Token #${id0}`, svg: '', attributes: [], loading: false, error: '' },
     nodeB: { name: `Token #${id1}`, svg: '', attributes: [], loading: false, error: '' },
     nodeC: { name: `Token #${id2}`, svg: '', attributes: [], loading: false, error: '' },
