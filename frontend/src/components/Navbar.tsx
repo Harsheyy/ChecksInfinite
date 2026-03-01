@@ -1,5 +1,5 @@
 import { type FormEvent } from 'react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 
 interface NavbarProps {
   ids: string
@@ -17,6 +17,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
   const { address, isConnected } = useAccount()
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
+  const { data: ensName }        = useEnsName({ address })
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -75,7 +76,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
         </div>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>
-        {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Connect Wallet'}
+        {isConnected ? (ensName ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`) : 'Connect Wallet'}
       </button>
     </nav>
   )
