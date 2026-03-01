@@ -8,10 +8,25 @@ export interface Filters {
   gradient: string
   speed: string
   shift: string
+  idInput: string
+  idMode: 'and' | 'or'
+  minCost: number | null
+  maxCost: number | null
 }
 
 export function emptyFilters(): Filters {
-  return { checks: '', colorBand: '', gradient: '', speed: '', shift: '' }
+  return {
+    checks: '', colorBand: '', gradient: '', speed: '', shift: '',
+    idInput: '', idMode: 'and',
+    minCost: null, maxCost: null,
+  }
+}
+
+export function hasActiveFilters(f: Filters): boolean {
+  return !!(
+    f.checks || f.colorBand || f.gradient || f.speed || f.shift ||
+    f.idInput.trim() || f.minCost !== null || f.maxCost !== null
+  )
 }
 
 const CHECKS_OPTIONS    = ['20', '10', '5', '4', '1']
@@ -73,7 +88,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle }: FilterBarPr
     setCooldown(SHUFFLE_COOLDOWN)
   }
 
-  const isActive = Object.values(filters).some(v => v !== '')
+  const isActive = hasActiveFilters(filters)
 
   return (
     <div className="filter-strip">
@@ -103,18 +118,40 @@ export function FilterBar({ filters, onChange, visible, onShuffle }: FilterBarPr
 }
 
 /** Returns true if the attributes satisfy all active filters (AND logic; '' = pass all). */
-export function matchesFilters(attributes: Attribute[], filters: Filters): boolean {
-  function check(key: keyof Filters, traitType: string): boolean {
+export function matchesFilters(
+  attributes: Attribute[],
+  filters: Filters,
+  tokenIds?: string[],
+): boolean {
+  function check(key: keyof Pick<Filters, 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift'>, traitType: string): boolean {
     if (!filters[key]) return true
     const attr = attributes.find(a => a.trait_type === traitType)
     if (!attr) return true  // unrevealed composites lack some attributes — pass all filters
     return filters[key] === attr.value
   }
-  return (
+
+  const attrMatch =
     check('checks', 'Checks') &&
     check('colorBand', 'Color Band') &&
     check('gradient', 'Gradient') &&
     check('speed', 'Speed') &&
     check('shift', 'Shift')
-  )
+
+  if (!attrMatch) return false
+
+  // ID filter: only applied when we have token IDs to check
+  const trimmed = filters.idInput.trim()
+  if (trimmed && tokenIds) {
+    const entered = trimmed.split(',').map(s => s.trim()).filter(Boolean)
+    if (entered.length === 0) return true
+    const enteredSet = new Set(entered)
+    const useAnd = entered.length > 4 && filters.idMode === 'and'
+    if (useAnd) {
+      return tokenIds.every(id => enteredSet.has(id))
+    } else {
+      return tokenIds.some(id => enteredSet.has(id))
+    }
+  }
+
+  return true
 }

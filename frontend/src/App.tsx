@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { Navbar } from './components/Navbar'
-import { FilterBar, emptyFilters, matchesFilters, type Filters } from './components/FilterBar'
+import { FilterBar, emptyFilters, hasActiveFilters, matchesFilters, type Filters } from './components/FilterBar'
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
 import { usePermutationsDB } from './usePermutationsDB'
@@ -34,11 +34,11 @@ export default function App() {
 
   // ── DB / Token Works mode ─────────────────────────────────────────────────
   const { state: dbState, load, loadRandom } = usePermutationsDB()
-  const hasActiveFilters = Object.values(filters).some(v => v !== '')
+  const activeFilters = hasActiveFilters(filters)
 
   useEffect(() => {
     if (!dbMode || viewMode !== 'token-works') return
-    if (hasActiveFilters) load(filters)
+    if (activeFilters) load(filters)
     else loadRandom()
   }, [dbMode, viewMode, filters])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,11 +82,12 @@ export default function App() {
     : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
   const showFlags = (isMyChecksMode || !dbMode)
-    ? permutations.map(p =>
-        !p.nodeAbcd.loading && !p.nodeAbcd.error
-          ? matchesFilters(p.nodeAbcd.attributes, filters)
-          : true
-      )
+    ? permutations.map(p => {
+        if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
+        const [p0, p1, p2, p3] = p.def.indices
+        const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
+        return matchesFilters(p.nodeAbcd.attributes, filters, tids)
+      })
     : permutations.map(() => true)
 
   const visibleCount = showFlags.filter(Boolean).length
@@ -94,7 +95,7 @@ export default function App() {
   const showFilters = isMyChecksMode
     ? myCheckPerms.permutations.length > 0
     : dbMode
-      ? dbState.total > 0 || dbState.loading || hasActiveFilters
+      ? dbState.total > 0 || dbState.loading || activeFilters
       : permutations.length > 0
 
   const myChecksError = isMyChecksMode
@@ -123,7 +124,7 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           visible={isMyChecksMode ? visibleCount : dbMode ? dbState.permutations.length : visibleCount}
-          onShuffle={(isMyChecksMode || (dbMode && !hasActiveFilters)) ? handleShuffle : undefined}
+          onShuffle={(isMyChecksMode || (dbMode && !activeFilters)) ? handleShuffle : undefined}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
@@ -131,7 +132,7 @@ export default function App() {
           Not enough compatible checks to generate permutations.
         </div>
       )}
-      {!isMyChecksMode && dbMode && !dbState.loading && hasActiveFilters && dbState.total === 0 && (
+      {!isMyChecksMode && dbMode && !dbState.loading && activeFilters && dbState.total === 0 && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No permutations match these filters.
         </div>

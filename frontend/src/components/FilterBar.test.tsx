@@ -6,13 +6,17 @@ import type { Filters } from './FilterBar'
 import type { Attribute } from '../utils'
 
 describe('emptyFilters', () => {
-  it('returns all empty strings', () => {
+  it('returns all empty strings / defaults', () => {
     const f = emptyFilters()
     expect(f.checks).toBe('')
     expect(f.colorBand).toBe('')
     expect(f.gradient).toBe('')
     expect(f.speed).toBe('')
     expect(f.shift).toBe('')
+    expect(f.idInput).toBe('')
+    expect(f.idMode).toBe('and')
+    expect(f.minCost).toBeNull()
+    expect(f.maxCost).toBeNull()
   })
 })
 
@@ -44,6 +48,44 @@ describe('matchesFilters', () => {
   it('applies AND logic: fails if any active filter mismatches', () => {
     const f: Filters = { ...emptyFilters(), checks: '80', colorBand: 'Twenty' }
     expect(matchesFilters(attrs, f)).toBe(false)
+  })
+})
+
+describe('matchesFilters — ID filter', () => {
+  const attrs: Attribute[] = [{ trait_type: 'Checks', value: '1' }]
+
+  it('passes when idInput is empty', () => {
+    expect(matchesFilters(attrs, emptyFilters(), ['10', '20', '30', '40'])).toBe(true)
+  })
+
+  it('OR: passes when any token ID is in the entered set', () => {
+    const f = { ...emptyFilters(), idInput: '10, 99' }
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(true)
+  })
+
+  it('OR: fails when no token ID is in the entered set', () => {
+    const f = { ...emptyFilters(), idInput: '99, 88' }
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(false)
+  })
+
+  it('AND: passes when all 4 token IDs are in the entered set', () => {
+    const f = { ...emptyFilters(), idInput: '10, 20, 30, 40, 50', idMode: 'and' as const }
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(true)
+  })
+
+  it('AND: fails when any token ID is not in the entered set', () => {
+    const f = { ...emptyFilters(), idInput: '10, 20, 30, 50, 60', idMode: 'and' as const }
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(false)
+  })
+
+  it('uses OR when <=4 IDs regardless of idMode', () => {
+    const f = { ...emptyFilters(), idInput: '10, 20, 30', idMode: 'and' as const }
+    expect(matchesFilters(attrs, f, ['10', '99', '99', '99'])).toBe(true)
+  })
+
+  it('passes when no tokenIds provided (chain mode)', () => {
+    const f = { ...emptyFilters(), idInput: '10, 20' }
+    expect(matchesFilters(attrs, f, undefined)).toBe(true)
   })
 })
 
