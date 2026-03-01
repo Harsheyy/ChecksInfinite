@@ -33,17 +33,13 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(emptyFilters())
 
   // ── DB / Token Works mode ─────────────────────────────────────────────────
-  const { state: dbState, load, loadRandom } = usePermutationsDB()
+  const { state: dbState, loadRandom } = usePermutationsDB()
   const activeFilters = hasActiveFilters(filters)
 
   useEffect(() => {
     if (!dbMode || viewMode !== 'token-works') return
-    if (activeFilters) {
-      const t = setTimeout(() => load(filters), 300)
-      return () => clearTimeout(t)
-    }
     loadRandom()
-  }, [dbMode, viewMode, filters])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbMode, viewMode])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── My Checks mode ────────────────────────────────────────────────────────
   const myChecksEnabled = dbMode && viewMode === 'my-checks' && isConnected
@@ -51,7 +47,7 @@ export default function App() {
   const myCheckPerms = useMyCheckPermutations(myChecks.checks)
 
   // ── Price bounds (DB / Token Works mode only) ─────────────────────────────
-  const priceBoundsEnabled = dbMode && viewMode === 'token-works'
+  const priceBoundsEnabled = false
   const priceBounds = usePriceBounds(priceBoundsEnabled)
 
   // Generate permutations when checks load
@@ -74,7 +70,7 @@ export default function App() {
 
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
-    else loadRandom()
+    else loadRandom(true)  // force=true bypasses sessionStorage cache
   }
 
   // ── Derive display values ─────────────────────────────────────────────────
@@ -88,14 +84,12 @@ export default function App() {
     ? myChecks.loading
     : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
-  const showFlags = (isMyChecksMode || !dbMode)
-    ? permutations.map(p => {
-        if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
-        const [p0, p1, p2, p3] = p.def.indices
-        const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
-        return matchesFilters(p.nodeAbcd.attributes, filters, tids)
-      })
-    : permutations.map(() => true)
+  const showFlags = permutations.map(p => {
+    if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
+    const [p0, p1, p2, p3] = p.def.indices
+    const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
+    return matchesFilters(p.nodeAbcd.attributes, filters, tids)
+  })
 
   const visibleCount = showFlags.filter(Boolean).length
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
@@ -103,7 +97,7 @@ export default function App() {
   const showFilters = isMyChecksMode
     ? myCheckPerms.permutations.length > 0
     : dbMode
-      ? dbState.total > 0 || dbState.loading || activeFilters
+      ? dbState.permutations.length > 0 || dbState.loading
       : permutations.length > 0
 
   const myChecksError = isMyChecksMode
@@ -131,8 +125,8 @@ export default function App() {
         <FilterBar
           filters={filters}
           onChange={setFilters}
-          visible={isMyChecksMode ? visibleCount : dbMode ? dbState.permutations.length : visibleCount}
-          onShuffle={(isMyChecksMode || (dbMode && !activeFilters)) ? handleShuffle : undefined}
+          visible={visibleCount}
+          onShuffle={(isMyChecksMode || dbMode) ? handleShuffle : undefined}
           priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
           permutations={visiblePermutations}
         />
@@ -142,7 +136,7 @@ export default function App() {
           Not enough compatible checks to generate permutations.
         </div>
       )}
-      {!isMyChecksMode && dbMode && !dbState.loading && activeFilters && dbState.total === 0 && (
+      {!isMyChecksMode && dbMode && !dbState.loading && dbState.permutations.length > 0 && visibleCount === 0 && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No permutations match these filters.
         </div>
