@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
 import { formatEther } from 'viem'
 import { CheckCard } from './CheckCard'
@@ -50,7 +50,10 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
 
   // ── Buy all 4 (DB mode only) ───────────────────────────────────────────────
   const { isConnected } = useAccount()
-  const tokenIdsBigInt = [id0, id1, id2, id3].map(BigInt)
+  const tokenIdsBigInt = useMemo(
+    () => [id0, id1, id2, id3].map(BigInt),
+    [id0, id1, id2, id3]
+  )
 
   const { data: priceData } = useReadContracts({
     contracts: tokenIdsBigInt.map(tokenId => ({
@@ -72,6 +75,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
 
   async function handleBuyAll() {
     if (!allPricesLoaded || !isConnected) return
+    setBuyIndex(0)
     setBuyState('buying')
     try {
       for (let i = 0; i < 4; i++) {
@@ -92,7 +96,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
   }
 
   function priceLabel(i: number): string | undefined {
-    if (!dbMode || !prices[i]) return undefined
+    if (!dbMode || prices[i] == null) return undefined
     return `${formatEther(prices[i]!)} ETH`
   }
 

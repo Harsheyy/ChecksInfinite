@@ -48,12 +48,12 @@ describe('TreePanel', () => {
   })
 
   it('renders a sticky footer with buy button in dbMode', () => {
-    render(
+    const { container } = render(
       <WagmiWrapper>
         <TreePanel result={makeResult()} ids={[]} onClose={vi.fn()} dbMode />
       </WagmiWrapper>
     )
-    expect(document.querySelector('.tree-panel-footer')).toBeTruthy()
+    expect(container.querySelector('.tree-panel-footer')).toBeTruthy()
     expect(screen.getByRole('button', { name: /buy/i })).toBeInTheDocument()
   })
 
