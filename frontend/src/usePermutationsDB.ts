@@ -51,7 +51,7 @@ interface PermRowBasic {
 }
 
 // Full row after attaching check structs
-interface PermRow extends PermRowBasic {
+export interface PermRow extends PermRowBasic {
   keeper_1: { check_struct: CheckStructJSON }
   burner_1: { check_struct: CheckStructJSON }
   keeper_2: { check_struct: CheckStructJSON }
