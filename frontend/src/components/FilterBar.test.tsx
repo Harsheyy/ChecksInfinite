@@ -106,7 +106,7 @@ describe('FilterBar', () => {
 
   it('shows Showing X count', () => {
     render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={18} />)
-    expect(screen.getByText(/Showing 18/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Showing 18/).length).toBeGreaterThanOrEqual(1)
   })
 
   it('calls onChange when a select changes', () => {
@@ -119,7 +119,7 @@ describe('FilterBar', () => {
 
   it('shows Clear button when any filter is active', () => {
     render(<FilterBar filters={{ ...emptyFilters(), checks: '80' }} onChange={vi.fn()} visible={10} />)
-    expect(screen.getByRole('button', { name: /Clear/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Clear/ }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('hides Clear button when no filters active', () => {
@@ -136,7 +136,7 @@ describe('FilterBar', () => {
         visible={10}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: /Clear/ }))
+    fireEvent.click(screen.getAllByRole('button', { name: /Clear/ })[0])
     expect(onChange).toHaveBeenCalledWith(emptyFilters())
   })
 
