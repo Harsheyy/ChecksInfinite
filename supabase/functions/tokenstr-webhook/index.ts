@@ -21,8 +21,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const CHECKS_CONTRACT = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
-const TOKENSTR_WALLET = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
+const CHECKS_CONTRACT        = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
+const TOKENSTR_WALLET        = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
+const TOKEN_STRATEGY_ADDRESS = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
 
 // ERC-721 Transfer topic: keccak256("Transfer(address,address,uint256)")
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
@@ -107,6 +108,13 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
 
 // ─── Chain fetch ──────────────────────────────────────────────────────────────
 
+async function fetchEthPrice(tokenId: number, alchemyKey: string): Promise<number | null> {
+  const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
+  const result = await ethCall(rpcUrl, TOKEN_STRATEGY_ADDRESS, nftForSaleCalldata(tokenId))
+  if (!result) return null
+  return decodeUint256Wei(result)
+}
+
 async function refetchAndUpsert(
   tokenId: number,
   alchemyKey: string,
@@ -114,10 +122,11 @@ async function refetchAndUpsert(
 ) {
   const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
 
-  const [uriResult, checkResult, ownerResult] = await Promise.all([
+  const [uriResult, checkResult, ownerResult, ethPrice] = await Promise.all([
     ethCall(rpcUrl, CHECKS_CONTRACT, tokenURICalldata(tokenId)),
     ethCall(rpcUrl, CHECKS_CONTRACT, getCheckCalldata(tokenId)),
     ethCall(rpcUrl, CHECKS_CONTRACT, ownerOfCalldata(tokenId)),
+    fetchEthPrice(tokenId, alchemyKey),
   ])
 
   if (!uriResult || !checkResult || !ownerResult) {
@@ -142,8 +151,12 @@ async function refetchAndUpsert(
     shift:         attrs['Shift'] ?? null,
     svg,
     check_struct:  checkStruct,
+    eth_price:     ethPrice,
     last_synced_at: new Date().toISOString(),
   }, { onConflict: 'token_id' })
+
+  // Re-sync total_cost for all permutations involving this check
+  await supabase.rpc('update_permutation_costs', { p_token_id: tokenId })
 }
 
 // ─── Raw eth_call helpers ─────────────────────────────────────────────────────
@@ -175,6 +188,19 @@ function getCheckCalldata(tokenId: number): string {
 // ownerOf(uint256) = 0x6352211e
 function ownerOfCalldata(tokenId: number): string {
   return '0x6352211e' + tokenId.toString(16).padStart(64, '0')
+}
+
+// nftForSale(uint256) selector = keccak256("nftForSale(uint256)")[0..4]
+// Computed: 0xf8a2810f
+function nftForSaleCalldata(tokenId: number): string {
+  return '0xf8a2810f' + tokenId.toString(16).padStart(64, '0')
+}
+
+function decodeUint256Wei(hexResult: string): number {
+  // hexResult is "0x" + 64 hex chars (32 bytes)
+  const wei = BigInt(hexResult.slice(0, 66))
+  // Convert wei to ETH float
+  return Number(wei) / 1e18
 }
 
 function decodeTokenURISVG(abiEncodedString: string): string {
