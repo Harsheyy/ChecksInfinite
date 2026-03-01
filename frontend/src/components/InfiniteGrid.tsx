@@ -64,6 +64,12 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
 
   useEffect(() => { if (N === 0) setSelected(null) }, [N])
 
+  function handleBackdropMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (selected === null) return
+    const target = e.target as Element
+    if (!target.closest('.perm-card')) setSelected(null)
+  }
+
   // Torus teleport — rAF throttled so it fires at most once per frame
   const handleScroll = useCallback(() => {
     if (!shouldLoop) return
@@ -93,6 +99,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
         <div
           className={`grid-viewport${hasFilters ? ' grid-viewport--with-filters' : ''}`}
           ref={containerRef}
+          onMouseDown={handleBackdropMouseDown}
         >
           <div style={{
             display: 'grid',
@@ -170,6 +177,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
         className={`grid-viewport${hasFilters ? ' grid-viewport--with-filters' : ''}`}
         ref={containerRef}
         onScroll={handleScroll}
+        onMouseDown={handleBackdropMouseDown}
       >
         <div style={{ position: 'relative', width: tileW * 3, height: tileH * 3 }}>
           {cards}
