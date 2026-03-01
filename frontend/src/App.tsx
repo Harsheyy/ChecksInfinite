@@ -149,7 +149,7 @@ export default function App() {
         hasFilters={showFilters}
         dbMode={dbMode}
         hideBuy={isMyChecksMode}
-        filtersTall={!!(showFilters && priceBoundsEnabled && priceBounds)}
+        filtersTall={false}
       />
       {(dbMode && (isMyChecksMode ? myChecks.loading : dbState.loading)) && (
         <div style={{

@@ -96,15 +96,9 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
   const isActive = hasActiveFilters(filters)
 
   return (
-    <div className={`filter-strip${priceRange ? ' filter-strip--two-row' : ''}`}>
+    <div className="filter-strip">
       <div className="filter-row">
-        <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)} />
-        <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} />
-        <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)} />
-        <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)} />
-        <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)} />
-
-        {/* ID input */}
+        {/* IDs input — first */}
         <label className="filter-select-label">
           <span className="filter-select-name">IDs</span>
           <input
@@ -134,6 +128,53 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
           </div>
         )}
 
+        <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)} />
+        <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} />
+        <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)} />
+        <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)} />
+        <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)} />
+
+        {/* Cost range slider — last filter, Token Works only */}
+        {priceRange && (() => {
+          const currentMin = filters.minCost ?? priceRange.min
+          const currentMax = filters.maxCost ?? priceRange.max
+          return (
+            <>
+              <span className="filter-select-name">Cost</span>
+              <span className="filter-price-val">{currentMin.toFixed(3)}</span>
+              <div className="filter-price-track">
+                <input
+                  type="range"
+                  aria-label="min cost"
+                  className="filter-price-range filter-price-range--min"
+                  min={priceRange.min}
+                  max={priceRange.max}
+                  step={(priceRange.max - priceRange.min) / 200}
+                  value={currentMin}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value)
+                    onChange({ ...filters, minCost: v <= priceRange.min ? null : v })
+                  }}
+                />
+                <input
+                  type="range"
+                  aria-label="max cost"
+                  className="filter-price-range filter-price-range--max"
+                  min={priceRange.min}
+                  max={priceRange.max}
+                  step={(priceRange.max - priceRange.min) / 200}
+                  value={currentMax}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value)
+                    onChange({ ...filters, maxCost: v >= priceRange.max ? null : v })
+                  }}
+                />
+              </div>
+              <span className="filter-price-val">{currentMax.toFixed(3)} ETH</span>
+            </>
+          )
+        })()}
+
         <span className="filter-count">
           Showing {visible}
         </span>
@@ -151,45 +192,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
           </button>
         )}
       </div>
-      {priceRange && (() => {
-        const currentMin = filters.minCost ?? priceRange.min
-        const currentMax = filters.maxCost ?? priceRange.max
-        return (
-          <div className="filter-row filter-row--price">
-            <span className="filter-select-name">Cost</span>
-            <span className="filter-price-val">{currentMin.toFixed(3)}</span>
-            <div className="filter-price-track">
-              <input
-                type="range"
-                aria-label="min cost"
-                className="filter-price-range filter-price-range--min"
-                min={priceRange.min}
-                max={priceRange.max}
-                step={(priceRange.max - priceRange.min) / 200}
-                value={currentMin}
-                onChange={e => {
-                  const v = parseFloat(e.target.value)
-                  onChange({ ...filters, minCost: v <= priceRange.min ? null : v })
-                }}
-              />
-              <input
-                type="range"
-                aria-label="max cost"
-                className="filter-price-range filter-price-range--max"
-                min={priceRange.min}
-                max={priceRange.max}
-                step={(priceRange.max - priceRange.min) / 200}
-                value={currentMax}
-                onChange={e => {
-                  const v = parseFloat(e.target.value)
-                  onChange({ ...filters, maxCost: v >= priceRange.max ? null : v })
-                }}
-              />
-            </div>
-            <span className="filter-price-val">{currentMax.toFixed(3)} ETH</span>
-          </div>
-        )
-      })()}
     </div>
   )
 }
