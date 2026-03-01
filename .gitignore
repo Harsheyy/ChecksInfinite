@@ -22,3 +22,9 @@ npm-debug.log*
 
 # Supabase local dev
 supabase/.temp/
+
+# Ignored directories
+.claude/
+docs/
+supabase/
+source/
