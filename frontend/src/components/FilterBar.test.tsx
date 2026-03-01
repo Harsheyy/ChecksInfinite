@@ -78,9 +78,17 @@ describe('matchesFilters — ID filter', () => {
     expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(false)
   })
 
-  it('uses OR when <=4 IDs regardless of idMode', () => {
+  it('uses OR when <4 IDs regardless of idMode', () => {
     const f = { ...emptyFilters(), idInput: '10, 20, 30', idMode: 'and' as const }
     expect(matchesFilters(attrs, f, ['10', '99', '99', '99'])).toBe(true)
+  })
+
+  it('AND mode activates at exactly 4 IDs', () => {
+    const attrs: Attribute[] = [{ trait_type: 'Checks', value: '1' }]
+    // 4 IDs entered with AND mode — all 4 positions must be in the set
+    const f = { ...emptyFilters(), idInput: '10, 20, 30, 40', idMode: 'and' as const }
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '40'])).toBe(true)
+    expect(matchesFilters(attrs, f, ['10', '20', '30', '99'])).toBe(false)
   })
 
   it('passes when no tokenIds provided (chain mode)', () => {
@@ -140,5 +148,32 @@ describe('FilterBar', () => {
       .map(o => o.value)
       .filter(v => v !== '')
     expect(options).toEqual(['20', '10', '5', '4', '1'])
+  })
+
+  it('renders Check IDs input field', () => {
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={24} />)
+    expect(screen.getByPlaceholderText(/e\.g\. 123, 456/)).toBeInTheDocument()
+  })
+
+  it('does not show AND/OR toggle for <4 IDs', () => {
+    const f = { ...emptyFilters(), idInput: '1, 2, 3' }
+    render(<FilterBar filters={f} onChange={vi.fn()} visible={24} />)
+    expect(screen.queryByRole('button', { name: /AND/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /OR/ })).toBeNull()
+  })
+
+  it('shows AND/OR toggle when >=4 IDs entered', () => {
+    const f = { ...emptyFilters(), idInput: '1, 2, 3, 4' }
+    render(<FilterBar filters={f} onChange={vi.fn()} visible={24} />)
+    expect(screen.getByRole('button', { name: /AND/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /OR/ })).toBeInTheDocument()
+  })
+
+  it('AND/OR toggle switches idMode', () => {
+    const onChange = vi.fn()
+    const f = { ...emptyFilters(), idInput: '1, 2, 3, 4', idMode: 'and' as const }
+    render(<FilterBar filters={f} onChange={onChange} visible={24} />)
+    fireEvent.click(screen.getByRole('button', { name: /OR/ }))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ idMode: 'or' }))
   })
 })

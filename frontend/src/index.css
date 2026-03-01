@@ -199,6 +199,43 @@ body {
 }
 .filter-shuffle:hover { color: #ccc; border-color: #555; }
 
+.filter-id-input {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  width: 200px;
+}
+.filter-id-input:focus { outline: 1px solid #555; }
+.filter-id-input::placeholder { color: #555; }
+
+.filter-mode-toggle {
+  display: flex;
+  border: 1px solid #333;
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.filter-mode-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-family: inherit;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+}
+.filter-mode-btn:hover { color: #aaa; }
+.filter-mode-btn--active {
+  background: #2a2a2a;
+  color: #ddd;
+}
+.filter-mode-btn + .filter-mode-btn { border-left: 1px solid #333; }
+
 /* ─── Grid viewport ───────────────────────────────────────── */
 .grid-viewport {
   position: fixed;

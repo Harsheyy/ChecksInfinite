@@ -35,6 +35,10 @@ const GRADIENT_OPTIONS  = ['None', 'Linear', 'Double Linear', 'Reflected', 'Doub
 const SPEED_OPTIONS     = ['0.5x', '1x', '2x']
 const SHIFT_OPTIONS     = ['IR', 'UV']
 
+function parseIdCount(input: string): number {
+  return input.split(',').map(s => s.trim()).filter(Boolean).length
+}
+
 interface FilterSelectProps {
   label: string
   options: string[]
@@ -97,6 +101,37 @@ export function FilterBar({ filters, onChange, visible, onShuffle }: FilterBarPr
       <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)} />
       <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)} />
       <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)} />
+
+      {/* ID input */}
+      <label className="filter-select-label">
+        <span className="filter-select-name">IDs</span>
+        <input
+          className="filter-id-input"
+          type="text"
+          placeholder="e.g. 123, 456"
+          value={filters.idInput}
+          onChange={e => update('idInput', e.target.value)}
+        />
+      </label>
+
+      {/* AND/OR toggle — appears when >=4 IDs */}
+      {parseIdCount(filters.idInput) >= 4 && (
+        <div className="filter-mode-toggle">
+          <button
+            type="button"
+            className={`filter-mode-btn${filters.idMode === 'and' ? ' filter-mode-btn--active' : ''}`}
+            onClick={() => update('idMode', 'and')}
+            aria-label="AND"
+          >AND</button>
+          <button
+            type="button"
+            className={`filter-mode-btn${filters.idMode === 'or' ? ' filter-mode-btn--active' : ''}`}
+            onClick={() => update('idMode', 'or')}
+            aria-label="OR"
+          >OR</button>
+        </div>
+      )}
+
       <span className="filter-count">
         Showing {visible}
       </span>
@@ -145,7 +180,7 @@ export function matchesFilters(
     const entered = trimmed.split(',').map(s => s.trim()).filter(Boolean)
     if (entered.length === 0) return true
     const enteredSet = new Set(entered)
-    const useAnd = entered.length > 4 && filters.idMode === 'and'
+    const useAnd = entered.length >= 4 && filters.idMode === 'and'
     if (useAnd) {
       return tokenIds.every(id => enteredSet.has(id))
     } else {
