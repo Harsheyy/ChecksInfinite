@@ -7,7 +7,8 @@
     "backfill": "tsx --env-file=.env scripts/backfill.ts",
     "backfill:incremental": "tsx --env-file=.env scripts/backfill.ts --incremental",
     "compute-permutations": "tsx --env-file=.env scripts/compute-permutations.ts",
-    "compute-permutations:incremental": "tsx --env-file=.env scripts/compute-permutations.ts --incremental"
+    "compute-permutations:incremental": "tsx --env-file=.env scripts/compute-permutations.ts --incremental",
+    "populate-ranked": "tsx --env-file=.env scripts/populate-ranked-permutations.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
