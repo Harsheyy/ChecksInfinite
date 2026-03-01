@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { Navbar } from './components/Navbar'
-import { FilterBar, emptyFilters, hasActiveFilters, matchesFilters, type Filters } from './components/FilterBar'
+import { FilterBar, emptyFilters, matchesFilters, type Filters } from './components/FilterBar'
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
 import { usePermutationsDB, usePriceBounds } from './usePermutationsDB'
@@ -34,7 +34,6 @@ export default function App() {
 
   // ── DB / Token Works mode ─────────────────────────────────────────────────
   const { state: dbState, loadRandom } = usePermutationsDB()
-  const activeFilters = hasActiveFilters(filters)
 
   useEffect(() => {
     if (!dbMode || viewMode !== 'token-works') return
