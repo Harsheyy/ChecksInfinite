@@ -98,6 +98,7 @@ export default function App() {
     : permutations.map(() => true)
 
   const visibleCount = showFlags.filter(Boolean).length
+  const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
   const showFilters = isMyChecksMode
     ? myCheckPerms.permutations.length > 0
@@ -133,6 +134,7 @@ export default function App() {
           visible={isMyChecksMode ? visibleCount : dbMode ? dbState.permutations.length : visibleCount}
           onShuffle={(isMyChecksMode || (dbMode && !activeFilters)) ? handleShuffle : undefined}
           priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
+          permutations={visiblePermutations}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
