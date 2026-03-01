@@ -238,7 +238,7 @@ body {
 .tree-panel {
   position: fixed;
   top: 0; right: 0;
-  width: 380px;
+  width: max(380px, 35vw);
   height: 100vh;
   background: #111;
   border-left: 1px solid #2a2a2a;
@@ -400,6 +400,23 @@ body {
 .check-card-attr dd { color: #ccc; }
 .check-card-loading { color: #555; font-size: 0.78rem; }
 .check-card-error   { color: #f87171; font-size: 0.75rem; line-height: 1.4; }
+
+/* Hover tooltip for compact cards */
+.check-card--has-tooltip { position: relative; }
+.check-card-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: #1c1c1c;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 0.5rem;
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+.check-card--has-tooltip:hover .check-card-tooltip { display: block; }
 
 /* ─── Buy button ───────────────────────────────────────────── */
 .tree-buy-btn {

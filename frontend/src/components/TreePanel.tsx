@@ -4,8 +4,9 @@ import { formatEther } from 'viem'
 import { CheckCard } from './CheckCard'
 import { supabase } from '../supabaseClient'
 import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from '../tokenStrategyAbi'
+import { mapCheckAttributes } from '../utils'
+import type { Attribute, CardState, CheckStruct } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
-import type { CardState } from '../utils'
 
 interface TreePanelProps {
   result: PermutationResult
@@ -14,8 +15,8 @@ interface TreePanelProps {
   dbMode?: boolean
 }
 
-function cardProps(card: CardState, svgOverride?: string) {
-  return { name: card.name, svg: svgOverride ?? card.svg, attributes: card.attributes, loading: card.loading, error: card.error }
+function cardProps(card: CardState, svgOverride?: string, attrsOverride?: Attribute[]) {
+  return { name: card.name, svg: svgOverride ?? card.svg, attributes: attrsOverride ?? card.attributes, loading: card.loading, error: card.error }
 }
 
 export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
@@ -23,22 +24,28 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
   const [p0, p1, p2, p3] = def.indices
   const [id0, id1, id2, id3] = def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
 
-  // Lazy-load individual check SVGs (DB mode omits them from the grid query)
+  // Lazy-load individual check SVGs + attributes (DB mode omits them from the grid query)
   const [liveSvgs, setLiveSvgs] = useState<Record<string, string>>({})
+  const [liveAttrs, setLiveAttrs] = useState<Record<string, Attribute[]>>({})
   useEffect(() => {
     if (!supabase || !dbMode || nodeA.svg) return
     const tokenIds = [id0, id1, id2, id3].map(Number)
     supabase
       .from('tokenstr_checks')
-      .select('token_id, svg')
+      .select('token_id, svg, check_struct')
       .in('token_id', tokenIds)
       .then(({ data }) => {
         if (!data) return
-        const map: Record<string, string> = {}
-        for (const row of data as { token_id: number; svg: string }[]) {
-          map[String(row.token_id)] = row.svg
+        const svgMap: Record<string, string> = {}
+        const attrsMap: Record<string, Attribute[]> = {}
+        for (const row of data as { token_id: number; svg: string; check_struct: { seed: string } }[]) {
+          svgMap[String(row.token_id)] = row.svg
+          attrsMap[String(row.token_id)] = mapCheckAttributes(
+            { ...row.check_struct, seed: BigInt(row.check_struct.seed) } as CheckStruct
+          )
         }
-        setLiveSvgs(map)
+        setLiveSvgs(svgMap)
+        setLiveAttrs(attrsMap)
       })
   }, [nodeA.svg, id0, id1, id2, id3])
 
@@ -97,7 +104,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
 
   function priceLabel(i: number): string | undefined {
     if (!dbMode || prices[i] == null) return undefined
-    return `${formatEther(prices[i]!)} ETH`
+    return `${parseFloat(formatEther(prices[i]!)).toFixed(3)} ETH`
   }
 
   function buyLabel() {
@@ -107,7 +114,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
     if (buyState === 'buying') return `Buying ${buyIndex + 1} / 4…`
     if (buyState === 'done') return 'Bought!'
     if (buyState === 'error') return 'Failed — try again'
-    return `Buy All 4  (${formatEther(totalPrice!)} ETH)`
+    return `Buy All 4  (${parseFloat(formatEther(totalPrice!)).toFixed(3)} ETH)`
   }
 
   const buyDisabled =
@@ -130,20 +137,20 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
           <div className="tree-row-leaves">
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact label={`Keeper #${id0}`} sublabel={priceLabel(0)} {...cardProps(nodeA, liveSvgs[id0])} />
-                <CheckCard compact label={`Burn #${id1}`}   sublabel={priceLabel(1)} {...cardProps(nodeB, liveSvgs[id1])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
               </div>
               <div className="tree-connector-v" />
-              <CheckCard compact label={`#${id0}+#${id1}`} {...cardProps(nodeL1a)} />
+              <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1a)} />
               <div className="tree-connector-v" />
             </div>
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact label={`Keeper #${id2}`} sublabel={priceLabel(2)} {...cardProps(nodeC, liveSvgs[id2])} />
-                <CheckCard compact label={`Burn #${id3}`}   sublabel={priceLabel(3)} {...cardProps(nodeD, liveSvgs[id3])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
               </div>
               <div className="tree-connector-v" />
-              <CheckCard compact label={`#${id2}+#${id3}`} {...cardProps(nodeL1b)} />
+              <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1b)} />
               <div className="tree-connector-v" />
             </div>
           </div>
@@ -151,8 +158,8 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
           {/* Horizontal merge connector */}
           <div className="tree-connector-merge" />
 
-          {/* Final result */}
-          <CheckCard compact label="Final Composite" {...cardProps(nodeAbcd)} />
+          {/* Final result — attributes in hover tooltip */}
+          <CheckCard hideAttrs tooltip label="Final Composite" {...cardProps(nodeAbcd)} />
         </div>
 
         {dbMode && (
