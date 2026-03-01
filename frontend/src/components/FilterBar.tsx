@@ -289,16 +289,33 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                 </select>
               </div>
 
-              {priceRange && (
-                <div className="filter-panel-group filter-panel-group--price">
-                  <span className="filter-select-name">Cost</span>
-                  <div className="filter-panel-price-row">
-                    <span className="filter-price-val">{(filters.minCost ?? priceRange.min).toFixed(3)}</span>
-                    <PriceSlider fullWidth />
-                    <span className="filter-price-val">{(filters.maxCost ?? priceRange.max).toFixed(3)} ETH</span>
+              {priceRange && (() => {
+                const currentMin = filters.minCost ?? priceRange.min
+                const currentMax = filters.maxCost ?? priceRange.max
+                const span = priceRange.max - priceRange.min || 1
+                const leftPct  = ((currentMin - priceRange.min) / span) * 100
+                const rightPct = ((currentMax - priceRange.min) / span) * 100
+                const trackFill = `linear-gradient(to right, #2a2a2a ${leftPct}%, #888 ${leftPct}%, #888 ${rightPct}%, #2a2a2a ${rightPct}%)`
+                return (
+                  <div className="filter-panel-group">
+                    <span className="filter-select-name">Cost</span>
+                    <div className="filter-panel-price-row">
+                      <span className="filter-price-val">{currentMin.toFixed(3)}</span>
+                      <div className="filter-price-track" style={{ backgroundImage: trackFill, maxWidth: 'none', flex: 1 }}>
+                        <input type="range" aria-label="min cost" className="filter-price-range filter-price-range--min"
+                          min={priceRange.min} max={priceRange.max} step={(priceRange.max - priceRange.min) / 200} value={currentMin}
+                          onChange={e => { const v = Math.min(parseFloat(e.target.value), currentMax); onChange({ ...filters, minCost: v <= priceRange.min ? null : v }) }}
+                        />
+                        <input type="range" aria-label="max cost" className="filter-price-range filter-price-range--max"
+                          min={priceRange.min} max={priceRange.max} step={(priceRange.max - priceRange.min) / 200} value={currentMax}
+                          onChange={e => { const v = Math.max(parseFloat(e.target.value), currentMin); onChange({ ...filters, maxCost: v >= priceRange.max ? null : v }) }}
+                        />
+                      </div>
+                      <span className="filter-price-val">{currentMax.toFixed(3)} ETH</span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
 
             <div className="filter-panel-footer">
