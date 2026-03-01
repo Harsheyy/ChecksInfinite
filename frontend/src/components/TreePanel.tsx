@@ -103,7 +103,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelPr
           p_address: address.toLowerCase(),
           p_spent_eth: parseFloat(formatEther(totalPrice)),
           p_checks_count: 4,
-        }).then(() => {})
+        }).then(() => {}).catch(err => console.warn('[analytics] log_wallet_purchase failed:', err))
       }
     } catch {
       setBuyState('error')
