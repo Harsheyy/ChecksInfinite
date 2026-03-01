@@ -234,110 +234,181 @@ body {
   display: block;
 }
 
-/* ─── Tree modal ──────────────────────────────────────────── */
-.tree-modal-overlay {
+/* ─── Tree panel ──────────────────────────────────────────── */
+.tree-panel {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.88);
+  top: 0; right: 0;
+  width: 380px;
+  height: 100vh;
+  background: #111;
+  border-left: 1px solid #2a2a2a;
   z-index: 100;
   display: flex;
+  flex-direction: column;
+  animation: tree-panel-in 180ms ease-out;
+}
+
+@keyframes tree-panel-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.tree-panel-header {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
 }
 
-.tree-modal {
-  position: relative;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  max-width: 1100px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 2rem 1.5rem 1.5rem;
+.tree-panel-title {
+  font-size: 0.78rem;
+  color: #888;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tree-modal-close {
-  position: absolute;
-  top: 1rem; right: 1rem;
+.tree-panel-close {
   background: transparent;
   border: 1px solid #444;
   color: #aaa;
   border-radius: 3px;
-  width: 2rem; height: 2rem;
+  width: 1.75rem; height: 1.75rem;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
-.tree-modal-close:hover { border-color: #888; color: #eee; }
+.tree-panel-close:hover { border-color: #888; color: #eee; }
 
-.tree-modal-title {
-  font-size: 0.85rem;
-  color: #888;
-  margin-bottom: 1.5rem;
-  letter-spacing: 0.05em;
+.tree-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ─── Tree layout (inside modal) ─────────────────────────── */
+/* ─── Tree layout inside panel ────────────────────────────── */
 .tree-layout {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2rem;
   padding: 1rem;
+  gap: 0;
+  flex: 1;
 }
 
-.tree-row {
+/* Two branches side by side */
+.tree-row-leaves {
   display: flex;
+  gap: 1rem;
+  width: 100%;
   justify-content: center;
-  gap: 3rem;
+}
+
+/* Each branch: pair of leaf cards → connector → L1 card → connector */
+.tree-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+/* Two leaf cards side by side within a branch */
+.tree-branch-pair {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  position: relative;
+  padding-bottom: 0;
+}
+/* Horizontal bar connecting the pair to their L1 */
+.tree-branch-pair::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 25%; right: 25%;
+  height: 1px;
+  background: #333;
+}
+
+/* Vertical drop from pair to L1 */
+.tree-connector-v {
+  width: 1px;
+  height: 16px;
+  background: #333;
+}
+
+/* Horizontal merge from both L1s to the final */
+.tree-connector-merge {
+  position: relative;
+  width: 60%;
+  height: 16px;
+  margin: 0 auto;
+}
+.tree-connector-merge::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: #333;
+}
+.tree-connector-merge::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%; transform: translateX(-50%);
+  width: 1px;
+  background: #333;
+}
+
+/* ─── Sticky buy footer ────────────────────────────────────── */
+.tree-panel-footer {
+  position: sticky;
+  bottom: 0;
+  background: #111;
+  border-top: 1px solid #222;
+  padding: 0.75rem 1rem;
+}
+
+/* ─── Check card (inside panel) ───────────── */
+.check-card {
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   width: 100%;
 }
 
-.tree-pair { display: flex; gap: 1rem; }
-.tree-node-centered { display: flex; justify-content: center; }
-.tree-row-l1 { gap: 8rem; }
-.tree-row-l2 { justify-content: center; }
-
-/* ─── Check card (inside modal) ──────────────────────────── */
-.check-card {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.check-card-label-row { display: flex; align-items: baseline; gap: 0.5rem; }
-.check-card-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; }
-.check-card-sublabel { font-size: 0.7rem; color: #888; margin-left: auto; }
-.check-card-name  { font-size: 0.95rem; color: #ccc; }
+.check-card-label-row { display: flex; align-items: baseline; gap: 0.35rem; }
+.check-card-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; }
+.check-card-sublabel { font-size: 0.62rem; color: #777; margin-left: auto; }
+.check-card-name  { font-size: 0.82rem; color: #bbb; }
 .check-card-svg svg { width: 100%; height: auto; display: block; }
-.check-card-attrs { display: flex; flex-direction: column; gap: 0.3rem; }
-.check-card-attr  { display: flex; justify-content: space-between; font-size: 0.8rem; }
-.check-card-attr dt { color: #666; }
-.check-card-attr dd { color: #ddd; }
-.check-card-loading { color: #666; font-size: 0.85rem; }
-.check-card-error   { color: #f87171; font-size: 0.82rem; line-height: 1.4; }
+.check-card-attrs { display: flex; flex-direction: column; gap: 0.2rem; }
+.check-card-attr  { display: flex; justify-content: space-between; font-size: 0.72rem; }
+.check-card-attr dt { color: #555; }
+.check-card-attr dd { color: #ccc; }
+.check-card-loading { color: #555; font-size: 0.78rem; }
+.check-card-error   { color: #f87171; font-size: 0.75rem; line-height: 1.4; }
 
-/* ─── Tree modal — buy row ────────────────────────────────── */
-.tree-buy-row {
-  display: flex;
-  justify-content: center;
-  padding-top: 0.5rem;
-}
-
+/* ─── Buy button ───────────────────────────────────────────── */
 .tree-buy-btn {
+  width: 100%;
   background: #eee;
   color: #111;
   border: none;
   border-radius: 3px;
-  padding: 0.5rem 1.5rem;
+  padding: 0.55rem 1rem;
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: bold;
