@@ -11,10 +11,12 @@ import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase } from './supabaseClient'
 import { hasAlchemyKey } from './client'
 import { parseIds, validateIds } from './utils'
+import { useWalletTracking } from './useWalletTracking'
 
 export default function App() {
   const dbMode = hasSupabase()
   const { address, isConnected } = useAccount()
+  useWalletTracking(address, isConnected)
 
   // ── View mode (only relevant in dbMode) ──────────────────────────────────
   const [viewMode, setViewMode] = useState<'token-works' | 'my-checks'>('token-works')
