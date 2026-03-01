@@ -9,9 +9,11 @@ interface NavbarProps {
   error: string
   dbMode?: boolean
   dbTotal?: number
+  viewMode?: 'token-works' | 'my-checks'
+  onViewModeChange?: (mode: 'token-works' | 'my-checks') => void
 }
 
-export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode }: NavbarProps) {
+export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
@@ -63,6 +65,18 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode }: 
       <button type="button" className="nav-wallet" onClick={handleWallet}>
         {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Connect Wallet'}
       </button>
+      {viewMode && onViewModeChange && (
+        <div className="view-toggle">
+          <button
+            className={`view-toggle-btn${viewMode === 'token-works' ? ' view-toggle-btn--active' : ''}`}
+            onClick={() => onViewModeChange('token-works')}
+          >Token Works</button>
+          <button
+            className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
+            onClick={() => onViewModeChange('my-checks')}
+          >My Checks</button>
+        </div>
+      )}
     </nav>
   )
 }

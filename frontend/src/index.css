@@ -96,6 +96,35 @@ body {
 }
 .nav-wallet:hover { border-color: #555; color: #999; }
 
+/* ─── View mode toggle ─────────────────────────────────────── */
+.view-toggle {
+  display: flex;
+  border: 1px solid #333;
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.view-toggle-btn:hover { color: #aaa; }
+.view-toggle-btn--active {
+  background: #eee;
+  color: #111;
+  font-weight: bold;
+}
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid #333;
+}
+
 /* ─── Filter strip ────────────────────────────────────────── */
 .filter-strip {
   position: fixed;
