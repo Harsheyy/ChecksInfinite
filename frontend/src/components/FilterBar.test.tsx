@@ -254,4 +254,21 @@ describe('FilterBar', () => {
     const options = Array.from(colorBandSelect.querySelectorAll('option')).map(o => o.value).filter(v => v !== '')
     expect(options).toEqual(['Eighty','Sixty','Forty','Twenty','Ten','Five','One'])
   })
+
+  it('mobile panel shows counts and hides zero-count options', () => {
+    const perms = [
+      makePermutation('Eighty', '20'),
+      makePermutation('Eighty', '20'),
+    ]
+    render(<FilterBar filters={emptyFilters()} onChange={vi.fn()} visible={2} permutations={perms} />)
+    // Open mobile panel
+    fireEvent.click(screen.getByText('Filters'))
+    // After panel opens, there are 10 comboboxes total: 5 desktop + 5 panel
+    // Color Band is index 1 desktop, index 6 panel (5 + 1)
+    const selects = screen.getAllByRole('combobox')
+    const panelColorBandSelect = selects[6]
+    const options = Array.from(panelColorBandSelect.querySelectorAll('option')).map(o => o.textContent)
+    expect(options).toContain('Eighty (2)')
+    expect(options.some(t => t?.startsWith('Sixty'))).toBe(false)
+  })
 })
