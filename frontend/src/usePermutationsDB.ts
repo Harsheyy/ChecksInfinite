@@ -212,6 +212,20 @@ export function usePermutationsDB() {
       if (filters.speed)     q = q.eq('abcd_speed',      filters.speed)
       if (filters.shift)     q = q.eq('abcd_shift',      filters.shift)
 
+      const idList = filters.idInput.trim()
+        ? filters.idInput.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0)
+        : []
+
+      if (idList.length > 0) {
+        const useAnd = idList.length >= 4 && filters.idMode === 'and'
+        if (useAnd) {
+          q = q.in('keeper_1_id', idList).in('burner_1_id', idList).in('keeper_2_id', idList).in('burner_2_id', idList)
+        } else {
+          const ids = idList.join(',')
+          q = q.or(`keeper_1_id.in.(${ids}),burner_1_id.in.(${ids}),keeper_2_id.in.(${ids}),burner_2_id.in.(${ids})`)
+        }
+      }
+
       const { data, error, count } = await q
       if (error) throw error
 
