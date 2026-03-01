@@ -57,7 +57,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelPr
   }, [onClose])
 
   // ── Buy all 4 (DB mode only) ───────────────────────────────────────────────
-  const { isConnected } = useAccount()
+  const { address, isConnected } = useAccount()
   const tokenIdsBigInt = useMemo(
     () => [id0, id1, id2, id3].map(BigInt),
     [id0, id1, id2, id3]
@@ -98,6 +98,13 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelPr
         })
       }
       setBuyState('done')
+      if (supabase && address && totalPrice !== null) {
+        supabase.rpc('log_wallet_purchase', {
+          p_address: address.toLowerCase(),
+          p_spent_eth: parseFloat(formatEther(totalPrice)),
+          p_checks_count: 4,
+        }).then(() => {})
+      }
     } catch {
       setBuyState('error')
     }
