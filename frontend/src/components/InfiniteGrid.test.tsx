@@ -41,14 +41,14 @@ describe('InfiniteGrid', () => {
     expect(cards.length).toBe(9)
   })
 
-  it('opens TreeModal when a card is clicked', () => {
+  it('opens TreePanel when a card is clicked', () => {
     const perms = [makePermutation('A▸B, C▸D')]
     const { container } = renderGrid({
       permutations: perms, ids: ['1','2','3','4'], showFlags: [true],
     })
     const card = container.querySelector('.perm-card') as HTMLElement
     fireEvent.click(card)
-    expect(document.querySelector('.tree-modal-overlay')).toBeTruthy()
+    expect(document.querySelector('.tree-panel')).toBeTruthy()
   })
 
   it('adds grid-viewport--with-filters class when hasFilters is true', () => {

@@ -1,7 +1,7 @@
 // frontend/src/components/InfiniteGrid.tsx
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PermutationCard } from './PermutationCard'
-import { TreeModal } from './TreeModal'
+import { TreePanel } from './TreePanel'
 import type { PermutationResult } from '../useAllPermutations'
 
 const CARD     = 160
@@ -110,7 +110,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode 
           </div>
         </div>
         {selectedPerm && (
-          <TreeModal result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
+          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
         )}
       </>
     )
@@ -175,7 +175,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode 
         </div>
       </div>
       {selectedPerm && (
-        <TreeModal result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
+        <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
       )}
     </>
   )
