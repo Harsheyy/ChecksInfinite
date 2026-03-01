@@ -86,7 +86,7 @@ body {
   background: transparent;
   border: 1px solid #333;
   border-radius: 3px;
-  color: #666;
+  color: #999;
   font-family: inherit;
   font-size: 0.75rem;
   padding: 0.3rem 0.75rem;
@@ -120,7 +120,7 @@ body {
 }
 
 .filter-select-name {
-  color: #666;
+  color: #999;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -140,7 +140,7 @@ body {
 .filter-count {
   margin-left: auto;
   font-size: 0.7rem;
-  color: #555;
+  color: #888;
   white-space: nowrap;
 }
 
@@ -390,13 +390,13 @@ body {
 }
 
 .check-card-label-row { display: flex; align-items: baseline; gap: 0.35rem; }
-.check-card-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; }
-.check-card-sublabel { font-size: 0.62rem; color: #777; margin-left: auto; }
+.check-card-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
+.check-card-sublabel { font-size: 0.62rem; color: #aaa; margin-left: auto; }
 .check-card-name  { font-size: 0.82rem; color: #bbb; }
 .check-card-svg svg { width: 100%; height: auto; display: block; }
 .check-card-attrs { display: flex; flex-direction: column; gap: 0.2rem; }
 .check-card-attr  { display: flex; justify-content: space-between; font-size: 0.72rem; }
-.check-card-attr dt { color: #555; }
+.check-card-attr dt { color: #888; }
 .check-card-attr dd { color: #ccc; }
 .check-card-loading { color: #555; font-size: 0.78rem; }
 .check-card-error   { color: #f87171; font-size: 0.75rem; line-height: 1.4; }

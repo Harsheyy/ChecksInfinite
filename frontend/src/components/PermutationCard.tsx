@@ -29,11 +29,13 @@ export function PermutationCard({ result, visible, onClick }: PermutationCardPro
     return <div className="perm-card-spacer" ref={cardRef} />
   }
 
+  const svgReady = !nodeAbcd.loading && !nodeAbcd.error && inView && !!nodeAbcd.svg
+
   return (
     <div className="perm-card" ref={cardRef} onClick={onClick}>
-      {nodeAbcd.loading && <div className="perm-card-pulse" />}
-      {nodeAbcd.error && !nodeAbcd.loading && <div className="perm-card-error">✕</div>}
-      {!nodeAbcd.loading && !nodeAbcd.error && inView && nodeAbcd.svg && (
+      {!svgReady && !nodeAbcd.error && <div className="perm-card-pulse" />}
+      {nodeAbcd.error && <div className="perm-card-error">✕</div>}
+      {svgReady && (
         <div className="perm-card-svg" dangerouslySetInnerHTML={{ __html: nodeAbcd.svg }} />
       )}
     </div>
