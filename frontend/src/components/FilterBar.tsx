@@ -138,11 +138,15 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
         {priceRange && (() => {
           const currentMin = filters.minCost ?? priceRange.min
           const currentMax = filters.maxCost ?? priceRange.max
+          const span = priceRange.max - priceRange.min || 1
+          const leftPct  = ((currentMin - priceRange.min) / span) * 100
+          const rightPct = ((currentMax - priceRange.min) / span) * 100
+          const trackFill = `linear-gradient(to right, #2a2a2a ${leftPct}%, #888 ${leftPct}%, #888 ${rightPct}%, #2a2a2a ${rightPct}%)`
           return (
             <>
               <span className="filter-select-name">Cost</span>
               <span className="filter-price-val">{currentMin.toFixed(3)}</span>
-              <div className="filter-price-track">
+              <div className="filter-price-track" style={{ backgroundImage: trackFill }}>
                 <input
                   type="range"
                   aria-label="min cost"
@@ -152,7 +156,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                   step={(priceRange.max - priceRange.min) / 200}
                   value={currentMin}
                   onChange={e => {
-                    const v = parseFloat(e.target.value)
+                    const v = Math.min(parseFloat(e.target.value), currentMax)
                     onChange({ ...filters, minCost: v <= priceRange.min ? null : v })
                   }}
                 />
@@ -165,7 +169,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange }:
                   step={(priceRange.max - priceRange.min) / 200}
                   value={currentMax}
                   onChange={e => {
-                    const v = parseFloat(e.target.value)
+                    const v = Math.max(parseFloat(e.target.value), currentMin)
                     onChange({ ...filters, maxCost: v >= priceRange.max ? null : v })
                   }}
                 />

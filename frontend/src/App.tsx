@@ -38,8 +38,11 @@ export default function App() {
 
   useEffect(() => {
     if (!dbMode || viewMode !== 'token-works') return
-    if (activeFilters) load(filters)
-    else loadRandom()
+    if (activeFilters) {
+      const t = setTimeout(() => load(filters), 300)
+      return () => clearTimeout(t)
+    }
+    loadRandom()
   }, [dbMode, viewMode, filters])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── My Checks mode ────────────────────────────────────────────────────────

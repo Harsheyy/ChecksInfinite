@@ -162,6 +162,11 @@ body {
   height: 20px;
   display: flex;
   align-items: center;
+  /* fill gradient rendered here, sized to the 4px track line */
+  background-repeat: no-repeat;
+  background-position: 0 50%;
+  background-size: 100% 4px;
+  border-radius: 2px;
 }
 
 .filter-price-range {
@@ -189,7 +194,7 @@ body {
 }
 
 .filter-price-range::-webkit-slider-runnable-track {
-  background: #333;
+  background: transparent;
   height: 4px;
   border-radius: 2px;
 }
