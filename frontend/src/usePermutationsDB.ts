@@ -241,7 +241,8 @@ export function usePermutationsDB() {
         total: count ?? 0,
       })
     } catch (e) {
-      setState(prev => ({ ...prev, loading: false, error: String(e) }))
+      const msg = (e as { message?: string })?.message ?? String(e)
+      setState(prev => ({ ...prev, loading: false, error: msg }))
     }
   }, [])
 
@@ -293,7 +294,8 @@ export function usePermutationsDB() {
         total,
       })
     } catch (e) {
-      setState(prev => ({ ...prev, loading: false, error: String(e) }))
+      const msg = (e as { message?: string })?.message ?? String(e)
+      setState(prev => ({ ...prev, loading: false, error: msg }))
     }
   }, [])
 
