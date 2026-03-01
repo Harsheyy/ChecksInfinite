@@ -26,7 +26,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
   // Lazy-load individual check SVGs (DB mode omits them from the grid query)
   const [liveSvgs, setLiveSvgs] = useState<Record<string, string>>({})
   useEffect(() => {
-    if (!supabase || nodeA.svg) return
+    if (!supabase || !dbMode || nodeA.svg) return
     const tokenIds = [id0, id1, id2, id3].map(Number)
     supabase
       .from('tokenstr_checks')
