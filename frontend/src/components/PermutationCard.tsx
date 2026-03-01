@@ -9,7 +9,7 @@ interface PermutationCardProps {
 }
 
 export function PermutationCard({ result, visible, onClick }: PermutationCardProps) {
-  const { nodeAbcd, def } = result
+  const { nodeAbcd } = result
   const cardRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(false)
 
