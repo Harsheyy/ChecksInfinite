@@ -13,13 +13,14 @@ interface TreePanelProps {
   ids: string[]
   onClose: () => void
   dbMode?: boolean
+  hideBuy?: boolean
 }
 
 function cardProps(card: CardState, svgOverride?: string, attrsOverride?: Attribute[]) {
   return { name: card.name, svg: svgOverride ?? card.svg, attributes: attrsOverride ?? card.attributes, loading: card.loading, error: card.error }
 }
 
-export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
+export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelProps) {
   const { def, nodeA, nodeB, nodeC, nodeD, nodeL1a, nodeL1b, nodeAbcd } = result
   const [p0, p1, p2, p3] = def.indices
   const [id0, id1, id2, id3] = def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
@@ -103,7 +104,7 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
   }
 
   function priceLabel(i: number): string | undefined {
-    if (!dbMode || prices[i] == null) return undefined
+    if (!dbMode || hideBuy || prices[i] == null) return undefined
     return `${parseFloat(formatEther(prices[i]!)).toFixed(3)} ETH`
   }
 
@@ -159,10 +160,10 @@ export function TreePanel({ result, ids, onClose, dbMode }: TreePanelProps) {
           <div className="tree-connector-merge" />
 
           {/* Final result — attributes in hover tooltip */}
-          <CheckCard hideAttrs tooltip label="Final Composite" {...cardProps(nodeAbcd)} />
+          <CheckCard label="Final Composite" {...cardProps(nodeAbcd)} />
         </div>
 
-        {dbMode && (
+        {dbMode && !hideBuy && (
           <div className="tree-panel-footer">
             <button
               className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}

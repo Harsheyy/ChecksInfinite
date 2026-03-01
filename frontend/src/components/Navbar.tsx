@@ -62,9 +62,6 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
         )}
         {error && <div className="nav-error">{error}</div>}
       </div>
-      <button type="button" className="nav-wallet" onClick={handleWallet}>
-        {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Connect Wallet'}
-      </button>
       {viewMode && onViewModeChange && (
         <div className="view-toggle">
           <button
@@ -77,6 +74,9 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
           >My Checks</button>
         </div>
       )}
+      <button type="button" className="nav-wallet" onClick={handleWallet}>
+        {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Connect Wallet'}
+      </button>
     </nav>
   )
 }

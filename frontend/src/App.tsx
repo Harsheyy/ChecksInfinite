@@ -142,6 +142,7 @@ export default function App() {
         showFlags={showFlags}
         hasFilters={showFilters}
         dbMode={dbMode}
+        hideBuy={isMyChecksMode}
       />
       {(dbMode && (isMyChecksMode ? myChecks.loading : dbState.loading)) && (
         <div style={{

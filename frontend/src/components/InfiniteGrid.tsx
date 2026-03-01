@@ -16,9 +16,10 @@ interface Props {
   showFlags: boolean[]
   hasFilters?: boolean
   dbMode?: boolean
+  hideBuy?: boolean
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode, hideBuy }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -110,7 +111,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode 
           </div>
         </div>
         {selectedPerm && (
-          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
+          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} />
         )}
       </>
     )
@@ -175,7 +176,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode 
         </div>
       </div>
       {selectedPerm && (
-        <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} />
+        <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} />
       )}
     </>
   )
