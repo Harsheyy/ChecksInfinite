@@ -128,6 +128,7 @@ CREATE OR REPLACE FUNCTION toggle_like(
 RETURNS TABLE (output_id bigint, like_count bigint, user_liked boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_output_id  bigint;

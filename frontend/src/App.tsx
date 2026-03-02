@@ -90,10 +90,11 @@ export default function App() {
     }
   }, [searchWalletEnabled, searchChecks.loading, searchChecks.checks])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!dbMode || viewMode !== 'curated') return
     loadCurated(filters, walletOnly, address?.toLowerCase())
-  }, [dbMode, viewMode, walletOnly])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])
 
   useEffect(() => {
     if (!curatedState.outputs.length) return
@@ -131,6 +132,7 @@ export default function App() {
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
+    // 'curated' is a view mode, not a source — likes from the curated page attribute to 'token-works'
     const rpcSource = source === 'curated' ? 'token-works' : source
 
     const wasLiked  = likedKeys.has(key)
