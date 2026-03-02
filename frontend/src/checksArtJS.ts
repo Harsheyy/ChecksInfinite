@@ -199,7 +199,7 @@ export function colorIndexes(
     const parentIndexes = colorIndexes(previousDivisor, check, virtualMap)
 
     const compositeCheck = virtualMap.get(check.composite)
-    if (!compositeCheck) throw new Error(`Virtual map missing key: ${check.composite}`)
+    if (!compositeCheck) return parentIndexes
     const compositedIndexes = colorIndexes(previousDivisor, compositeCheck, virtualMap)
 
     const count = DIVISORS[previousDivisor]
