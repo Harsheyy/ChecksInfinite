@@ -91,11 +91,15 @@ interface FilterBarProps {
   onShuffle?: () => void
   priceRange?: { min: number; max: number }
   permutations?: PermutationResult[]  // visible permutations for counts
+  curatedMode?: boolean
+  walletOnly?: boolean
+  onWalletOnlyChange?: (v: boolean) => void
+  isConnected?: boolean
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -238,6 +242,22 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
       <div className="filter-strip">
         {/* ── Desktop: inline row ── */}
         <div className="filter-row">
+          {curatedMode && (
+            <div className="filter-curated-toggle">
+              <button
+                type="button"
+                className={`filter-mode-btn${!walletOnly ? ' filter-mode-btn--active' : ''}`}
+                onClick={() => onWalletOnlyChange?.(false)}
+              >Community</button>
+              <button
+                type="button"
+                className={`filter-mode-btn${walletOnly ? ' filter-mode-btn--active' : ''}`}
+                onClick={() => isConnected && onWalletOnlyChange?.(true)}
+                title={!isConnected ? 'Connect wallet to see your likes' : undefined}
+                disabled={!isConnected}
+              >Mine</button>
+            </div>
+          )}
           <label className="filter-select-label">
             <span className="filter-select-name">IDs</span>
             <input
@@ -319,6 +339,25 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
             </div>
 
             <div className="filter-panel-body">
+              {curatedMode && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">View</span>
+                  <div className="filter-mode-toggle">
+                    <button
+                      type="button"
+                      className={`filter-mode-btn${!walletOnly ? ' filter-mode-btn--active' : ''}`}
+                      onClick={() => onWalletOnlyChange?.(false)}
+                    >Community</button>
+                    <button
+                      type="button"
+                      className={`filter-mode-btn${walletOnly ? ' filter-mode-btn--active' : ''}`}
+                      onClick={() => isConnected && onWalletOnlyChange?.(true)}
+                      title={!isConnected ? 'Connect wallet to see your likes' : undefined}
+                      disabled={!isConnected}
+                    >Mine</button>
+                  </div>
+                </div>
+              )}
               <div className="filter-panel-group">
                 <span className="filter-select-name">IDs</span>
                 <input

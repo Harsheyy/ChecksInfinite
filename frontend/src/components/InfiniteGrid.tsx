@@ -1,6 +1,6 @@
 // frontend/src/components/InfiniteGrid.tsx
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { PermutationCard } from './PermutationCard'
+import { PermutationCard, type LikeInfo } from './PermutationCard'
 import { TreePanel } from './TreePanel'
 import type { PermutationResult } from '../useAllPermutations'
 
@@ -18,9 +18,10 @@ interface Props {
   dbMode?: boolean
   hideBuy?: boolean
   filtersTall?: boolean
+  getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode, hideBuy, filtersTall }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode, hideBuy, filtersTall, getLikeInfo }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -122,6 +123,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
                 result={perm}
                 visible={true}
                 onClick={() => setSelected(i)}
+                likeInfo={getLikeInfo?.(perm)}
               />
             ))}
           </div>
@@ -172,6 +174,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
                 result={visible[i]}
                 visible={true}
                 onClick={() => setSelected(i)}
+                likeInfo={getLikeInfo?.(visible[i])}
               />
             </div>
           )

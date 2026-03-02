@@ -1,7 +1,7 @@
 import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 
-type ViewMode = 'token-works' | 'my-checks' | 'search-wallet'
+type ViewMode = 'token-works' | 'my-checks' | 'curated' | 'search-wallet'
 
 interface NavbarProps {
   ids: string
@@ -78,11 +78,17 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
               className={`view-toggle-btn${viewMode === 'token-works' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('token-works')}
             >Token Works</button>
+            {isConnected && (
+              <button
+                className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
+                onClick={() => onViewModeChange('my-checks')}
+              >My Checks</button>
+            )}
             <button
-              className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
-              onClick={() => onViewModeChange('my-checks')}
-            >My Checks</button>
-            {showSearchWallet && (
+              className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
+              onClick={() => onViewModeChange('curated')}
+            >Curated Checks</button>
+            {isConnected && showSearchWallet && (
               <button
                 className={`view-toggle-btn${viewMode === 'search-wallet' ? ' view-toggle-btn--active' : ''}`}
                 onClick={() => onViewModeChange('search-wallet')}
