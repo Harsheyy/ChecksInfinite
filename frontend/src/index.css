@@ -256,6 +256,11 @@ body {
 .filter-mobile-trigger--active { color: #bbb; }
 .filter-mobile-trigger:hover { color: #aaa; }
 
+@media (max-width: 768px) {
+  .filter-panel { width: 100%; border-left: none; }
+  .tree-panel   { width: 100%; }
+}
+
 @media (max-width: 900px) {
   .filter-row        { display: none; }
   .filter-mobile-bar { display: flex; }
