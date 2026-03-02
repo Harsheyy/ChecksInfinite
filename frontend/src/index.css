@@ -256,7 +256,7 @@ body {
 .filter-mobile-trigger--active { color: #bbb; }
 .filter-mobile-trigger:hover { color: #aaa; }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .filter-panel { width: 100%; border-left: none; }
   .tree-panel   { width: 100%; }
 }
