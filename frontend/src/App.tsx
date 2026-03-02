@@ -5,13 +5,17 @@ import { Navbar } from './components/Navbar'
 import { FilterBar, emptyFilters, matchesFilters, type Filters } from './components/FilterBar'
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
+import type { PermutationResult } from './useAllPermutations'
 import { usePermutationsDB, usePriceBounds } from './usePermutationsDB'
 import { useMyChecks } from './useMyChecks'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
-import { hasSupabase } from './supabaseClient'
+import { hasSupabase, supabase } from './supabaseClient'
 import { hasAlchemyKey } from './client'
 import { parseIds, validateIds } from './utils'
 import { useWalletTracking } from './useWalletTracking'
+import { useCuratedOutputs, type CuratedPermutationResult } from './useCuratedOutputs'
+import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
+import type { LikeInfo } from './components/PermutationCard'
 
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
 
@@ -25,14 +29,14 @@ export default function App() {
   useWalletTracking(address, isConnected)
 
   // ── View mode (only relevant in dbMode) ──────────────────────────────────
-  const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'search-wallet'>('token-works')
+  const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'curated' | 'search-wallet'>('token-works')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
 
   // Reset to token-works when wallet disconnects
   useEffect(() => {
-    if (!isConnected) setViewMode('token-works')
+    if (!isConnected) { setViewMode('token-works'); setWalletOnly(false) }
   }, [isConnected])
 
   // ── Chain mode state ──────────────────────────────────────────────────────
@@ -61,6 +65,14 @@ export default function App() {
   const searchChecks = useMyChecks(searchWalletEnabled ? searchWalletAddress : undefined, searchWalletEnabled)
   const searchCheckPerms = useMyCheckPermutations(searchChecks.checks)
 
+  // ── Curated mode ──────────────────────────────────────────────────────────────
+  const [walletOnly, setWalletOnly] = useState(false)
+  const { state: curatedState, load: loadCurated } = useCuratedOutputs()
+
+  // ── Like state (across all modes) ────────────────────────────────────────────
+  const { likedKeys, setLikedKeys } = useMyLikedKeys(address?.toLowerCase())
+  const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map())
+
   // ── Price bounds (DB / Token Works mode only) ─────────────────────────────
   const priceBoundsEnabled = false
   const priceBounds = usePriceBounds(priceBoundsEnabled)
@@ -77,6 +89,25 @@ export default function App() {
       searchCheckPerms.generate()
     }
   }, [searchWalletEnabled, searchChecks.loading, searchChecks.checks])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!dbMode || viewMode !== 'curated') return
+    loadCurated(filters, walletOnly, address?.toLowerCase())
+  }, [dbMode, viewMode, walletOnly])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!curatedState.outputs.length) return
+    const newCounts = new Map<string, number>()
+    const newLiked  = new Set(likedKeys)
+    for (const o of curatedState.outputs) {
+      const [k1, b1, k2, b2] = o.def.tokenIds!
+      const key = likedKey(k1, b1, k2, b2)
+      newCounts.set(key, o.likeCount)
+      if ((o as CuratedPermutationResult).userLiked) newLiked.add(key)
+    }
+    setLikeCounts(newCounts)
+    setLikedKeys(newLiked)
+  }, [curatedState.outputs])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chain mode handlers ───────────────────────────────────────────────────
   const ids = useMemo(() => parseIds(idsRaw), [idsRaw])
@@ -95,21 +126,92 @@ export default function App() {
     else shuffleDB()
   }
 
+  async function handleToggleLike(result: PermutationResult, source: 'token-works' | 'my-checks' | 'search-wallet' | 'curated') {
+    if (!address || !supabase) return
+    const [k1, b1, k2, b2] = result.def.tokenIds!
+    const key = likedKey(k1, b1, k2, b2)
+    const wallet = address.toLowerCase()
+    const rpcSource = source === 'curated' ? 'token-works' : source
+
+    const wasLiked  = likedKeys.has(key)
+    const prevCount = likeCounts.get(key) ?? 0
+    setLikedKeys(prev => {
+      const next = new Set(prev)
+      wasLiked ? next.delete(key) : next.add(key)
+      return next
+    })
+    setLikeCounts(prev => {
+      const next = new Map(prev)
+      next.set(key, wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1)
+      return next
+    })
+
+    const attrs = result.nodeAbcd.attributes
+    const getAttr = (t: string) => attrs.find(a => a.trait_type === t)?.value as string | undefined
+
+    const { error } = await supabase.rpc('toggle_like', {
+      p_keeper_1_id:     parseInt(k1),
+      p_burner_1_id:     parseInt(b1),
+      p_keeper_2_id:     parseInt(k2),
+      p_burner_2_id:     parseInt(b2),
+      p_wallet:          wallet,
+      p_source:          rpcSource,
+      p_abcd_checks:     parseInt(getAttr('Checks') ?? '0'),
+      p_abcd_color_band: getAttr('Color Band') ?? '',
+      p_abcd_gradient:   getAttr('Gradient') ?? '',
+      p_abcd_speed:      getAttr('Speed') ?? '',
+      p_abcd_shift:      getAttr('Shift') ?? null,
+    })
+
+    if (error) {
+      setLikedKeys(prev => {
+        const next = new Set(prev)
+        wasLiked ? next.add(key) : next.delete(key)
+        return next
+      })
+      setLikeCounts(prev => {
+        const next = new Map(prev)
+        next.set(key, prevCount)
+        return next
+      })
+      console.error('toggle_like failed:', error)
+    }
+  }
+
+  function getLikeInfo(result: PermutationResult): LikeInfo | undefined {
+    if (!isConnected || !dbMode) return undefined
+    const [k1, b1, k2, b2] = result.def.tokenIds ?? []
+    if (!k1) return undefined
+    const key = likedKey(k1, b1, k2, b2)
+    const isCurated = viewMode === 'curated'
+    return {
+      isLiked:    likedKeys.has(key),
+      likeCount:  isCurated ? (likeCounts.get(key) ?? 0) : undefined,
+      alwaysShow: isCurated,
+      onLike:     () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated'),
+    }
+  }
+
   // ── Derive display values ─────────────────────────────────────────────────
   const isMyChecksMode = dbMode && viewMode === 'my-checks'
   const isSearchWalletMode = dbMode && viewMode === 'search-wallet'
+  const isCuratedMode = dbMode && viewMode === 'curated'
 
-  const permutations = isSearchWalletMode
-    ? searchCheckPerms.permutations
-    : isMyChecksMode
-      ? myCheckPerms.permutations
-      : dbMode ? dbState.permutations : chainState.permutations
+  const permutations = isCuratedMode
+    ? curatedState.outputs
+    : isSearchWalletMode
+      ? searchCheckPerms.permutations
+      : isMyChecksMode
+        ? myCheckPerms.permutations
+        : dbMode ? dbState.permutations : chainState.permutations
 
-  const isLoading = isSearchWalletMode
-    ? searchChecks.loading
-    : isMyChecksMode
-      ? myChecks.loading
-      : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
+  const isLoading = isCuratedMode
+    ? curatedState.loading
+    : isSearchWalletMode
+      ? searchChecks.loading
+      : isMyChecksMode
+        ? myChecks.loading
+        : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
   const showFlags = permutations.map(p => {
     if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
@@ -121,13 +223,15 @@ export default function App() {
   const visibleCount = showFlags.filter(Boolean).length
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
-  const showFilters = isSearchWalletMode
-    ? searchCheckPerms.permutations.length > 0
-    : isMyChecksMode
-      ? myCheckPerms.permutations.length > 0
-      : dbMode
-        ? dbState.permutations.length > 0 || dbState.loading
-        : permutations.length > 0
+  const showFilters = isCuratedMode
+    ? curatedState.outputs.length > 0 || curatedState.loading
+    : isSearchWalletMode
+      ? searchCheckPerms.permutations.length > 0
+      : isMyChecksMode
+        ? myCheckPerms.permutations.length > 0
+        : dbMode
+          ? dbState.permutations.length > 0 || dbState.loading
+          : permutations.length > 0
 
   const myChecksError = isMyChecksMode
     ? (myChecks.error || (myChecks.tokenIds.length === 0 && !myChecks.loading ? 'No Checks VV tokens found in this wallet.' : ''))
@@ -151,8 +255,8 @@ export default function App() {
         error={navbarError}
         dbMode={dbMode}
         dbTotal={dbMode ? dbState.total : undefined}
-        viewMode={dbMode && isConnected ? viewMode : undefined}
-        onViewModeChange={dbMode && isConnected ? setViewMode : undefined}
+        viewMode={dbMode ? viewMode : undefined}
+        onViewModeChange={dbMode ? setViewMode : undefined}
         showSearchWallet={dbMode && isConnected ? showSearchWallet : false}
         searchWalletAddress={searchWalletAddress}
         onSearchWalletAddressChange={setSearchWalletAddress}
@@ -162,9 +266,13 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           visible={visibleCount}
-          onShuffle={(isMyChecksMode || dbMode) ? handleShuffle : undefined}
+          onShuffle={(!isCuratedMode && (isMyChecksMode || dbMode)) ? handleShuffle : undefined}
           priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
           permutations={visiblePermutations}
+          curatedMode={isCuratedMode}
+          walletOnly={walletOnly}
+          onWalletOnlyChange={setWalletOnly}
+          isConnected={isConnected}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
@@ -187,14 +295,20 @@ export default function App() {
           No permutations match these filters.
         </div>
       )}
+      {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+          {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
+        </div>
+      )}
       <InfiniteGrid
         permutations={permutations}
         ids={ids}
         showFlags={showFlags}
         hasFilters={showFilters}
         dbMode={dbMode}
-        hideBuy={isMyChecksMode || isSearchWalletMode}
+        hideBuy={isMyChecksMode || isSearchWalletMode || isCuratedMode}
         filtersTall={false}
+        getLikeInfo={dbMode ? getLikeInfo : undefined}
       />
       {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : dbState.loading)) && (
         <div style={{
