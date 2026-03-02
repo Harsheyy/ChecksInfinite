@@ -210,9 +210,18 @@ export function usePermutationsDB() {
 
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
+      const { count } = await supabase
+        .from('permutations')
+        .select('*', { count: 'exact', head: true })
+
+      const total  = count ?? 0
+      const offset = total > RANDOM_TOTAL ? Math.floor(Math.random() * (total - RANDOM_TOTAL)) : 0
+
       const { data, error } = await supabase
-        .rpc('get_random_permutations', { row_count: RANDOM_TOTAL })
-        .limit(RANDOM_TOTAL)
+        .from('permutations')
+        .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift')
+        .order('rand_key')
+        .range(offset, offset + RANDOM_TOTAL - 1)
 
       if (error) throw error
 

@@ -55,6 +55,7 @@ interface PermutationRow {
   abcd_speed:      string | null
   abcd_shift:      string | null
   rank_score:      number
+  rand_key:        number
 }
 
 // ─── Eligibility & scoring ────────────────────────────────────────────────────
@@ -225,6 +226,7 @@ function computePermutation(
     abcd_speed:      getAttr('Speed'),
     abcd_shift:      getAttr('Shift'),
     rank_score:      computeRankScore([s0, s1, s2, s3]),
+    rand_key:        Math.random(),
   }
 }
 
