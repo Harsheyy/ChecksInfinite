@@ -140,6 +140,7 @@ async function main() {
 
       const batch: PermutationRow[] = []
       let computed = 0
+      let lastPct = -1
 
       const cappedTotal = Math.min(total, MAX_PERMS_PER_GROUP)
       console.log(`  Sampling up to ${cappedTotal.toLocaleString()} permutations (cap: ${MAX_PERMS_PER_GROUP.toLocaleString()})`)
@@ -171,10 +172,13 @@ async function main() {
                 await flushBatch(batch)
                 totalPerms += batch.length
                 batch.length = 0
-                const filled = Math.floor((computed / cappedTotal) * 30)
-                const bar = '█'.repeat(filled) + '░'.repeat(30 - filled)
-                const pct = Math.floor((computed / cappedTotal) * 100)
-                process.stdout.write(`\r  [${bar}] ${pct}% (${computed.toLocaleString()} / ${cappedTotal.toLocaleString()})`)
+                const pct = Math.floor((computed / cappedTotal) * 10) * 10
+                if (pct !== lastPct) {
+                  lastPct = pct
+                  const filled = Math.floor(pct * 30 / 100)
+                  const bar = '█'.repeat(filled) + '░'.repeat(30 - filled)
+                  console.log(`  [${bar}] ${pct}% (${computed.toLocaleString()} / ${cappedTotal.toLocaleString()})`)
+                }
               }
 
               if (computed >= MAX_PERMS_PER_GROUP) break outer
