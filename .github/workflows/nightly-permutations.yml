@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Run populate-ranked-permutations
-        run: npm run populate-ranked
+        run: npx tsx scripts/populate-ranked-permutations.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
