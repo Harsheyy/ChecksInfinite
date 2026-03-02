@@ -5,10 +5,10 @@
 
 CREATE TABLE IF NOT EXISTS curated_outputs (
   id              bigserial    PRIMARY KEY,
-  keeper_1_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
-  burner_1_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
-  keeper_2_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
-  burner_2_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
+  keeper_1_id     bigint       NOT NULL,
+  burner_1_id     bigint       NOT NULL,
+  keeper_2_id     bigint       NOT NULL,
+  burner_2_id     bigint       NOT NULL,
   abcd_checks     smallint     NOT NULL,
   abcd_color_band text         NOT NULL,
   abcd_gradient   text         NOT NULL,
@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS curated_outputs (
   first_liked_at  timestamptz  NOT NULL DEFAULT now(),
   UNIQUE(keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
 );
+
+-- Drop FK constraints if they exist from earlier migration runs
+-- (get_curated_outputs validates tokens via INNER JOIN at query time)
+ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_keeper_1_id_fkey;
+ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_burner_1_id_fkey;
+ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_keeper_2_id_fkey;
+ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_burner_2_id_fkey;
 
 CREATE TABLE IF NOT EXISTS curated_likes (
   id             bigserial    PRIMARY KEY,
