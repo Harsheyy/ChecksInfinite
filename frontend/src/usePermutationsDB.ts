@@ -215,7 +215,7 @@ export function usePermutationsDB() {
       const { data, error } = await supabase
         .from('permutations')
         .select(PERM_SELECT)
-        .order('rank_score', { ascending: false })
+        .order('random()')
         .limit(RANDOM_TOTAL)
 
       if (error) throw error

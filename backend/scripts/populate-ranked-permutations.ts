@@ -82,10 +82,13 @@ async function main() {
 
   try {
     // 0. Wipe existing permutations for a clean nightly refresh
-    console.log('Truncating permutations table...')
-    const { error: truncErr } = await supabase.rpc('truncate_permutations')
+    console.log('Deleting existing permutations...')
+    const { error: truncErr } = await supabase
+      .from('permutations')
+      .delete()
+      .gte('keeper_1_id', 0)
     if (truncErr) throw truncErr
-    console.log('Truncated.')
+    console.log('Deleted.')
 
     // 1. Load all non-burned checks with band/gradient metadata
     console.log('Loading checks from Supabase...')
