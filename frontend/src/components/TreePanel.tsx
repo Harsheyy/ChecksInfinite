@@ -162,6 +162,16 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
               )}
             </button>
           )}
+          {dbMode && !hideBuy && (
+            <button
+              className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}
+              onClick={handleBuyAll}
+              disabled={buyDisabled}
+              aria-label="Buy"
+            >
+              {buyLabel()}
+            </button>
+          )}
           <button className="tree-panel-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
       </div>
@@ -196,19 +206,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
           {/* Final result — attributes in hover tooltip */}
           <CheckCard label="Final Composite" {...cardProps(nodeAbcd)} />
         </div>
-
-        {dbMode && !hideBuy && (
-          <div className="tree-panel-footer">
-            <button
-              className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}
-              onClick={handleBuyAll}
-              disabled={buyDisabled}
-              aria-label="Buy"
-            >
-              {buyLabel()}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

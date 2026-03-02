@@ -828,14 +828,6 @@ body {
   background: #333;
 }
 
-/* ─── Sticky buy footer ────────────────────────────────────── */
-.tree-panel-footer {
-  position: sticky;
-  bottom: 0;
-  background: #111;
-  border-top: 1px solid #222;
-  padding: 0.75rem 1rem;
-}
 
 /* ─── Check card (inside panel) ───────────── */
 .check-card {
@@ -878,20 +870,20 @@ body {
 }
 .check-card--has-tooltip:hover .check-card-tooltip { display: block; }
 
-/* ─── Buy button ───────────────────────────────────────────── */
+/* ─── Buy button (in header) ───────────────────────────────── */
 .tree-buy-btn {
-  width: 100%;
   background: #eee;
   color: #111;
   border: none;
   border-radius: 3px;
-  padding: 0.55rem 1rem;
+  padding: 0.25rem 0.65rem;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   font-weight: bold;
   cursor: pointer;
   white-space: nowrap;
   letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 .tree-buy-btn:hover:not(:disabled) { background: #fff; }
 .tree-buy-btn:disabled { opacity: 0.45; cursor: not-allowed; }
