@@ -15,6 +15,7 @@ SVG rendering is done entirely client-side via a JS port of `ChecksArt.sol`, pro
 
 - **Token Works** — randomly sampled feed of 2500 pre-computed composites from a nightly-refreshed 500K pool
 - **My Checks** — connect your wallet to see composites generated from checks you own
+- **Curated Checks** — community-liked outputs; heart any composite to add it; toggle between Community and Mine views
 - **Search Wallet** — gated mode to explore any wallet's permutations on-the-fly (no DB writes)
 - **Filters** — by Checks count, Color Band, Gradient, Speed, Shift, Token IDs, and ETH cost range
 - **Buy** — purchase all four leaf checks in one flow via the TokenStrategy contract
@@ -28,15 +29,17 @@ SVG rendering is done entirely client-side via a JS port of `ChecksArt.sol`, pro
 ```
 frontend/          React + Vite UI
   src/
-    checksArtJS.ts           JS port of the on-chain rendering engine
-    usePermutationsDB.ts     DB mode: loads from Supabase, price bounds hook
-    useAllPermutations.ts    Chain mode: live RPC calls via viem
-    useMyChecks.ts           Fetches tokens owned by connected wallet
+    checksArtJS.ts             JS port of the on-chain rendering engine
+    usePermutationsDB.ts       DB mode: loads from Supabase, price bounds hook
+    useAllPermutations.ts      Chain mode: live RPC calls via viem
+    useMyChecks.ts             Fetches tokens owned by connected wallet
     useMyCheckPermutations.ts  Generates composites from owned checks
+    useCuratedOutputs.ts       Curated mode: loads liked outputs from Supabase
+    useMyLikedKeys.ts          Tracks which outputs the connected wallet has liked
     components/
       InfiniteGrid.tsx       Looping torus grid (√N × √N layout)
-      TreePanel.tsx          Merge tree detail view + buy flow
-      FilterBar.tsx          Filters (responsive: inline / side panel)
+      TreePanel.tsx          Merge tree detail view + like button + buy flow
+      FilterBar.tsx          Filters + Community/Mine toggle (curated mode)
       Navbar.tsx             View toggle, wallet connect
 
 backend/           Node.js data pipeline (tsx + viem)
@@ -58,6 +61,7 @@ backend/           Node.js data pipeline (tsx + viem)
 |------|------|-------------|
 | **DB / Token Works** | `VITE_SUPABASE_*` env vars set | Supabase — random 2500 from 500K nightly pool |
 | **My Checks** | DB mode + wallet connected | Client-side from owned tokens |
+| **Curated Checks** | DB mode (any connection state) | Supabase `curated_outputs` — community-liked composites |
 | **Search Wallet** | DB mode + specific wallet connected | Client-side from any entered address (no DB writes) |
 | **Chain mode** | Only `VITE_ALCHEMY_API_KEY` set | Live RPC — enter token IDs manually |
 
@@ -68,7 +72,7 @@ backend/           Node.js data pipeline (tsx + viem)
 ### 1. Supabase
 
 1. Create a [Supabase](https://supabase.com) project.
-2. Run all migrations in order (`001` → `010`) via the SQL Editor in the Supabase Dashboard.
+2. Run all migrations in order (`001` → `012`) via the SQL Editor in the Supabase Dashboard.
 3. In **Settings → API**, set **Max Rows** to `5000`.
 4. Note your **Project URL** and **publishable key** (Settings → API).
 
@@ -99,7 +103,7 @@ Add two repository secrets (**Settings → Secrets and variables → Actions**):
 
 The workflow `.github/workflows/nightly-permutations.yml` runs at 2 AM UTC, wiping and repopulating the permutations table with a fresh random sample.
 
-### 3. Frontend
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -125,5 +129,5 @@ npm run dev
 
 - **Frontend** — React 19, Vite, TypeScript, wagmi v3, viem, `@supabase/supabase-js`
 - **Backend scripts** — Node 20+, `tsx`, viem (multicall batching)
-- **Database** — Supabase (Postgres + RLS)
+- **Database** — Supabase (Postgres + RLS + SECURITY DEFINER RPCs)
 - **Rendering** — client-side JS port of `ChecksArt.sol`
