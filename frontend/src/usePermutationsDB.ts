@@ -8,7 +8,7 @@ import { readCache, writeCache } from './permutationsCache'
 const RANDOM_TOTAL  = 2500   // items loaded for the random browse view
 
 // CheckStruct stored in Supabase has seed as string (bigint serialization)
-interface CheckStructJSON {
+export interface CheckStructJSON {
   stored: {
     composites: number[]
     colorBands: number[]
@@ -30,7 +30,7 @@ interface CheckStructJSON {
   speed: number
 }
 
-function fromJSON(j: CheckStructJSON): CheckStruct {
+export function fromJSON(j: CheckStructJSON): CheckStruct {
   return { ...j, seed: BigInt(j.seed), stored: { ...j.stored } }
 }
 
@@ -57,7 +57,7 @@ export interface PermRow extends PermRowBasic {
 
 
 // Fetch check_struct for a set of token IDs and return a lookup map
-async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
+export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
   if (!supabase || ids.length === 0) return new Map()
   // Batch to avoid excessively long query strings
   const BATCH = 500
