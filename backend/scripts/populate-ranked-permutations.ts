@@ -22,7 +22,7 @@ import {
 
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
-const BATCH_SIZE           = 50
+const BATCH_SIZE           = 500
 const MAX_PERMS_PER_GROUP  = 500_000  // cap per checks_count group for storage safety
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -235,10 +235,7 @@ function computePermutation(
 async function flushBatch(batch: PermutationRow[]) {
   const { error } = await supabase
     .from('permutations')
-    .upsert(batch, {
-      onConflict: 'keeper_1_id,burner_1_id,keeper_2_id,burner_2_id',
-      ignoreDuplicates: true,
-    })
+    .insert(batch)
   if (error) throw error
 }
 
