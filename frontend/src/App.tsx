@@ -289,7 +289,6 @@ export default function App() {
         loading={isLoading}
         onIdsChange={dbMode ? () => {} : setIdsRaw}
         onPreview={dbMode ? () => {} : handlePreview}
-        error={navbarError}
         dbMode={dbMode}
         dbTotal={dbMode ? dbState.total : undefined}
         viewMode={dbMode ? viewMode : undefined}
@@ -298,6 +297,11 @@ export default function App() {
         searchWalletAddress={searchWalletAddress}
         onSearchWalletAddressChange={setSearchWalletAddress}
       />
+      {navbarError && (
+        <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
+          {navbarError}
+        </div>
+      )}
       {showFilters && (
         <FilterBar
           filters={filters}
@@ -342,6 +346,7 @@ export default function App() {
         ids={ids}
         showFlags={showFlags}
         hasFilters={showFilters}
+        hasError={!!navbarError}
         dbMode={dbMode}
         hideBuy={isMyChecksMode || isSearchWalletMode}
         filtersTall={false}

@@ -8,7 +8,6 @@ interface NavbarProps {
   loading: boolean
   onIdsChange: (v: string) => void
   onPreview: () => void
-  error: string
   dbMode?: boolean
   dbTotal?: number
   viewMode?: ViewMode
@@ -18,7 +17,7 @@ interface NavbarProps {
   onSearchWalletAddressChange?: (addr: string) => void
 }
 
-export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, viewMode, onViewModeChange, showSearchWallet, searchWalletAddress = '', onSearchWalletAddressChange }: NavbarProps) {
+export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange, showSearchWallet, searchWalletAddress = '', onSearchWalletAddressChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
@@ -69,7 +68,6 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, error, dbMode, vi
             </button>
           </form>
         )}
-        {error && <div className="nav-error">{error}</div>}
       </div>
       {viewMode && onViewModeChange && (
         <div className="view-toggle-row">

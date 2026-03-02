@@ -74,13 +74,6 @@ body {
 .nav-preview-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .nav-preview-btn:hover:not(:disabled) { background: #fff; }
 
-.nav-error {
-  color: #f87171;
-  font-size: 0.72rem;
-  margin-top: 2px;
-  align-self: flex-start;
-  max-width: 560px;
-}
 
 .nav-wallet {
   background: transparent;
@@ -510,6 +503,27 @@ body {
 }
 .filter-curated-toggle .filter-mode-btn:hover:not(.filter-mode-btn--active) { color: #bbb; }
 
+/* ─── Error banner ────────────────────────────────────────── */
+.error-banner {
+  position: fixed;
+  top: 48px;
+  left: 0; right: 0;
+  height: 32px;
+  background: #1a0a0a;
+  border-bottom: 1px solid #4a1515;
+  color: #f87171;
+  font-size: 0.75rem;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  z-index: 9;
+}
+
+.error-banner--below-filter {
+  top: 88px;
+}
+
 /* ─── Grid viewport ───────────────────────────────────────── */
 .grid-viewport {
   position: fixed;
@@ -524,6 +538,14 @@ body {
 
 .grid-viewport--with-filters-tall {
   top: 120px;
+}
+
+.grid-viewport--with-error {
+  top: 80px; /* 48px nav + 32px error banner */
+}
+
+.grid-viewport--with-filters.grid-viewport--with-error {
+  top: 120px; /* 88px filter strip + 32px error banner */
 }
 
 /* ─── Permutation card ────────────────────────────────────── */
@@ -934,4 +956,69 @@ body {
 @media (max-width: 1024px) {
   .filter-panel { width: 100%; border-left: none; }
   .tree-panel   { width: 100%; }
+}
+
+/* ─── Mobile / tablet navbar ─────────────────────────────── */
+@media (max-width: 768px) {
+  /* Fixed 76px height keeps all downstream top offsets predictable */
+  .navbar {
+    height: 76px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    gap: 6px;
+    align-content: center;
+  }
+
+  /* Row 1: brand centered full-width */
+  .nav-brand {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Hide the chain-mode form (not used in db/production mode) */
+  .nav-center {
+    display: none;
+  }
+
+  /* Row 2: toggle on left (flex: 1), wallet on right */
+  .view-toggle-row {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* All fixed offsets based on 76px navbar */
+  .filter-strip {
+    top: 76px;
+  }
+
+  .grid-viewport {
+    top: 76px;
+  }
+
+  .grid-viewport--with-filters {
+    top: 116px;
+  }
+
+  .grid-viewport--with-filters-tall {
+    top: 148px;
+  }
+
+  .error-banner {
+    top: 76px;
+    padding: 0 16px;
+  }
+
+  .error-banner--below-filter {
+    top: 116px;
+  }
+
+  .grid-viewport--with-error {
+    top: 108px; /* 76px nav + 32px error */
+  }
+
+  .grid-viewport--with-filters.grid-viewport--with-error {
+    top: 148px; /* 116px filter + 32px error */
+  }
 }
