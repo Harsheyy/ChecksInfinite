@@ -212,20 +212,8 @@ export function usePermutationsDB() {
 
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
-      const { count } = await supabase
-        .from('permutations')
-        .select('*', { count: 'exact', head: true })
-
-      const total = count ?? 0
-      const offset = total > RANDOM_TOTAL
-        ? Math.floor(Math.random() * (total - RANDOM_TOTAL))
-        : 0
-
       const { data, error } = await supabase
-        .from('permutations')
-        .select(PERM_SELECT)
-        .order('keeper_1_id')
-        .range(offset, offset + RANDOM_TOTAL - 1)
+        .rpc('get_random_permutations', { row_count: RANDOM_TOTAL })
 
       if (error) throw error
 
