@@ -31,12 +31,13 @@ export default function App() {
   // ── View mode (only relevant in dbMode) ──────────────────────────────────
   const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'curated' | 'search-wallet'>('token-works')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
+  const [walletOnly, setWalletOnly] = useState(false)
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
 
   // Reset to token-works when wallet disconnects
   useEffect(() => {
-    if (!isConnected) { setViewMode('token-works'); setWalletOnly(false) }
+    if (!isConnected) { setViewMode('token-works'); setWalletOnly(false) }  // eslint-disable-line react-hooks/set-state-in-effect
   }, [isConnected])
 
   // ── Chain mode state ──────────────────────────────────────────────────────
@@ -66,7 +67,6 @@ export default function App() {
   const searchCheckPerms = useMyCheckPermutations(searchChecks.checks)
 
   // ── Curated mode ──────────────────────────────────────────────────────────────
-  const [walletOnly, setWalletOnly] = useState(false)
   const { state: curatedState, load: loadCurated } = useCuratedOutputs()
 
   // ── Like state (across all modes) ────────────────────────────────────────────
@@ -90,11 +90,10 @@ export default function App() {
     }
   }, [searchWalletEnabled, searchChecks.loading, searchChecks.checks])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!dbMode || viewMode !== 'curated') return
     loadCurated(filters, walletOnly, address?.toLowerCase())
-  }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])
+  }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!curatedState.outputs.length) return
@@ -106,7 +105,7 @@ export default function App() {
       newCounts.set(key, o.likeCount)
       if ((o as CuratedPermutationResult).userLiked) newLiked.add(key)
     }
-    setLikeCounts(newCounts)
+    setLikeCounts(newCounts)  // eslint-disable-line react-hooks/set-state-in-effect
     setLikedKeys(newLiked)
   }, [curatedState.outputs])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,7 +138,7 @@ export default function App() {
     const prevCount = likeCounts.get(key) ?? 0
     setLikedKeys(prev => {
       const next = new Set(prev)
-      wasLiked ? next.delete(key) : next.add(key)
+      if (wasLiked) next.delete(key); else next.add(key)
       return next
     })
     setLikeCounts(prev => {
@@ -168,7 +167,7 @@ export default function App() {
     if (error) {
       setLikedKeys(prev => {
         const next = new Set(prev)
-        wasLiked ? next.add(key) : next.delete(key)
+        if (wasLiked) next.add(key); else next.delete(key)
         return next
       })
       setLikeCounts(prev => {

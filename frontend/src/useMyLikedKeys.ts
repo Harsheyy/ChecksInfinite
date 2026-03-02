@@ -18,7 +18,7 @@ export function useMyLikedKeys(wallet: string | undefined) {
 
   useEffect(() => {
     if (!wallet || !supabase) {
-      setLikedKeys(new Set())
+      setLikedKeys(new Set())  // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
     supabase
