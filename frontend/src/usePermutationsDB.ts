@@ -55,8 +55,6 @@ export interface PermRow extends PermRowBasic {
   burner_2: { check_struct: CheckStructJSON }
 }
 
-// Select just the scalar columns — no PostgREST join needed
-const PERM_SELECT = `keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift`
 
 // Fetch check_struct for a set of token IDs and return a lookup map
 async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
