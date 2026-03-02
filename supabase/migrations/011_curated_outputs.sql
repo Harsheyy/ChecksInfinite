@@ -14,12 +14,21 @@ CREATE TABLE IF NOT EXISTS curated_outputs (
   abcd_gradient   text         NOT NULL,
   abcd_speed      text         NOT NULL,
   abcd_shift      text,
+  k1_struct       jsonb,
+  b1_struct       jsonb,
+  k2_struct       jsonb,
+  b2_struct       jsonb,
   first_liked_at  timestamptz  NOT NULL DEFAULT now(),
   UNIQUE(keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
 );
 
+-- Add struct columns if they don't exist yet (idempotent for existing tables)
+ALTER TABLE curated_outputs ADD COLUMN IF NOT EXISTS k1_struct jsonb;
+ALTER TABLE curated_outputs ADD COLUMN IF NOT EXISTS b1_struct jsonb;
+ALTER TABLE curated_outputs ADD COLUMN IF NOT EXISTS k2_struct jsonb;
+ALTER TABLE curated_outputs ADD COLUMN IF NOT EXISTS b2_struct jsonb;
+
 -- Drop FK constraints if they exist from earlier migration runs
--- (get_curated_outputs validates tokens via INNER JOIN at query time)
 ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_keeper_1_id_fkey;
 ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_burner_1_id_fkey;
 ALTER TABLE curated_outputs DROP CONSTRAINT IF EXISTS curated_outputs_keeper_2_id_fkey;
@@ -50,6 +59,11 @@ CREATE POLICY "public read curated_outputs" ON curated_outputs FOR SELECT USING 
 CREATE POLICY "public read curated_likes"   ON curated_likes   FOR SELECT USING (true);
 
 -- ── RPC: get_curated_outputs ─────────────────────────────────────────────────
+-- Returns curated outputs with stored check_struct for SVG rendering.
+-- No INNER JOIN on tokenstr_checks — works for any token (My Checks, etc.).
+
+-- DROP required because return type changed (added struct columns)
+DROP FUNCTION IF EXISTS get_curated_outputs(text,boolean,smallint,text,text,text,text,integer,integer);
 
 CREATE OR REPLACE FUNCTION get_curated_outputs(
   p_wallet       text     DEFAULT NULL,
@@ -73,6 +87,10 @@ RETURNS TABLE (
   abcd_gradient   text,
   abcd_speed      text,
   abcd_shift      text,
+  k1_struct       jsonb,
+  b1_struct       jsonb,
+  k2_struct       jsonb,
+  b2_struct       jsonb,
   like_count      bigint,
   user_liked      boolean,
   first_liked_at  timestamptz
@@ -92,14 +110,14 @@ BEGIN
     co.abcd_gradient,
     co.abcd_speed,
     co.abcd_shift,
+    co.k1_struct,
+    co.b1_struct,
+    co.k2_struct,
+    co.b2_struct,
     COUNT(cl.id)::bigint                                   AS like_count,
     COALESCE(BOOL_OR(cl.wallet_address = p_wallet), false) AS user_liked,
     co.first_liked_at
   FROM curated_outputs co
-  INNER JOIN tokenstr_checks t1 ON t1.token_id = co.keeper_1_id AND NOT t1.is_burned
-  INNER JOIN tokenstr_checks t2 ON t2.token_id = co.burner_1_id AND NOT t2.is_burned
-  INNER JOIN tokenstr_checks t3 ON t3.token_id = co.keeper_2_id AND NOT t3.is_burned
-  INNER JOIN tokenstr_checks t4 ON t4.token_id = co.burner_2_id AND NOT t4.is_burned
   LEFT JOIN curated_likes cl ON cl.output_id = co.id
   WHERE
     (p_checks     IS NULL OR co.abcd_checks     = p_checks)     AND
@@ -129,7 +147,11 @@ CREATE OR REPLACE FUNCTION toggle_like(
   p_abcd_color_band text,
   p_abcd_gradient   text,
   p_abcd_speed      text,
-  p_abcd_shift      text DEFAULT NULL
+  p_abcd_shift      text  DEFAULT NULL,
+  p_k1_struct       jsonb DEFAULT NULL,
+  p_b1_struct       jsonb DEFAULT NULL,
+  p_k2_struct       jsonb DEFAULT NULL,
+  p_b2_struct       jsonb DEFAULT NULL
 )
 RETURNS TABLE (output_id bigint, like_count bigint, user_liked boolean)
 LANGUAGE plpgsql
@@ -142,14 +164,21 @@ DECLARE
   v_user_liked   boolean;
   v_rows_deleted int;
 BEGIN
+  -- Insert output row if new; if it exists, fill in any missing struct columns
   INSERT INTO curated_outputs
     (keeper_1_id, burner_1_id, keeper_2_id, burner_2_id,
-     abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift)
+     abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift,
+     k1_struct, b1_struct, k2_struct, b2_struct)
   VALUES
     (p_keeper_1_id, p_burner_1_id, p_keeper_2_id, p_burner_2_id,
-     p_abcd_checks, p_abcd_color_band, p_abcd_gradient, p_abcd_speed, p_abcd_shift)
+     p_abcd_checks, p_abcd_color_band, p_abcd_gradient, p_abcd_speed, p_abcd_shift,
+     p_k1_struct, p_b1_struct, p_k2_struct, p_b2_struct)
   ON CONFLICT (keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
-  DO NOTHING;
+  DO UPDATE SET
+    k1_struct = COALESCE(curated_outputs.k1_struct, EXCLUDED.k1_struct),
+    b1_struct = COALESCE(curated_outputs.b1_struct, EXCLUDED.b1_struct),
+    k2_struct = COALESCE(curated_outputs.k2_struct, EXCLUDED.k2_struct),
+    b2_struct = COALESCE(curated_outputs.b2_struct, EXCLUDED.b2_struct);
 
   SELECT id INTO v_output_id
   FROM curated_outputs
@@ -157,14 +186,12 @@ BEGIN
     AND keeper_2_id = p_keeper_2_id AND burner_2_id = p_burner_2_id;
 
   -- Delete-first toggle: avoids race conditions from rapid double-clicks.
-  -- If DELETE removes a row the user was liked; INSERT means they weren't.
   DELETE FROM curated_likes
   WHERE curated_likes.output_id = v_output_id
     AND curated_likes.wallet_address = p_wallet;
   GET DIAGNOSTICS v_rows_deleted = ROW_COUNT;
 
   IF v_rows_deleted = 0 THEN
-    -- Wasn't liked — insert, ignoring concurrent duplicate (race-safe)
     INSERT INTO curated_likes (output_id, wallet_address, source)
     VALUES (v_output_id, p_wallet, p_source)
     ON CONFLICT ON CONSTRAINT curated_likes_output_id_wallet_address_key DO NOTHING;

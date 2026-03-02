@@ -6,7 +6,7 @@ import { FilterBar, emptyFilters, matchesFilters, type Filters } from './compone
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
 import type { PermutationResult } from './useAllPermutations'
-import { usePermutationsDB, usePriceBounds } from './usePermutationsDB'
+import { usePermutationsDB, usePriceBounds, serializeCheckStruct, fetchCheckStructMap } from './usePermutationsDB'
 import { useMyChecks } from './useMyChecks'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase, supabase } from './supabaseClient'
@@ -150,6 +150,35 @@ export default function App() {
     const attrs = result.nodeAbcd.attributes
     const getAttr = (t: string) => attrs.find(a => a.trait_type === t)?.value as string | undefined
 
+    // Gather check structs for new likes (curated rows already have structs stored)
+    let p_k1_struct = null
+    let p_b1_struct = null
+    let p_k2_struct = null
+    let p_b2_struct = null
+
+    if (!wasLiked && source !== 'curated') {
+      if (source === 'my-checks') {
+        const m = myChecks.checks
+        p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
+        p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
+        p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
+        p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
+      } else if (source === 'search-wallet') {
+        const m = searchChecks.checks
+        p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
+        p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
+        p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
+        p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
+      } else {
+        // token-works: fetch from tokenstr_checks
+        const structMap = await fetchCheckStructMap([k1, b1, k2, b2].map(Number))
+        p_k1_struct = structMap.get(parseInt(k1)) ?? null
+        p_b1_struct = structMap.get(parseInt(b1)) ?? null
+        p_k2_struct = structMap.get(parseInt(k2)) ?? null
+        p_b2_struct = structMap.get(parseInt(b2)) ?? null
+      }
+    }
+
     const { error } = await supabase.rpc('toggle_like', {
       p_keeper_1_id:     parseInt(k1),
       p_burner_1_id:     parseInt(b1),
@@ -162,6 +191,10 @@ export default function App() {
       p_abcd_gradient:   getAttr('Gradient') ?? '',
       p_abcd_speed:      getAttr('Speed') ?? '',
       p_abcd_shift:      getAttr('Shift') ?? null,
+      p_k1_struct,
+      p_b1_struct,
+      p_k2_struct,
+      p_b2_struct,
     })
 
     if (error) {
@@ -181,7 +214,6 @@ export default function App() {
 
   function getLikeInfo(result: PermutationResult): LikeInfo | undefined {
     if (!isConnected || !dbMode) return undefined
-    if (isMyChecksMode || isSearchWalletMode) return undefined
     const [k1, b1, k2, b2] = result.def.tokenIds ?? []
     if (!k1 || !b1 || !k2 || !b2) return undefined
     const key = likedKey(k1, b1, k2, b2)

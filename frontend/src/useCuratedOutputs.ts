@@ -1,7 +1,7 @@
 // frontend/src/useCuratedOutputs.ts
 import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import { fetchCheckStructMap, fromJSON, type CheckStructJSON } from './usePermutationsDB'
+import { fromJSON, type CheckStructJSON } from './usePermutationsDB'
 import { simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap } from './checksArtJS'
 import { mapCheckAttributes, type CheckStruct } from './utils'
 import type { PermutationResult } from './useAllPermutations'
@@ -18,6 +18,10 @@ interface CuratedRow {
   abcd_gradient: string
   abcd_speed: string
   abcd_shift: string | null
+  k1_struct: CheckStructJSON | null
+  b1_struct: CheckStructJSON | null
+  k2_struct: CheckStructJSON | null
+  b2_struct: CheckStructJSON | null
   like_count: number
   user_liked: boolean
   first_liked_at: string
@@ -29,14 +33,11 @@ export interface CuratedPermutationResult extends PermutationResult {
   userLiked: boolean
 }
 
-function buildCuratedResult(
-  row: CuratedRow,
-  structMap: Map<number, CheckStructJSON>,
-): CuratedPermutationResult | null {
-  const k1s = structMap.get(row.keeper_1_id)
-  const b1s = structMap.get(row.burner_1_id)
-  const k2s = structMap.get(row.keeper_2_id)
-  const b2s = structMap.get(row.burner_2_id)
+function buildCuratedResult(row: CuratedRow): CuratedPermutationResult | null {
+  const k1s = row.k1_struct
+  const b1s = row.b1_struct
+  const k2s = row.k2_struct
+  const b2s = row.b2_struct
   if (!k1s || !b1s || !k2s || !b2s) return null
 
   const id0 = String(row.keeper_1_id)
@@ -142,11 +143,9 @@ export function useCuratedOutputs() {
       if (error) throw error
 
       const rows = (data ?? []) as CuratedRow[]
-      const allIds = [...new Set(rows.flatMap(r => [r.keeper_1_id, r.burner_1_id, r.keeper_2_id, r.burner_2_id]))]
-      const structMap = await fetchCheckStructMap(allIds)
 
       const outputs = rows
-        .map(r => buildCuratedResult(r, structMap))
+        .map(r => buildCuratedResult(r))
         .filter((r): r is CuratedPermutationResult => r !== null)
 
       setState({ outputs, loading: false, error: '' })

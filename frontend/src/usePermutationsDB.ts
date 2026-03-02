@@ -34,6 +34,19 @@ export function fromJSON(j: CheckStructJSON): CheckStruct {
   return { ...j, seed: BigInt(j.seed), stored: { ...j.stored } }
 }
 
+export function serializeCheckStruct(cs: CheckStruct): CheckStructJSON {
+  return {
+    ...cs,
+    seed: cs.seed.toString(),
+    stored: {
+      ...cs.stored,
+      composites: Array.from(cs.stored.composites),
+      colorBands:  Array.from(cs.stored.colorBands),
+      gradients:   Array.from(cs.stored.gradients),
+    },
+  }
+}
+
 // Basic perm row — no join, just scalar columns
 interface PermRowBasic {
   keeper_1_id: number
