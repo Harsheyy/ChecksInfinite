@@ -558,6 +558,39 @@ body {
   display: block;
 }
 
+/* ─── Card hover effects (desktop only) ──────────────────── */
+@media (hover: hover) and (min-width: 901px) {
+  .perm-card {
+    transition: border-color 0.1s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform;
+  }
+
+  .perm-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.09) 0%,
+      rgba(255, 255, 255, 0.04) 45%,
+      transparent 65%
+    );
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.2s;
+  }
+
+  .perm-card:hover {
+    border-color: #555;
+    transform: translateY(-5px) scale(1.03);
+  }
+
+  .perm-card:hover::after {
+    opacity: 1;
+  }
+}
+
 /* ─── Tree panel ──────────────────────────────────────────── */
 .tree-panel {
   position: fixed;
