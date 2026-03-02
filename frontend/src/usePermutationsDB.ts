@@ -212,6 +212,7 @@ export function usePermutationsDB() {
     try {
       const { data, error } = await supabase
         .rpc('get_random_permutations', { row_count: RANDOM_TOTAL })
+        .limit(RANDOM_TOTAL)
 
       if (error) throw error
 
