@@ -129,7 +129,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
           </div>
         </div>
         {selectedPerm && (
-          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} />
+          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} likeInfo={getLikeInfo?.(selectedPerm)} />
         )}
       </>
     )
@@ -196,7 +196,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, dbMode,
         </div>
       </div>
       {selectedPerm && (
-        <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} />
+        <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} likeInfo={getLikeInfo?.(selectedPerm)} />
       )}
     </>
   )

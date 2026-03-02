@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
 import { formatEther } from 'viem'
 import { CheckCard } from './CheckCard'
+import type { LikeInfo } from './PermutationCard'
 import { supabase } from '../supabaseClient'
 import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from '../tokenStrategyAbi'
 import { mapCheckAttributes } from '../utils'
@@ -14,13 +15,14 @@ interface TreePanelProps {
   onClose: () => void
   dbMode?: boolean
   hideBuy?: boolean
+  likeInfo?: LikeInfo
 }
 
 function cardProps(card: CardState, svgOverride?: string, attrsOverride?: Attribute[]) {
   return { name: card.name, svg: svgOverride ?? card.svg, attributes: attrsOverride ?? card.attributes, loading: card.loading, error: card.error }
 }
 
-export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelProps) {
+export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: TreePanelProps) {
   const { def, nodeA, nodeB, nodeC, nodeD, nodeL1a, nodeL1b, nodeAbcd } = result
   const [p0, p1, p2, p3] = def.indices
   const [id0, id1, id2, id3] = def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
@@ -145,7 +147,22 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelPr
             <span className="tree-panel-id-chip">#{id3}</span>
           </div>
         </div>
-        <button className="tree-panel-close" onClick={onClose} aria-label="Close">✕</button>
+        <div className="tree-panel-header-actions">
+          {likeInfo && (
+            <button
+              className={`tree-panel-like-btn${likeInfo.isLiked ? ' tree-panel-like-btn--liked' : ''}`}
+              onClick={likeInfo.onLike}
+              aria-label={likeInfo.isLiked ? 'Unlike' : 'Like'}
+              title={likeInfo.isLiked ? 'Unlike' : 'Like'}
+            >
+              {likeInfo.isLiked ? '♥' : '♡'}
+              {likeInfo.likeCount !== undefined && (
+                <span className="tree-panel-like-count">{likeInfo.likeCount}</span>
+              )}
+            </button>
+          )}
+          <button className="tree-panel-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
       </div>
 
       <div className="tree-panel-body">

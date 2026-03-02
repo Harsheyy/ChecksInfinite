@@ -1,8 +1,9 @@
 -- supabase/migrations/011_curated_outputs.sql
+-- Safe to re-run: uses IF NOT EXISTS and DROP IF EXISTS throughout
 
 -- ── Tables ────────────────────────────────────────────────────────────────────
 
-CREATE TABLE curated_outputs (
+CREATE TABLE IF NOT EXISTS curated_outputs (
   id              bigserial    PRIMARY KEY,
   keeper_1_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
   burner_1_id     bigint       NOT NULL REFERENCES tokenstr_checks(token_id),
@@ -17,7 +18,7 @@ CREATE TABLE curated_outputs (
   UNIQUE(keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
 );
 
-CREATE TABLE curated_likes (
+CREATE TABLE IF NOT EXISTS curated_likes (
   id             bigserial    PRIMARY KEY,
   output_id      bigint       NOT NULL REFERENCES curated_outputs(id) ON DELETE CASCADE,
   wallet_address text         NOT NULL,
@@ -26,22 +27,22 @@ CREATE TABLE curated_likes (
   UNIQUE(output_id, wallet_address)
 );
 
--- Indexes for common access patterns
-CREATE INDEX curated_likes_output_id_idx        ON curated_likes(output_id);
-CREATE INDEX curated_likes_wallet_address_idx   ON curated_likes(wallet_address);
-CREATE INDEX curated_outputs_abcd_checks_idx    ON curated_outputs(abcd_checks);
+-- Indexes
+CREATE INDEX IF NOT EXISTS curated_likes_output_id_idx        ON curated_likes(output_id);
+CREATE INDEX IF NOT EXISTS curated_likes_wallet_address_idx   ON curated_likes(wallet_address);
+CREATE INDEX IF NOT EXISTS curated_outputs_abcd_checks_idx    ON curated_outputs(abcd_checks);
 
 -- ── RLS: public read, no direct write (only via RPCs) ────────────────────────
 
 ALTER TABLE curated_outputs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE curated_likes   ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "public read curated_outputs" ON curated_outputs;
+DROP POLICY IF EXISTS "public read curated_likes"   ON curated_likes;
 CREATE POLICY "public read curated_outputs" ON curated_outputs FOR SELECT USING (true);
 CREATE POLICY "public read curated_likes"   ON curated_likes   FOR SELECT USING (true);
 
 -- ── RPC: get_curated_outputs ─────────────────────────────────────────────────
--- Returns curated outputs, validates tokens still exist, includes like_count
--- and user_liked. Filters are optional (NULL = no filter).
 
 CREATE OR REPLACE FUNCTION get_curated_outputs(
   p_wallet       text     DEFAULT NULL,
@@ -109,8 +110,6 @@ END;
 $$;
 
 -- ── RPC: toggle_like ──────────────────────────────────────────────────────────
--- Atomically creates the curated_output row if needed, then toggles the like.
--- Returns { output_id, like_count, user_liked }.
 
 CREATE OR REPLACE FUNCTION toggle_like(
   p_keeper_1_id     bigint,
@@ -151,10 +150,10 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM curated_likes
-    WHERE output_id = v_output_id AND wallet_address = p_wallet
+    WHERE curated_likes.output_id = v_output_id AND curated_likes.wallet_address = p_wallet
   ) THEN
     DELETE FROM curated_likes
-    WHERE output_id = v_output_id AND wallet_address = p_wallet;
+    WHERE curated_likes.output_id = v_output_id AND curated_likes.wallet_address = p_wallet;
     v_user_liked := false;
   ELSE
     INSERT INTO curated_likes (output_id, wallet_address, source)
@@ -163,14 +162,17 @@ BEGIN
   END IF;
 
   SELECT COUNT(*) INTO v_like_count
-  FROM curated_likes WHERE output_id = v_output_id;
+  FROM curated_likes WHERE curated_likes.output_id = v_output_id;
+
+  IF v_like_count = 0 THEN
+    DELETE FROM curated_outputs WHERE id = v_output_id;
+  END IF;
 
   RETURN QUERY SELECT v_output_id, v_like_count, v_user_liked;
 END;
 $$;
 
 -- ── RPC: get_my_liked_keys ────────────────────────────────────────────────────
--- Returns all 4-tuples liked by a wallet (for populating heart state on load).
 
 CREATE OR REPLACE FUNCTION get_my_liked_keys(p_wallet text)
 RETURNS TABLE (
