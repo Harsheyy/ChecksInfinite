@@ -6,6 +6,7 @@ export interface LikeInfo {
   isLiked: boolean
   likeCount?: number   // only passed on curated page
   alwaysShow?: boolean // curated page: show heart without hover
+  canLike?: boolean    // false = show "connect wallet" tooltip, no-op on click
   onLike: () => void
 }
 
@@ -55,8 +56,8 @@ export function PermutationCard({ result, visible, onClick, likeInfo }: Permutat
           className={`perm-card-heart${likeInfo.alwaysShow ? ' perm-card-heart--always' : ''}${likeInfo.isLiked ? ' perm-card-heart--liked' : ''}`}
           onClick={handleHeartClick}
           role="button"
-          aria-label={likeInfo.isLiked ? 'Unlike' : 'Like'}
-          title={likeInfo.isLiked ? 'Unlike' : 'Like'}
+          aria-label={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
+          title={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
         >
           {likeInfo.isLiked ? '♥' : '♡'}
           {likeInfo.likeCount !== undefined && (

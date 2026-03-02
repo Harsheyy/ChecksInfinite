@@ -223,6 +223,7 @@ export default function App() {
       isLiked:    likedKeys.has(key),
       likeCount:  isCurated ? (likeCounts.get(key) ?? 0) : undefined,
       alwaysShow: isCurated,
+      canLike:    isConnected,
       onLike:     isConnected
         ? () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated')
         : () => {},
