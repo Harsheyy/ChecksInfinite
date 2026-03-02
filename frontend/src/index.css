@@ -256,11 +256,6 @@ body {
 .filter-mobile-trigger--active { color: #bbb; }
 .filter-mobile-trigger:hover { color: #aaa; }
 
-@media (max-width: 1024px) {
-  .filter-panel { width: 100%; border-left: none; }
-  .tree-panel   { width: 100%; }
-}
-
 @media (max-width: 900px) {
   .filter-row        { display: none; }
   .filter-mobile-bar { display: flex; }
@@ -766,3 +761,8 @@ body {
 .tree-buy-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .tree-buy-btn--done  { background: #1a3d1a; color: #4ade80; cursor: default; }
 .tree-buy-btn--error { background: #3d1a1a; color: #f87171; }
+
+@media (max-width: 1024px) {
+  .filter-panel { width: 100%; border-left: none; }
+  .tree-panel   { width: 100%; }
+}
