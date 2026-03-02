@@ -108,7 +108,7 @@ body {
 .view-toggle-btn {
   background: transparent;
   border: none;
-  color: #666;
+  color: #888;
   font-family: inherit;
   font-size: 0.75rem;
   padding: 0.3rem 0.65rem;
@@ -244,7 +244,7 @@ body {
 .filter-mobile-trigger {
   background: none;
   border: none;
-  color: #666;
+  color: #888;
   font-family: inherit;
   font-size: 0.75rem;
   cursor: pointer;
@@ -297,7 +297,7 @@ body {
 .filter-panel-close {
   background: none;
   border: none;
-  color: #555;
+  color: #777;
   font-size: 0.8rem;
   cursor: pointer;
   padding: 0.25rem;
@@ -393,7 +393,7 @@ body {
 
 .info-icon {
   font-size: 0.65rem;
-  color: #555;
+  color: #777;
   cursor: default;
   line-height: 1;
   user-select: none;
@@ -430,7 +430,7 @@ body {
 .filter-clear {
   background: transparent;
   border: none;
-  color: #777;
+  color: #888;
   font-family: inherit;
   font-size: 0.7rem;
   cursor: pointer;
@@ -477,7 +477,7 @@ body {
 .filter-mode-btn {
   background: transparent;
   border: none;
-  color: #666;
+  color: #888;
   font-family: inherit;
   font-size: 0.68rem;
   padding: 0.1rem 0.45rem;
@@ -612,20 +612,48 @@ body {
 
 .tree-panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1rem;
   border-bottom: 1px solid #222;
   flex-shrink: 0;
+  gap: 0.5rem;
 }
 
-.tree-panel-title {
-  font-size: 0.78rem;
-  color: #888;
-  letter-spacing: 0.05em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tree-panel-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.tree-panel-header-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #666;
+}
+
+.tree-panel-header-ids {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.tree-panel-id-chip {
+  font-size: 0.75rem;
+  color: #ccc;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  padding: 0.1rem 0.4rem;
+}
+
+.tree-panel-header-sep {
+  font-size: 0.7rem;
+  color: #555;
+  padding: 0 0.1rem;
 }
 
 .tree-panel-close {

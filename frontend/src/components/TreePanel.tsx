@@ -135,7 +135,16 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy }: TreePanelPr
   return (
     <div className="tree-panel">
       <div className="tree-panel-header">
-        <span className="tree-panel-title">{def.label}</span>
+        <div className="tree-panel-header-content">
+          <span className="tree-panel-header-label">Recipe</span>
+          <div className="tree-panel-header-ids">
+            <span className="tree-panel-id-chip">#{id0}</span>
+            <span className="tree-panel-id-chip">#{id1}</span>
+            <span className="tree-panel-header-sep">+</span>
+            <span className="tree-panel-id-chip">#{id2}</span>
+            <span className="tree-panel-id-chip">#{id3}</span>
+          </div>
+        </div>
         <button className="tree-panel-close" onClick={onClose} aria-label="Close">✕</button>
       </div>
 
