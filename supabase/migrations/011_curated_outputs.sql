@@ -130,9 +130,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_output_id  bigint;
-  v_like_count bigint;
-  v_user_liked boolean;
+  v_output_id    bigint;
+  v_like_count   bigint;
+  v_user_liked   boolean;
+  v_rows_deleted int;
 BEGIN
   INSERT INTO curated_outputs
     (keeper_1_id, burner_1_id, keeper_2_id, burner_2_id,
@@ -148,17 +149,21 @@ BEGIN
   WHERE keeper_1_id = p_keeper_1_id AND burner_1_id = p_burner_1_id
     AND keeper_2_id = p_keeper_2_id AND burner_2_id = p_burner_2_id;
 
-  IF EXISTS (
-    SELECT 1 FROM curated_likes
-    WHERE curated_likes.output_id = v_output_id AND curated_likes.wallet_address = p_wallet
-  ) THEN
-    DELETE FROM curated_likes
-    WHERE curated_likes.output_id = v_output_id AND curated_likes.wallet_address = p_wallet;
-    v_user_liked := false;
-  ELSE
+  -- Delete-first toggle: avoids race conditions from rapid double-clicks.
+  -- If DELETE removes a row the user was liked; INSERT means they weren't.
+  DELETE FROM curated_likes
+  WHERE curated_likes.output_id = v_output_id
+    AND curated_likes.wallet_address = p_wallet;
+  GET DIAGNOSTICS v_rows_deleted = ROW_COUNT;
+
+  IF v_rows_deleted = 0 THEN
+    -- Wasn't liked — insert, ignoring concurrent duplicate (race-safe)
     INSERT INTO curated_likes (output_id, wallet_address, source)
-    VALUES (v_output_id, p_wallet, p_source);
+    VALUES (v_output_id, p_wallet, p_source)
+    ON CONFLICT (output_id, wallet_address) DO NOTHING;
     v_user_liked := true;
+  ELSE
+    v_user_liked := false;
   END IF;
 
   SELECT COUNT(*) INTO v_like_count
