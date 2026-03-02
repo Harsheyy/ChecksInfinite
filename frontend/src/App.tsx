@@ -213,16 +213,19 @@ export default function App() {
   }
 
   function getLikeInfo(result: PermutationResult): LikeInfo | undefined {
-    if (!isConnected || !dbMode) return undefined
+    if (!dbMode) return undefined
+    const isCurated = viewMode === 'curated'
+    if (!isConnected && !isCurated) return undefined
     const [k1, b1, k2, b2] = result.def.tokenIds ?? []
     if (!k1 || !b1 || !k2 || !b2) return undefined
     const key = likedKey(k1, b1, k2, b2)
-    const isCurated = viewMode === 'curated'
     return {
       isLiked:    likedKeys.has(key),
       likeCount:  isCurated ? (likeCounts.get(key) ?? 0) : undefined,
       alwaysShow: isCurated,
-      onLike:     () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated'),
+      onLike:     isConnected
+        ? () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated')
+        : () => {},
     }
   }
 
