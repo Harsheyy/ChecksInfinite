@@ -490,7 +490,25 @@ body {
 }
 .filter-mode-btn + .filter-mode-btn { border-left: 1px solid #333; }
 .filter-mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.filter-curated-toggle { display: flex; align-items: center; margin-right: 0.5rem; }
+.filter-curated-toggle {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  border: 1px solid #333;
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.filter-curated-toggle .filter-mode-btn {
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+}
+.filter-curated-toggle .filter-mode-btn--active {
+  background: #eee;
+  color: #111;
+  font-weight: bold;
+}
+.filter-curated-toggle .filter-mode-btn:hover:not(.filter-mode-btn--active) { color: #bbb; }
 
 /* ─── Grid viewport ───────────────────────────────────────── */
 .grid-viewport {
