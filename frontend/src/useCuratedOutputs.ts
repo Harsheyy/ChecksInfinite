@@ -56,6 +56,10 @@ function buildCuratedResult(row: CuratedRow): CuratedPermutationResult | null {
     const abcdStruct = computeL2(l1aStruct, l1bStruct)
     const abcdMap    = buildL2RenderMap(l1aStruct, l1bStruct, b1, b2)
 
+    let _k1Svg:   string | undefined
+    let _b1Svg:   string | undefined
+    let _k2Svg:   string | undefined
+    let _b2Svg:   string | undefined
     let _l1aSvg:  string | undefined
     let _l1bSvg:  string | undefined
     let _abcdSvg: string | undefined
@@ -66,10 +70,42 @@ function buildCuratedResult(row: CuratedRow): CuratedPermutationResult | null {
         label:    `#${id0}▸#${id1}, #${id2}▸#${id3}`,
         tokenIds: [id0, id1, id2, id3],
       },
-      nodeA: { name: `Token #${id0}`, svg: '', attributes: [], loading: false, error: '' },
-      nodeB: { name: `Token #${id1}`, svg: '', attributes: [], loading: false, error: '' },
-      nodeC: { name: `Token #${id2}`, svg: '', attributes: [], loading: false, error: '' },
-      nodeD: { name: `Token #${id3}`, svg: '', attributes: [], loading: false, error: '' },
+      nodeA: {
+        name: `Token #${id0}`,
+        attributes: mapCheckAttributes(k1),
+        loading: false, error: '',
+        get svg() {
+          if (_k1Svg !== undefined) return _k1Svg
+          try { return (_k1Svg = generateSVGJS(k1, new Map())) } catch { return (_k1Svg = '') }
+        },
+      },
+      nodeB: {
+        name: `Token #${id1}`,
+        attributes: mapCheckAttributes(b1),
+        loading: false, error: '',
+        get svg() {
+          if (_b1Svg !== undefined) return _b1Svg
+          try { return (_b1Svg = generateSVGJS(b1, new Map())) } catch { return (_b1Svg = '') }
+        },
+      },
+      nodeC: {
+        name: `Token #${id2}`,
+        attributes: mapCheckAttributes(k2),
+        loading: false, error: '',
+        get svg() {
+          if (_k2Svg !== undefined) return _k2Svg
+          try { return (_k2Svg = generateSVGJS(k2, new Map())) } catch { return (_k2Svg = '') }
+        },
+      },
+      nodeD: {
+        name: `Token #${id3}`,
+        attributes: mapCheckAttributes(b2),
+        loading: false, error: '',
+        get svg() {
+          if (_b2Svg !== undefined) return _b2Svg
+          try { return (_b2Svg = generateSVGJS(b2, new Map())) } catch { return (_b2Svg = '') }
+        },
+      },
       nodeL1a: {
         name: `#${id0}+#${id1}`,
         attributes: mapCheckAttributes(l1aStruct),
