@@ -344,7 +344,7 @@ export default function App() {
         showFlags={showFlags}
         hasFilters={showFilters}
         dbMode={dbMode}
-        hideBuy={isMyChecksMode || isSearchWalletMode || isCuratedMode}
+        hideBuy={isMyChecksMode || isSearchWalletMode}
         filtersTall={false}
         getLikeInfo={dbMode ? getLikeInfo : undefined}
       />
