@@ -148,6 +148,16 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
           </div>
         </div>
         <div className="tree-panel-header-actions">
+          {dbMode && !hideBuy && (
+            <button
+              className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}
+              onClick={handleBuyAll}
+              disabled={buyDisabled}
+              aria-label="Buy"
+            >
+              {buyLabel()}
+            </button>
+          )}
           {likeInfo && (
             <span className={likeInfo.canLike === false ? 'tree-panel-like-wrap--no-connect' : undefined}>
             <button
@@ -162,16 +172,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
               )}
             </button>
             </span>
-          )}
-          {dbMode && !hideBuy && (
-            <button
-              className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}
-              onClick={handleBuyAll}
-              disabled={buyDisabled}
-              aria-label="Buy"
-            >
-              {buyLabel()}
-            </button>
           )}
           <button className="tree-panel-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
