@@ -32,8 +32,8 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
     if (isConnected) {
       disconnect()
     } else {
-      const injected = connectors.find(c => c.id === 'injected')
-      if (injected) connect({ connector: injected })
+      const connector = connectors.find(c => c.id === 'injected') ?? connectors[0]
+      if (connector) connect({ connector })
     }
   }
 

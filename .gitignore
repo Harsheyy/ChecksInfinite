@@ -25,5 +25,5 @@ supabase/.temp/
 
 # Ignored directories
 .claude/
-docs/
+docs/plans/
 Source/
