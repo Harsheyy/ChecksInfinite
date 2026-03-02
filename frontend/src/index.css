@@ -118,6 +118,22 @@ body {
   border-left: 1px solid #333;
 }
 
+/* ─── View mode dropdown (mobile) ─────────────────────────── */
+.view-toggle-select {
+  display: none;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 0;
+}
+.view-toggle-select:focus { outline: 1px solid #555; }
+
 /* ─── Search Wallet input ──────────────────────────────────── */
 .view-toggle-row {
   display: flex;
@@ -987,6 +1003,10 @@ body {
     flex: 1;
     min-width: 0;
   }
+
+  /* Swap button group → select on mobile */
+  .view-toggle { display: none; }
+  .view-toggle-select { display: block; }
 
   /* All fixed offsets based on 76px navbar */
   .filter-strip {

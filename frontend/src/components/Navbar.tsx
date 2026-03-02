@@ -93,6 +93,16 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
               >Search Wallet</button>
             )}
           </div>
+          <select
+            className="view-toggle-select"
+            value={viewMode}
+            onChange={e => onViewModeChange(e.target.value as ViewMode)}
+          >
+            <option value="token-works">Token Works</option>
+            {isConnected && <option value="my-checks">My Checks</option>}
+            <option value="curated">Curated Checks</option>
+            {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
+          </select>
           {viewMode === 'search-wallet' && showSearchWallet && (
             <input
               type="text"
