@@ -291,7 +291,7 @@ export default function App() {
           Not enough compatible checks to generate permutations.
         </div>
       )}
-      {!isMyChecksMode && !isSearchWalletMode && dbMode && !dbState.loading && dbState.permutations.length > 0 && visibleCount === 0 && (
+      {!isCuratedMode && !isMyChecksMode && !isSearchWalletMode && dbMode && !dbState.loading && dbState.permutations.length > 0 && visibleCount === 0 && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No permutations match these filters.
         </div>
