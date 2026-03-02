@@ -215,7 +215,6 @@ export default function App() {
   function getLikeInfo(result: PermutationResult): LikeInfo | undefined {
     if (!dbMode) return undefined
     const isCurated = viewMode === 'curated'
-    if (!isConnected && !isCurated) return undefined
     const [k1, b1, k2, b2] = result.def.tokenIds ?? []
     if (!k1 || !b1 || !k2 || !b2) return undefined
     const key = likedKey(k1, b1, k2, b2)
