@@ -149,18 +149,19 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
         </div>
         <div className="tree-panel-header-actions">
           {likeInfo && (
+            <span className={likeInfo.canLike === false ? 'tree-panel-like-wrap--no-connect' : undefined}>
             <button
               className={`tree-panel-like-btn${likeInfo.isLiked ? ' tree-panel-like-btn--liked' : ''}`}
               onClick={likeInfo.onLike}
               disabled={likeInfo.canLike === false}
               aria-label={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
-              title={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
             >
               {likeInfo.isLiked ? '♥' : '♡'}
               {likeInfo.likeCount !== undefined && (
                 <span className="tree-panel-like-count">{likeInfo.likeCount}</span>
               )}
             </button>
+            </span>
           )}
           {dbMode && !hideBuy && (
             <button

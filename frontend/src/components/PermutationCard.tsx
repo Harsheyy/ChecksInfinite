@@ -53,11 +53,10 @@ export function PermutationCard({ result, visible, onClick, likeInfo }: Permutat
       )}
       {likeInfo && (
         <div
-          className={`perm-card-heart${likeInfo.alwaysShow ? ' perm-card-heart--always' : ''}${likeInfo.isLiked ? ' perm-card-heart--liked' : ''}`}
+          className={`perm-card-heart${likeInfo.alwaysShow ? ' perm-card-heart--always' : ''}${likeInfo.isLiked ? ' perm-card-heart--liked' : ''}${likeInfo.canLike === false ? ' perm-card-heart--no-connect' : ''}`}
           onClick={handleHeartClick}
           role="button"
           aria-label={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
-          title={likeInfo.canLike === false ? 'Connect wallet to curate' : likeInfo.isLiked ? 'Unlike' : 'Like'}
         >
           {likeInfo.isLiked ? '♥' : '♡'}
           {likeInfo.likeCount !== undefined && (

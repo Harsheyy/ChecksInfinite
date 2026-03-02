@@ -604,6 +604,24 @@ body {
   font-size: 0.7rem;
   color: inherit;
 }
+.perm-card-heart--no-connect { cursor: default; }
+.perm-card-heart--no-connect::after {
+  content: 'Connect wallet to curate';
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: #1c1c1c;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.68rem;
+  color: #bbb;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+  z-index: 10;
+}
+.perm-card-heart--no-connect:hover::after { display: block; }
 
 /* ─── Card hover effects (desktop only) ──────────────────── */
 @media (hover: hover) and (min-width: 901px) {
@@ -746,6 +764,27 @@ body {
 .tree-panel-like-btn:hover { border-color: #e84; color: #e84; }
 .tree-panel-like-btn--liked { color: #e84; border-color: #e84; }
 .tree-panel-like-count { font-size: 0.65rem; }
+.tree-panel-like-wrap--no-connect {
+  position: relative;
+  display: inline-flex;
+}
+.tree-panel-like-wrap--no-connect::after {
+  content: 'Connect wallet to curate';
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: #1c1c1c;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.68rem;
+  color: #bbb;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+  z-index: 10;
+}
+.tree-panel-like-wrap--no-connect:hover::after { display: block; }
 
 .tree-panel-body {
   flex: 1;
