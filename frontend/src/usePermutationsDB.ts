@@ -237,7 +237,10 @@ export function usePermutationsDB() {
         total: rows.length,
       })
     } catch (e) {
-      const msg = (e as { message?: string })?.message ?? String(e)
+      const raw = (e as { message?: string })?.message ?? String(e)
+      const msg = raw.includes('canceling statement due to statement timeout')
+        ? 'The database is under heavy load and the request timed out. Please refresh and try agains.'
+        : raw
       setState(prev => ({ ...prev, loading: false, error: msg }))
     }
   }, [])
