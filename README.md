@@ -13,8 +13,9 @@ SVG rendering is done entirely client-side via a JS port of `ChecksArt.sol`, pro
 
 ## Features
 
-- **Token Works** — browse a randomly shuffled feed of pre-computed composites from the full collection, with server-side filtering
+- **Token Works** — randomly sampled feed of 2500 pre-computed composites from a nightly-refreshed 500K pool
 - **My Checks** — connect your wallet to see composites generated from checks you own
+- **Search Wallet** — gated mode to explore any wallet's permutations on-the-fly (no DB writes)
 - **Filters** — by Checks count, Color Band, Gradient, Speed, Shift, Token IDs, and ETH cost range
 - **Buy** — purchase all four leaf checks in one flow via the TokenStrategy contract
 - **Infinite torus grid** — seamlessly looping virtualised grid for large result sets
@@ -40,9 +41,13 @@ frontend/          React + Vite UI
 
 backend/           Node.js data pipeline (tsx + viem)
   scripts/
-    backfill.ts              Fetch all TokenStrategy checks → Supabase
-    backfill-prices.ts       Populate eth_price + total_cost from contract
-    compute-permutations.ts  Pre-compute all valid permutations
+    backfill.ts                      Fetch all TokenStrategy checks → Supabase
+    backfill-prices.ts               Populate eth_price + total_cost from contract
+    compute-permutations.ts          Pre-compute all valid permutations (general)
+    populate-ranked-permutations.ts  Nightly: low-band/gradient only, ranked + random
+
+.github/workflows/
+  nightly-permutations.yml  GitHub Actions cron (2 AM UTC) — runs populate-ranked
 ```
 
 ---
@@ -51,8 +56,9 @@ backend/           Node.js data pipeline (tsx + viem)
 
 | Mode | When | Data source |
 |------|------|-------------|
-| **DB / Token Works** | `VITE_SUPABASE_*` env vars set | Supabase — pre-computed, filterable |
+| **DB / Token Works** | `VITE_SUPABASE_*` env vars set | Supabase — random 2500 from 500K nightly pool |
 | **My Checks** | DB mode + wallet connected | Client-side from owned tokens |
+| **Search Wallet** | DB mode + specific wallet connected | Client-side from any entered address (no DB writes) |
 | **Chain mode** | Only `VITE_ALCHEMY_API_KEY` set | Live RPC — enter token IDs manually |
 
 ---
@@ -62,10 +68,11 @@ backend/           Node.js data pipeline (tsx + viem)
 ### 1. Supabase
 
 1. Create a [Supabase](https://supabase.com) project.
-2. Run all migrations in order (`001` → `008`) via the SQL Editor in the Supabase Dashboard.
-3. Note your **Project URL** and **anon public key** (Settings → API).
+2. Run all migrations in order (`001` → `010`) via the SQL Editor in the Supabase Dashboard.
+3. In **Settings → API**, set **Max Rows** to `5000`.
+4. Note your **Project URL** and **publishable key** (Settings → API).
 
-### 2. Backend — backfill
+### 2. Backend — backfill + populate
 
 ```bash
 cd backend
@@ -76,13 +83,21 @@ npm install
 # Fetch all TokenStrategy checks from chain into Supabase
 npx tsx scripts/backfill.ts
 
-# Pre-compute all permutations
-npx tsx scripts/compute-permutations.ts
-
 # Populate ETH prices and total_cost
 npx tsx scripts/backfill-prices.ts
 # Then run in Supabase SQL Editor: SELECT backfill_permutation_costs();
+
+# Populate ranked permutations (low-band + gradient only, 500K cap)
+npm run populate-ranked
 ```
+
+### 3. Nightly cron (GitHub Actions)
+
+Add two repository secrets (**Settings → Secrets and variables → Actions**):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+
+The workflow `.github/workflows/nightly-permutations.yml` runs at 2 AM UTC, wiping and repopulating the permutations table with a fresh random sample.
 
 ### 3. Frontend
 
