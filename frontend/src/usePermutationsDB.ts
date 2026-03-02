@@ -234,19 +234,7 @@ export function usePermutationsDB() {
     }
   }, [])
 
-  // Client-side Fisher-Yates shuffle of the already-loaded permutations.
-  // No re-fetch needed — the ranked set is stable.
-  const shuffle = useCallback(() => {
-    setState(prev => {
-      if (prev.permutations.length === 0) return prev
-      const arr = [...prev.permutations]
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[arr[i], arr[j]] = [arr[j], arr[i]]
-      }
-      return { ...prev, permutations: arr }
-    })
-  }, [])
+  const shuffle = useCallback(() => loadRandom(true), [loadRandom])
 
   return { state, loadRandom, shuffle }
 }
