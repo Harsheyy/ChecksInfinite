@@ -167,7 +167,7 @@ BEGIN
     -- Wasn't liked — insert, ignoring concurrent duplicate (race-safe)
     INSERT INTO curated_likes (output_id, wallet_address, source)
     VALUES (v_output_id, p_wallet, p_source)
-    ON CONFLICT (output_id, wallet_address) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT curated_likes_output_id_wallet_address_key DO NOTHING;
     v_user_liked := true;
   ELSE
     v_user_liked := false;
