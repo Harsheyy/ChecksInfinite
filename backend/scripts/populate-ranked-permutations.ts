@@ -23,6 +23,7 @@ import {
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const BATCH_SIZE           = 50
+const MAX_PERMS_PER_GROUP  = 500_000  // cap per checks_count group for storage safety
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Missing env vars. Copy .env.example to .env and fill in values.')
@@ -80,6 +81,12 @@ async function main() {
   let totalPerms = 0
 
   try {
+    // 0. Wipe existing permutations for a clean nightly refresh
+    console.log('Truncating permutations table...')
+    const { error: truncErr } = await supabase.rpc('truncate_permutations')
+    if (truncErr) throw truncErr
+    console.log('Truncated.')
+
     // 1. Load all non-burned checks with band/gradient metadata
     console.log('Loading checks from Supabase...')
     const { data: rawRows, error } = await supabase
@@ -120,12 +127,23 @@ async function main() {
       const total = perm4(n)
       console.log(`\nchecks_count=${checksCount}: ${n} tokens → ${total.toLocaleString()} permutations`)
 
-      // Pre-convert to CheckStruct once per token
-      const structs: CheckStruct[] = tokens.map(t => checkStructFromJSON(t.check_struct))
+      // Shuffle tokens so each nightly run samples a different subset of P(n,4)
+      const shuffled = [...tokens]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+
+      // Pre-convert to CheckStruct once per token (after shuffle)
+      const structs: CheckStruct[] = shuffled.map(t => checkStructFromJSON(t.check_struct))
 
       const batch: PermutationRow[] = []
       let computed = 0
 
+      const cappedTotal = Math.min(total, MAX_PERMS_PER_GROUP)
+      console.log(`  Sampling up to ${cappedTotal.toLocaleString()} permutations (cap: ${MAX_PERMS_PER_GROUP.toLocaleString()})`)
+
+      outer:
       for (let i0 = 0; i0 < n; i0++) {
         for (let i1 = 0; i1 < n; i1++) {
           if (i1 === i0) continue
@@ -136,15 +154,15 @@ async function main() {
 
               try {
                 const row = computePermutation(
-                  structs[i0], tokens[i0].token_id,
-                  structs[i1], tokens[i1].token_id,
-                  structs[i2], tokens[i2].token_id,
-                  structs[i3], tokens[i3].token_id,
+                  structs[i0], shuffled[i0].token_id,
+                  structs[i1], shuffled[i1].token_id,
+                  structs[i2], shuffled[i2].token_id,
+                  structs[i3], shuffled[i3].token_id,
                 )
                 batch.push(row)
                 computed++
               } catch (err) {
-                console.warn(`  Skipping (${tokens[i0].token_id},${tokens[i1].token_id},${tokens[i2].token_id},${tokens[i3].token_id}): ${String(err)}`)
+                console.warn(`  Skipping (${shuffled[i0].token_id},${shuffled[i1].token_id},${shuffled[i2].token_id},${shuffled[i3].token_id}): ${String(err)}`)
                 continue
               }
 
@@ -152,8 +170,10 @@ async function main() {
                 await flushBatch(batch)
                 totalPerms += batch.length
                 batch.length = 0
-                process.stdout.write(`\r  ${computed.toLocaleString()} / ${total.toLocaleString()} computed`)
+                process.stdout.write(`\r  ${computed.toLocaleString()} / ${cappedTotal.toLocaleString()} computed`)
               }
+
+              if (computed >= MAX_PERMS_PER_GROUP) break outer
             }
           }
         }

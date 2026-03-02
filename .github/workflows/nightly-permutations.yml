@@ -1,0 +1,29 @@
+name: Nightly Permutations Refresh
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 2 AM UTC every night
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run populate-ranked-permutations
+        run: npm run populate-ranked
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
