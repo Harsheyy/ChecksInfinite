@@ -616,7 +616,9 @@ body {
   padding: 0.3rem 0.5rem;
   font-size: 0.68rem;
   color: #bbb;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 120px;
+  text-align: center;
   pointer-events: none;
   display: none;
   z-index: 10;
