@@ -171,7 +171,10 @@ async function main() {
                 await flushBatch(batch)
                 totalPerms += batch.length
                 batch.length = 0
-                process.stdout.write(`\r  ${computed.toLocaleString()} / ${cappedTotal.toLocaleString()} computed`)
+                const filled = Math.floor((computed / cappedTotal) * 30)
+                const bar = '█'.repeat(filled) + '░'.repeat(30 - filled)
+                const pct = Math.floor((computed / cappedTotal) * 100)
+                process.stdout.write(`\r  [${bar}] ${pct}% (${computed.toLocaleString()} / ${cappedTotal.toLocaleString()})`)
               }
 
               if (computed >= MAX_PERMS_PER_GROUP) break outer
