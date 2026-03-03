@@ -86,7 +86,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
               <button
                 className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
                 onClick={() => onViewModeChange('explore')}
-              >Curate</button>
+              >Explore</button>
             )}
             <button
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
@@ -106,7 +106,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
           >
             <option value="token-works">Token Works</option>
             {isConnected && <option value="my-checks">My Checks</option>}
-            {isConnected && <option value="explore">Curate</option>}
+            {isConnected && <option value="explore">Explore</option>}
             <option value="curated">Curated Checks</option>
             {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
           </select>
