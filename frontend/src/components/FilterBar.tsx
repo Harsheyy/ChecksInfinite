@@ -422,6 +422,42 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           )}
         </div>
 
+        {/* ── Mobile: explore form (outside panel) ── */}
+        {exploreMode && (
+          <div className="filter-mobile-explore">
+            <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
+              <input
+                className={`filter-id-input filter-id-input--full${exploreError ? ' filter-id-input--error' : ''}`}
+                type="text"
+                placeholder="4–10 token IDs, comma-separated"
+                value={exploreRaw}
+                onChange={e => setExploreRaw(e.target.value)}
+                disabled={exploreLoading}
+                spellCheck={false}
+              />
+              <button
+                type="submit"
+                className="filter-explore-submit"
+                disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 10}
+              >
+                {exploreLoading ? '…' : '→'}
+              </button>
+              {exploreSearched && (
+                <button
+                  type="button"
+                  className="filter-explore-clear"
+                  onClick={() => { setExploreRaw(''); onExploreClear?.() }}
+                >
+                  Clear
+                </button>
+              )}
+            </form>
+            {exploreError && (
+              <p className="filter-explore-error">{exploreError}</p>
+            )}
+          </div>
+        )}
+
         {/* ── Mobile: trigger bar ── */}
         <div className="filter-mobile-bar">
           <button
@@ -462,41 +498,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
             </div>
 
             <div className="filter-panel-body">
-              {exploreMode && (
-                <div className="filter-panel-group">
-                  <span className="filter-select-name">IDs</span>
-                  <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
-                    <input
-                      className={`filter-id-input filter-id-input--full${exploreError ? ' filter-id-input--error' : ''}`}
-                      type="text"
-                      placeholder="4–10 token IDs, comma-separated"
-                      value={exploreRaw}
-                      onChange={e => setExploreRaw(e.target.value)}
-                      disabled={exploreLoading}
-                      spellCheck={false}
-                    />
-                    <button
-                      type="submit"
-                      className="filter-explore-submit"
-                      disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 10}
-                    >
-                      {exploreLoading ? '…' : '→'}
-                    </button>
-                    {exploreSearched && (
-                      <button
-                        type="button"
-                        className="filter-explore-clear"
-                        onClick={() => { setExploreRaw(''); onExploreClear?.() }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </form>
-                  {exploreError && (
-                    <p className="filter-explore-error">{exploreError}</p>
-                  )}
-                </div>
-              )}
               {curatedMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">View</span>

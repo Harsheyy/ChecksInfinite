@@ -265,9 +265,18 @@ body {
 .filter-mobile-trigger--active { color: #bbb; }
 .filter-mobile-trigger:hover { color: #aaa; }
 
+.filter-mobile-explore {
+  display: none;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 6px 16px 0;
+}
+
 @media (max-width: 900px) {
-  .filter-row        { display: none; }
-  .filter-mobile-bar { display: flex; }
+  .filter-row            { display: none; }
+  .filter-mobile-bar     { display: flex; }
+  .filter-mobile-explore { display: flex; }
 }
 
 /* ─── Filter side panel ───────────────────────────────────── */
