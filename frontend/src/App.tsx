@@ -273,7 +273,7 @@ export default function App() {
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
   const showFilters = isExploreMode
-    ? true
+    ? explore.searched
     : isCuratedMode
       ? curatedState.outputs.length > 0 || curatedState.loading
       : isSearchWalletMode
