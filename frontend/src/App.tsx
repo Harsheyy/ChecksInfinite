@@ -6,7 +6,7 @@ import { FilterBar, emptyFilters, matchesFilters, type Filters } from './compone
 import { InfiniteGrid } from './components/InfiniteGrid'
 import { useAllPermutations } from './useAllPermutations'
 import type { PermutationResult } from './useAllPermutations'
-import { usePermutationsDB, usePriceBounds, serializeCheckStruct, fetchCheckStructMap } from './usePermutationsDB'
+import { usePermutationsDB, serializeCheckStruct, fetchCheckStructMap } from './usePermutationsDB'
 import { useMyChecks } from './useMyChecks'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase, supabase } from './supabaseClient'
@@ -72,10 +72,6 @@ export default function App() {
   // ── Like state (across all modes) ────────────────────────────────────────────
   const { likedKeys, setLikedKeys } = useMyLikedKeys(address?.toLowerCase())
   const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map())
-
-  // ── Price bounds (DB / Token Works mode only) ─────────────────────────────
-  const priceBoundsEnabled = dbMode && viewMode === 'token-works'
-  const priceBounds = usePriceBounds(priceBoundsEnabled)
 
   // Generate permutations when checks load
   useEffect(() => {
@@ -270,7 +266,7 @@ export default function App() {
     if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
     const [p0, p1, p2, p3] = p.def.indices
     const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
-    return matchesFilters(p.nodeAbcd.attributes, filters, tids, p.total_cost)
+    return matchesFilters(p.nodeAbcd.attributes, filters, tids)
   })
 
   const visibleCount = showFlags.filter(Boolean).length
@@ -326,7 +322,6 @@ export default function App() {
           onChange={setFilters}
           visible={visibleCount}
           onShuffle={(!isCuratedMode && (isMyChecksMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
-          priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
           permutations={visiblePermutations}
           curatedMode={isCuratedMode}
           walletOnly={walletOnly}

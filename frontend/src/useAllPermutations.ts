@@ -24,6 +24,7 @@ export interface PermutationResult {
   nodeL1b: CardState
   nodeAbcd: CardState
   total_cost?: number | null
+  fromTokenWorks?: boolean
 }
 
 export interface AllPermutationsState {

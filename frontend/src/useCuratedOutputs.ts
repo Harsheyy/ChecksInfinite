@@ -184,7 +184,22 @@ export function useCuratedOutputs() {
         .map(r => buildCuratedResult(r))
         .filter((r): r is CuratedPermutationResult => r !== null)
 
-      setState({ outputs, loading: false, error: '' })
+      // Determine which outputs are from Token Works (all 4 tokens in tokenstr_checks)
+      const allIds = [...new Set(outputs.flatMap(o => o.def.tokenIds!.map(Number)))]
+      let tokenWorksSet = new Set<number>()
+      if (allIds.length > 0) {
+        const { data: twData } = await supabase
+          .from('tokenstr_checks')
+          .select('token_id')
+          .in('token_id', allIds)
+        tokenWorksSet = new Set((twData ?? []).map((r: { token_id: number }) => r.token_id))
+      }
+      const outputsTagged = outputs.map(o => ({
+        ...o,
+        fromTokenWorks: o.def.tokenIds!.every(id => tokenWorksSet.has(Number(id))),
+      }))
+
+      setState({ outputs: outputsTagged, loading: false, error: '' })
     } catch (e) {
       setState({ outputs: [], loading: false, error: String(e) })
     }

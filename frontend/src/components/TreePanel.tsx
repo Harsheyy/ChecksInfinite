@@ -113,7 +113,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
   }
 
   function priceLabel(i: number): string | undefined {
-    if (!dbMode || hideBuy || prices[i] == null) return undefined
+    if (!dbMode || hideBuy || result.fromTokenWorks === false || prices[i] == null) return undefined
     return `${parseFloat(formatEther(prices[i]!)).toFixed(3)} ETH`
   }
 
@@ -148,7 +148,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
           </div>
         </div>
         <div className="tree-panel-header-actions">
-          {dbMode && !hideBuy && (
+          {dbMode && !hideBuy && result.fromTokenWorks !== false && (
             <button
               className={`tree-buy-btn${buyState === 'done' ? ' tree-buy-btn--done' : ''}${buyState === 'error' ? ' tree-buy-btn--error' : ''}`}
               onClick={handleBuyAll}

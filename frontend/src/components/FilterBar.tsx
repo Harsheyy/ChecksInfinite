@@ -10,22 +10,19 @@ export interface Filters {
   speed: string
   shift: string
   selectedIds: string[]
-  minCost: number | null
-  maxCost: number | null
 }
 
 export function emptyFilters(): Filters {
   return {
     checks: '', colorBand: '', gradient: '', speed: '', shift: '',
     selectedIds: [],
-    minCost: null, maxCost: null,
   }
 }
 
 export function hasActiveFilters(f: Filters): boolean {
   return !!(
     f.checks || f.colorBand || f.gradient || f.speed || f.shift ||
-    f.selectedIds.length > 0 || f.minCost !== null || f.maxCost !== null
+    f.selectedIds.length > 0
   )
 }
 
@@ -37,7 +34,6 @@ function countActiveFilters(f: Filters): number {
   if (f.speed) n++
   if (f.shift) n++
   if (f.selectedIds.length > 0) n++
-  if (f.minCost !== null || f.maxCost !== null) n++
   return n
 }
 
@@ -142,7 +138,6 @@ interface FilterBarProps {
   onChange: (f: Filters) => void
   visible: number
   onShuffle?: () => void
-  priceRange?: { min: number; max: number }
   permutations?: PermutationResult[]  // visible permutations for counts
   curatedMode?: boolean
   walletOnly?: boolean
@@ -159,7 +154,7 @@ interface FilterBarProps {
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
   const [exploreRaw, setExploreRaw] = useState('')
@@ -283,55 +278,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
   const isActive = hasActiveFilters(filters)
   const activeCount = countActiveFilters(filters)
 
-  // ── Shared: price slider JSX ───────────────────────────────────────────────
-  function PriceSlider({ fullWidth }: { fullWidth?: boolean }) {
-    if (!priceRange) return null
-    const currentMin = filters.minCost ?? priceRange.min
-    const currentMax = filters.maxCost ?? priceRange.max
-    const span = priceRange.max - priceRange.min || 1
-    const leftPct  = ((currentMin - priceRange.min) / span) * 100
-    const rightPct = ((currentMax - priceRange.min) / span) * 100
-    const trackFill = `linear-gradient(to right, #2a2a2a ${leftPct}%, #888 ${leftPct}%, #888 ${rightPct}%, #2a2a2a ${rightPct}%)`
-    return (
-      <>
-        <span className="filter-select-name">Cost</span>
-        <span className="filter-price-val">{currentMin.toFixed(3)}</span>
-        <div
-          className="filter-price-track"
-          style={{ backgroundImage: trackFill, maxWidth: fullWidth ? 'none' : undefined }}
-        >
-          <input
-            type="range"
-            aria-label="min cost"
-            className="filter-price-range filter-price-range--min"
-            min={priceRange.min}
-            max={priceRange.max}
-            step={(priceRange.max - priceRange.min) / 200}
-            value={currentMin}
-            onChange={e => {
-              const v = Math.min(parseFloat(e.target.value), currentMax)
-              onChange({ ...filters, minCost: v <= priceRange.min ? null : v })
-            }}
-          />
-          <input
-            type="range"
-            aria-label="max cost"
-            className="filter-price-range filter-price-range--max"
-            min={priceRange.min}
-            max={priceRange.max}
-            step={(priceRange.max - priceRange.min) / 200}
-            value={currentMax}
-            onChange={e => {
-              const v = Math.max(parseFloat(e.target.value), currentMin)
-              onChange({ ...filters, maxCost: v >= priceRange.max ? null : v })
-            }}
-          />
-        </div>
-        <span className="filter-price-val">{currentMax.toFixed(3)} ETH</span>
-      </>
-    )
-  }
-
   return (
     <>
       <div className="filter-strip">
@@ -402,7 +348,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
           <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
           <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)}     counts={attributeCounts?.speed} />
           <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)}     counts={attributeCounts?.shift} />
-          <PriceSlider />
           <span className="filter-count">
             Showing {visible}
             {uniqueCheckIdCount != null && (
@@ -615,33 +560,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                 </select>
               </div>
 
-              {priceRange && (() => {
-                const currentMin = filters.minCost ?? priceRange.min
-                const currentMax = filters.maxCost ?? priceRange.max
-                const span = priceRange.max - priceRange.min || 1
-                const leftPct  = ((currentMin - priceRange.min) / span) * 100
-                const rightPct = ((currentMax - priceRange.min) / span) * 100
-                const trackFill = `linear-gradient(to right, #2a2a2a ${leftPct}%, #888 ${leftPct}%, #888 ${rightPct}%, #2a2a2a ${rightPct}%)`
-                return (
-                  <div className="filter-panel-group">
-                    <span className="filter-select-name">Cost</span>
-                    <div className="filter-panel-price-row">
-                      <span className="filter-price-val">{currentMin.toFixed(3)}</span>
-                      <div className="filter-price-track" style={{ backgroundImage: trackFill, maxWidth: 'none', flex: 1 }}>
-                        <input type="range" aria-label="min cost" className="filter-price-range filter-price-range--min"
-                          min={priceRange.min} max={priceRange.max} step={(priceRange.max - priceRange.min) / 200} value={currentMin}
-                          onChange={e => { const v = Math.min(parseFloat(e.target.value), currentMax); onChange({ ...filters, minCost: v <= priceRange.min ? null : v }) }}
-                        />
-                        <input type="range" aria-label="max cost" className="filter-price-range filter-price-range--max"
-                          min={priceRange.min} max={priceRange.max} step={(priceRange.max - priceRange.min) / 200} value={currentMax}
-                          onChange={e => { const v = Math.max(parseFloat(e.target.value), currentMin); onChange({ ...filters, maxCost: v >= priceRange.max ? null : v }) }}
-                        />
-                      </div>
-                      <span className="filter-price-val">{currentMax.toFixed(3)} ETH</span>
-                    </div>
-                  </div>
-                )
-              })()}
             </div>
 
             <div className="filter-panel-footer">
@@ -666,7 +584,6 @@ export function matchesFilters(
   attributes: Attribute[],
   filters: Filters,
   tokenIds?: string[],
-  totalCost?: number | null,
 ): boolean {
   function check(key: keyof Pick<Filters, 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift'>, traitType: string): boolean {
     if (!filters[key]) return true
@@ -687,9 +604,6 @@ export function matchesFilters(
   if (filters.selectedIds.length > 0 && tokenIds) {
     if (!filters.selectedIds.every(id => tokenIds.includes(id))) return false
   }
-
-  if (filters.minCost !== null && (totalCost == null || totalCost < filters.minCost)) return false
-  if (filters.maxCost !== null && (totalCost == null || totalCost > filters.maxCost)) return false
 
   return true
 }
