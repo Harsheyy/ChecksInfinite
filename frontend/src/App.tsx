@@ -93,7 +93,7 @@ export default function App() {
   }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (viewMode !== 'explore') explore.clear()
+    if (viewMode !== 'explore') { explore.clear(); setExploreEmptyRaw('') }
   }, [viewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -121,15 +121,17 @@ export default function App() {
     preview(ids)
   }
 
+  const exploreEmptyIds = useMemo(
+    () => [...new Set(exploreEmptyRaw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)))],
+    [exploreEmptyRaw]
+  )
+
   function handleExploreEmptySubmit(e: React.FormEvent) {
     e.preventDefault()
-    const ids = exploreEmptyRaw
-      .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
-    explore.search([...new Set(ids)])
+    explore.search(exploreEmptyIds)
   }
 
-  const exploreEmptyIdCount = exploreEmptyRaw
-    .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)).length
+  const exploreEmptyIdCount = exploreEmptyIds.length
 
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
