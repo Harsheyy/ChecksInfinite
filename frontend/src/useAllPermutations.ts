@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
 import { parseTokenURI, mapCheckAttributes, type CheckStruct, type CardState } from './utils'
-import { simulateCompositeJS, generateSVGJS } from './checksArtJS'
+import { simulateCompositeJS, generateSVGJS, CD_VIRTUAL_ID } from './checksArtJS'
 
 export type { CardState } from './utils'
 
@@ -105,8 +105,6 @@ function resolveL1Card(
     return { name, svg: '', attributes: [], loading: false, error: 'Failed to build L1 composite preview' }
   }
 }
-
-const CD_VIRTUAL_ID = 65535
 
 function computeL2JS(
   name: string,
