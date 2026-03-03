@@ -341,7 +341,7 @@ export default function App() {
           hideIdFilter={isCuratedMode || isExploreMode}
           exploreMode={isExploreMode}
           onExploreSearch={isExploreMode ? explore.search : undefined}
-          onExploreClear={isExploreMode ? explore.clear : undefined}
+          onExploreClear={isExploreMode ? () => { explore.clear(); setExploreEmptyRaw('') } : undefined}
           exploreLoading={isExploreMode ? explore.loading : undefined}
           exploreError={isExploreMode && explore.error ? explore.error : undefined}
           exploreSearched={isExploreMode ? explore.searched : undefined}
