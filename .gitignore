@@ -27,3 +27,4 @@ supabase/.temp/
 .claude/
 docs/plans/
 Source/
+.worktrees/
