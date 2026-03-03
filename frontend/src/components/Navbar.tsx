@@ -9,7 +9,6 @@ interface NavbarProps {
   onIdsChange: (v: string) => void
   onPreview: () => void
   dbMode?: boolean
-  dbTotal?: number
   viewMode?: ViewMode
   onViewModeChange?: (mode: ViewMode) => void
   showSearchWallet?: boolean

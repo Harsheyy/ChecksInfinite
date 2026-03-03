@@ -312,7 +312,6 @@ export default function App() {
         onIdsChange={dbMode ? () => {} : setIdsRaw}
         onPreview={dbMode ? () => {} : handlePreview}
         dbMode={dbMode}
-        dbTotal={dbMode ? dbState.total : undefined}
         viewMode={dbMode ? viewMode : undefined}
         onViewModeChange={dbMode ? setViewMode : undefined}
         showSearchWallet={dbMode && isConnected ? showSearchWallet : false}
