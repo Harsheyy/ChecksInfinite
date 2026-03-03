@@ -4,7 +4,7 @@ import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 
-export const EXPLORE_MAX_IDS = 6
+export const EXPLORE_MAX_IDS = 10
 
 export function useExplorePermutations() {
   const [checks, setChecks] = useState<Record<string, CheckStruct>>({})

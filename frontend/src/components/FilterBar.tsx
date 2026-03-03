@@ -343,7 +343,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                   <input
                     className={`filter-id-input${exploreError ? ' filter-id-input--error' : ''}`}
                     type="text"
-                    placeholder="4–6 token IDs, comma-separated"
+                    placeholder="4–10 token IDs, comma-separated"
                     value={exploreRaw}
                     onChange={e => setExploreRaw(e.target.value)}
                     disabled={exploreLoading}
@@ -353,7 +353,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                 <button
                   type="submit"
                   className="filter-explore-submit"
-                  disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
+                  disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 10}
                 >
                   {exploreLoading ? '…' : '→'}
                 </button>
@@ -458,7 +458,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                     <input
                       className={`filter-id-input filter-id-input--full${exploreError ? ' filter-id-input--error' : ''}`}
                       type="text"
-                      placeholder="4–6 token IDs, comma-separated"
+                      placeholder="4–10 token IDs, comma-separated"
                       value={exploreRaw}
                       onChange={e => setExploreRaw(e.target.value)}
                       disabled={exploreLoading}
@@ -467,7 +467,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                     <button
                       type="submit"
                       className="filter-explore-submit"
-                      disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
+                      disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 10}
                     >
                       {exploreLoading ? '…' : '→'}
                     </button>
