@@ -342,6 +342,8 @@ export default function App() {
           isConnected={isConnected}
           hideIdFilter={isCuratedMode || isExploreMode}
           exploreMode={isExploreMode}
+          exploreRaw={isExploreMode ? exploreEmptyRaw : undefined}
+          onExploreRawChange={isExploreMode ? setExploreEmptyRaw : undefined}
           onExploreSearch={isExploreMode ? explore.search : undefined}
           onExploreClear={isExploreMode ? () => { explore.clear(); setExploreEmptyRaw('') } : undefined}
           exploreLoading={isExploreMode ? explore.loading : undefined}
@@ -362,11 +364,6 @@ export default function App() {
       {isSearchWalletMode && isValidAddress(searchWalletAddress) && searchChecks.tokenIds.length > 0 && searchCheckPerms.permutations.length === 0 && !searchChecks.loading && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           Not enough compatible checks to generate permutations.
-        </div>
-      )}
-      {!isCuratedMode && !isMyChecksMode && !isSearchWalletMode && dbMode && !dbState.loading && dbState.permutations.length > 0 && visibleCount === 0 && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          No permutations match these filters.
         </div>
       )}
       {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (

@@ -145,6 +145,8 @@ interface FilterBarProps {
   isConnected?: boolean
   hideIdFilter?: boolean
   exploreMode?: boolean
+  exploreRaw?: string
+  onExploreRawChange?: (v: string) => void
   onExploreSearch?: (ids: string[]) => void
   onExploreClear?: () => void
   exploreLoading?: boolean
@@ -154,10 +156,9 @@ interface FilterBarProps {
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, exploreRaw = '', onExploreRawChange, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [exploreRaw, setExploreRaw] = useState('')
 
   function submitExplore() {
     const ids = exploreRaw
@@ -293,7 +294,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
                     type="text"
                     placeholder="4–10 token IDs, comma-separated"
                     value={exploreRaw}
-                    onChange={e => setExploreRaw(e.target.value)}
+                    onChange={e => onExploreRawChange?.(e.target.value)}
                     disabled={exploreLoading}
                     spellCheck={false}
                   />
@@ -309,7 +310,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
                   <button
                     type="button"
                     className="filter-explore-clear"
-                    onClick={() => { setExploreRaw(''); onExploreClear?.() }}
+                    onClick={() => { onExploreRawChange?.(''); onExploreClear?.() }}
                   >
                     Clear
                   </button>
@@ -376,7 +377,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
                 type="text"
                 placeholder="4–10 token IDs, comma-separated"
                 value={exploreRaw}
-                onChange={e => setExploreRaw(e.target.value)}
+                onChange={e => onExploreRawChange?.(e.target.value)}
                 disabled={exploreLoading}
                 spellCheck={false}
               />
@@ -391,7 +392,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
                 <button
                   type="button"
                   className="filter-explore-clear"
-                  onClick={() => { setExploreRaw(''); onExploreClear?.() }}
+                  onClick={() => { onExploreRawChange?.(''); onExploreClear?.() }}
                 >
                   Clear
                 </button>
