@@ -29,6 +29,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet'>('token-works')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
   const [walletOnly, setWalletOnly] = useState(false)
+  const [exploreEmptyRaw, setExploreEmptyRaw] = useState('')
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
 
@@ -119,6 +120,16 @@ export default function App() {
     setFilters(emptyFilters())
     preview(ids)
   }
+
+  function handleExploreEmptySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const ids = exploreEmptyRaw
+      .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+    explore.search([...new Set(ids)])
+  }
+
+  const exploreEmptyIdCount = exploreEmptyRaw
+    .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)).length
 
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
@@ -364,6 +375,33 @@ export default function App() {
       {isExploreMode && explore.searched && !explore.loading && explore.permutations.length === 0 && !explore.error && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No compatible permutations found. Tokens must share the same check count.
+        </div>
+      )}
+      {isExploreMode && !explore.searched && (
+        <div className="explore-empty">
+          <h2 className="explore-empty__headline">View infinite check permutations</h2>
+          <p className="explore-empty__subtitle">Enter up to 10 token IDs to see possible outcomes.</p>
+          <form className="explore-empty__form" onSubmit={handleExploreEmptySubmit}>
+            <input
+              className="explore-empty__input"
+              type="text"
+              placeholder="e.g. 42, 137, 509, 1024"
+              value={exploreEmptyRaw}
+              onChange={e => setExploreEmptyRaw(e.target.value)}
+              spellCheck={false}
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="explore-empty__submit"
+              disabled={exploreEmptyIdCount < 4 || exploreEmptyIdCount > 10}
+            >
+              →
+            </button>
+          </form>
+          {exploreEmptyIdCount > 10 && (
+            <p className="explore-empty__hint">Max 10 IDs</p>
+          )}
         </div>
       )}
       <InfiniteGrid
