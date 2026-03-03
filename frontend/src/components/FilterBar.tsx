@@ -149,13 +149,28 @@ interface FilterBarProps {
   onWalletOnlyChange?: (v: boolean) => void
   isConnected?: boolean
   hideIdFilter?: boolean
+  exploreMode?: boolean
+  onExploreSearch?: (ids: string[]) => void
+  exploreLoading?: boolean
+  exploreError?: string
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, exploreLoading, exploreError }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [exploreRaw, setExploreRaw] = useState('')
+
+  function handleExploreSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const ids = exploreRaw
+      .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+    onExploreSearch?.([...new Set(ids)])
+  }
+
+  const exploreIdCount = exploreRaw
+    .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)).length
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -316,6 +331,30 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
       <div className="filter-strip">
         {/* ── Desktop: inline row ── */}
         <div className="filter-row">
+          {exploreMode && (
+            <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
+              <label className="filter-select-label">
+                <span className="filter-select-name">IDs</span>
+                <input
+                  className={`filter-id-input${exploreError ? ' filter-id-input--error' : ''}`}
+                  type="text"
+                  placeholder="4–6 token IDs, comma-separated"
+                  value={exploreRaw}
+                  onChange={e => setExploreRaw(e.target.value)}
+                  disabled={exploreLoading}
+                  spellCheck={false}
+                  title={exploreError || undefined}
+                />
+              </label>
+              <button
+                type="submit"
+                className="filter-explore-submit"
+                disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
+              >
+                {exploreLoading ? '…' : '→'}
+              </button>
+            </form>
+          )}
           {curatedMode && (
             <div className="filter-curated-toggle">
               <button
@@ -339,7 +378,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
               onChange={ids => onChange({ ...filters, selectedIds: ids })}
             />
           )}
-          <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)}    counts={attributeCounts?.checks} />
+          {!exploreMode && <FilterSelect label="Checks" options={CHECKS_OPTIONS} value={filters.checks} onChange={v => update('checks', v)} counts={attributeCounts?.checks} />}
           <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} counts={attributeCounts?.colorBand} />
           <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
           <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)}     counts={attributeCounts?.speed} />
@@ -404,6 +443,39 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
             </div>
 
             <div className="filter-panel-body">
+              {exploreMode && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">IDs</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      className={`filter-id-input filter-id-input--full${exploreError ? ' filter-id-input--error' : ''}`}
+                      type="text"
+                      placeholder="4–6 token IDs, comma-separated"
+                      value={exploreRaw}
+                      onChange={e => setExploreRaw(e.target.value)}
+                      disabled={exploreLoading}
+                      spellCheck={false}
+                    />
+                    <button
+                      type="button"
+                      className="filter-explore-submit"
+                      disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
+                      onClick={() => {
+                        const ids = exploreRaw
+                          .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+                        onExploreSearch?.([...new Set(ids)])
+                      }}
+                    >
+                      {exploreLoading ? '…' : '→'}
+                    </button>
+                  </div>
+                  {exploreError && (
+                    <p style={{ fontSize: '0.75rem', color: '#c0392b', margin: '0.25rem 0 0' }}>
+                      {exploreError}
+                    </p>
+                  )}
+                </div>
+              )}
               {curatedMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">View</span>
@@ -449,19 +521,21 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                   </div>
                 </div>
               )}
-              <div className="filter-panel-group">
-                <span className="filter-select-name">Checks</span>
-                <select className="filter-select filter-select--full" value={filters.checks} onChange={e => update('checks', e.target.value)}>
-                  <option value="">All</option>
-                  {CHECKS_OPTIONS
-                    .filter(o => !attributeCounts || (attributeCounts.checks.get(o) ?? 0) > 0)
-                    .map(o => (
-                      <option key={o} value={o}>
-                        {attributeCounts ? `${o} (${attributeCounts.checks.get(o) ?? 0})` : o}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {!exploreMode && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">Checks</span>
+                  <select className="filter-select filter-select--full" value={filters.checks} onChange={e => update('checks', e.target.value)}>
+                    <option value="">All</option>
+                    {CHECKS_OPTIONS
+                      .filter(o => !attributeCounts || (attributeCounts.checks.get(o) ?? 0) > 0)
+                      .map(o => (
+                        <option key={o} value={o}>
+                          {attributeCounts ? `${o} (${attributeCounts.checks.get(o) ?? 0})` : o}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Color Band</span>

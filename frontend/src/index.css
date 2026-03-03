@@ -535,6 +535,35 @@ body {
   margin-top: 0.25rem;
 }
 
+.filter-explore-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-explore-submit {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-explore-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.filter-id-input--error {
+  border-color: #c0392b !important;
+}
+
 .filter-mode-toggle {
   display: flex;
   border: 1px solid #333;
