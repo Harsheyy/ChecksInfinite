@@ -1185,3 +1185,81 @@ body {
     top: 148px; /* 116px filter + 32px error */
   }
 }
+
+/* ── Explore empty state ─────────────────────────────────────────────────── */
+.explore-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 1.5rem 4rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.explore-empty__headline {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.explore-empty__subtitle {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+}
+
+.explore-empty__form {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.explore-empty__input {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.explore-empty__input:focus {
+  outline: 1px solid #555;
+}
+
+.explore-empty__input::placeholder {
+  color: #555;
+}
+
+.explore-empty__submit {
+  padding: 0.55rem 1rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.explore-empty__submit:hover:not(:disabled) {
+  border-color: #555;
+}
+
+.explore-empty__submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.explore-empty__hint {
+  font-size: 0.78rem;
+  color: #666;
+  margin: 0;
+}
