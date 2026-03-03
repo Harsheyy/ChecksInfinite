@@ -487,11 +487,6 @@ body {
   white-space: nowrap;
 }
 
-.filter-id-multi-btn--active {
-  border-color: #888;
-  color: #fff;
-}
-
 .filter-id-multi-dropdown {
   position: absolute;
   top: calc(100% + 4px);

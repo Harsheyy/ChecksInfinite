@@ -108,16 +108,16 @@ function IdMultiSelect({ tokenIdCounts, selectedIds, onChange }: IdMultiSelectPr
   }
 
   const sorted = Array.from(tokenIdCounts.entries()).sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-  const label = selectedIds.length > 0 ? `IDs (${selectedIds.length})` : 'IDs'
 
   return (
-    <div className="filter-id-multi" ref={ref}>
+    <div className="filter-select-label filter-id-multi" ref={ref}>
+      <span className="filter-select-name">Child IDs</span>
       <button
         type="button"
-        className={`filter-select filter-id-multi-btn${selectedIds.length > 0 ? ' filter-id-multi-btn--active' : ''}`}
+        className="filter-select filter-id-multi-btn"
         onClick={() => setOpen(o => !o)}
       >
-        {label}
+        {selectedIds.length > 0 ? `(${selectedIds.length})` : 'ALL'}
       </button>
       {open && (
         <div className="filter-id-multi-dropdown">
@@ -499,7 +499,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
               {!hideIdFilter && tokenIdCounts && tokenIdCounts.size > 0 && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">
-                    IDs{filters.selectedIds.length > 0 ? ` (${filters.selectedIds.length})` : ''}
+                    Child IDs{filters.selectedIds.length > 0 ? ` (${filters.selectedIds.length})` : ''}
                   </span>
                   <div className="filter-id-panel-list">
                     {Array.from(tokenIdCounts.entries())
