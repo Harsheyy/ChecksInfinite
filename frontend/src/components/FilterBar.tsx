@@ -9,8 +9,7 @@ export interface Filters {
   gradient: string
   speed: string
   shift: string
-  idInput: string
-  idMode: 'and' | 'or'
+  selectedIds: string[]
   minCost: number | null
   maxCost: number | null
 }
@@ -18,7 +17,7 @@ export interface Filters {
 export function emptyFilters(): Filters {
   return {
     checks: '', colorBand: '', gradient: '', speed: '', shift: '',
-    idInput: '', idMode: 'and',
+    selectedIds: [],
     minCost: null, maxCost: null,
   }
 }
@@ -26,7 +25,7 @@ export function emptyFilters(): Filters {
 export function hasActiveFilters(f: Filters): boolean {
   return !!(
     f.checks || f.colorBand || f.gradient || f.speed || f.shift ||
-    f.idInput.trim() || f.minCost !== null || f.maxCost !== null
+    f.selectedIds.length > 0 || f.minCost !== null || f.maxCost !== null
   )
 }
 
@@ -37,7 +36,7 @@ function countActiveFilters(f: Filters): number {
   if (f.gradient) n++
   if (f.speed) n++
   if (f.shift) n++
-  if (f.idInput.trim()) n++
+  if (f.selectedIds.length > 0) n++
   if (f.minCost !== null || f.maxCost !== null) n++
   return n
 }
@@ -48,9 +47,6 @@ const GRADIENT_OPTIONS  = ['None', 'Linear', 'Double Linear', 'Reflected', 'Doub
 const SPEED_OPTIONS     = ['0.5x', '1x', '2x']
 const SHIFT_OPTIONS     = ['IR', 'UV']
 
-function parseIdCount(input: string): number {
-  return input.split(',').map(s => s.trim()).filter(Boolean).length
-}
 
 interface FilterSelectProps {
   label: string
@@ -258,22 +254,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
               >Mine</button>
             </div>
           )}
-          <label className="filter-select-label">
-            <span className="filter-select-name">IDs</span>
-            <input
-              className="filter-id-input"
-              type="text"
-              placeholder="e.g. 123, 456"
-              value={filters.idInput}
-              onChange={e => update('idInput', e.target.value)}
-            />
-          </label>
-          {parseIdCount(filters.idInput) >= 4 && (
-            <div className="filter-mode-toggle">
-              <button type="button" className={`filter-mode-btn${filters.idMode === 'and' ? ' filter-mode-btn--active' : ''}`} onClick={() => update('idMode', 'and')} aria-label="AND">AND</button>
-              <button type="button" className={`filter-mode-btn${filters.idMode === 'or'  ? ' filter-mode-btn--active' : ''}`} onClick={() => update('idMode', 'or')}  aria-label="OR">OR</button>
-            </div>
-          )}
           <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)}    counts={attributeCounts?.checks} />
           <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} counts={attributeCounts?.colorBand} />
           <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
@@ -358,23 +338,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                   </div>
                 </div>
               )}
-              <div className="filter-panel-group">
-                <span className="filter-select-name">IDs</span>
-                <input
-                  className="filter-id-input filter-id-input--full"
-                  type="text"
-                  placeholder="e.g. 123, 456"
-                  value={filters.idInput}
-                  onChange={e => update('idInput', e.target.value)}
-                />
-                {parseIdCount(filters.idInput) >= 4 && (
-                  <div className="filter-mode-toggle" style={{ marginTop: '0.35rem' }}>
-                    <button type="button" className={`filter-mode-btn${filters.idMode === 'and' ? ' filter-mode-btn--active' : ''}`} onClick={() => update('idMode', 'and')} aria-label="AND">AND</button>
-                    <button type="button" className={`filter-mode-btn${filters.idMode === 'or'  ? ' filter-mode-btn--active' : ''}`} onClick={() => update('idMode', 'or')}  aria-label="OR">OR</button>
-                  </div>
-                )}
-              </div>
-
               <div className="filter-panel-group">
                 <span className="filter-select-name">Checks</span>
                 <select className="filter-select filter-select--full" value={filters.checks} onChange={e => update('checks', e.target.value)}>
@@ -513,18 +476,8 @@ export function matchesFilters(
 
   if (!attrMatch) return false
 
-  // ID filter: only applied when we have token IDs to check
-  const trimmed = filters.idInput.trim()
-  if (trimmed && tokenIds) {
-    const entered = trimmed.split(',').map(s => s.trim()).filter(Boolean)
-    if (entered.length === 0) return true
-    const enteredSet = new Set(entered)
-    const useAnd = entered.length >= 4 && filters.idMode === 'and'
-    if (useAnd) {
-      return tokenIds.every(id => enteredSet.has(id))
-    } else {
-      return tokenIds.some(id => enteredSet.has(id))
-    }
+  if (filters.selectedIds.length > 0 && tokenIds) {
+    if (!filters.selectedIds.every(id => tokenIds.includes(id))) return false
   }
 
   return true
