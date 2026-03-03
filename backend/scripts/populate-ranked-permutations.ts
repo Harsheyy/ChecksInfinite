@@ -42,6 +42,7 @@ interface CheckRow {
   color_band:   string | null
   gradient:     string | null
   check_struct: CheckStructJSON
+  eth_price:    number | null
 }
 
 interface PermutationRow {
@@ -56,6 +57,7 @@ interface PermutationRow {
   abcd_shift:      string | null
   rank_score:      number
   rand_key:        number
+  total_cost:      number | null
 }
 
 // ─── Eligibility & scoring ────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ async function main() {
     console.log('Loading checks from Supabase...')
     const { data: rawRows, error } = await supabase
       .from('tokenstr_checks')
-      .select('token_id, checks_count, color_band, gradient, check_struct')
+      .select('token_id, checks_count, color_band, gradient, check_struct, eth_price')
       .eq('is_burned', false)
       .order('checks_count')
 
@@ -156,10 +158,10 @@ async function main() {
 
               try {
                 const row = computePermutation(
-                  structs[i0], shuffled[i0].token_id,
-                  structs[i1], shuffled[i1].token_id,
-                  structs[i2], shuffled[i2].token_id,
-                  structs[i3], shuffled[i3].token_id,
+                  structs[i0], shuffled[i0].token_id, shuffled[i0].eth_price,
+                  structs[i1], shuffled[i1].token_id, shuffled[i1].eth_price,
+                  structs[i2], shuffled[i2].token_id, shuffled[i2].eth_price,
+                  structs[i3], shuffled[i3].token_id, shuffled[i3].eth_price,
                 )
                 batch.push(row)
                 computed++
@@ -208,16 +210,20 @@ async function main() {
 // ─── Compute one permutation ───────────────────────────────────────────────
 
 function computePermutation(
-  s0: CheckStruct, id0: number,
-  s1: CheckStruct, id1: number,
-  s2: CheckStruct, id2: number,
-  s3: CheckStruct, id3: number,
+  s0: CheckStruct, id0: number, price0: number | null,
+  s1: CheckStruct, id1: number, price1: number | null,
+  s2: CheckStruct, id2: number, price2: number | null,
+  s3: CheckStruct, id3: number, price3: number | null,
 ): PermutationRow {
   const l1aStruct  = simulateCompositeJS(s0, s1, id1)
   const l1bStruct  = simulateCompositeJS(s2, s3, id3)
   const abcdStruct = computeL2(l1aStruct, l1bStruct)
   const abcdAttrs  = mapCheckAttributes(abcdStruct)
   const getAttr    = (name: string) => abcdAttrs.find(a => a.trait_type === name)?.value ?? null
+
+  const total_cost = (price0 !== null && price1 !== null && price2 !== null && price3 !== null)
+    ? price0 + price1 + price2 + price3
+    : null
 
   return {
     keeper_1_id:     id0,
@@ -231,6 +237,7 @@ function computePermutation(
     abcd_shift:      getAttr('Shift'),
     rank_score:      computeRankScore([s0, s1, s2, s3]),
     rand_key:        Math.random(),
+    total_cost,
   }
 }
 
