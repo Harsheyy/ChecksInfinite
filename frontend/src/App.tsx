@@ -29,7 +29,7 @@ export default function App() {
   useWalletTracking(address, isConnected)
 
   // ── View mode (only relevant in dbMode) ──────────────────────────────────
-  const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'curated' | 'search-wallet'>('token-works')
+  const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet'>('token-works')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
   const [walletOnly, setWalletOnly] = useState(false)
 

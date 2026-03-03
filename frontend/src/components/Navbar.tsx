@@ -1,7 +1,7 @@
 import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 
-type ViewMode = 'token-works' | 'my-checks' | 'curated' | 'search-wallet'
+type ViewMode = 'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet'
 
 interface NavbarProps {
   ids: string
@@ -82,6 +82,12 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
                 onClick={() => onViewModeChange('my-checks')}
               >My Checks</button>
             )}
+            {isConnected && (
+              <button
+                className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
+                onClick={() => onViewModeChange('explore')}
+              >Curate</button>
+            )}
             <button
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('curated')}
@@ -100,6 +106,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
           >
             <option value="token-works">Token Works</option>
             {isConnected && <option value="my-checks">My Checks</option>}
+            {isConnected && <option value="explore">Curate</option>}
             <option value="curated">Curated Checks</option>
             {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
           </select>
