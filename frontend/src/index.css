@@ -273,6 +273,15 @@ body {
   padding: 6px 16px 0;
 }
 
+.filter-mobile-explore .filter-explore-form {
+  width: 100%;
+}
+
+.filter-mobile-explore .filter-id-input--full {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .filter-row            { display: none; }
   .filter-mobile-bar     { display: flex; }
