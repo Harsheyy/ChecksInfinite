@@ -475,6 +475,66 @@ body {
 .filter-id-input:focus { outline: 1px solid #555; }
 .filter-id-input::placeholder { color: #555; }
 
+/* ── ID multi-select dropdown ───────────────────────────────────────────────── */
+
+.filter-id-multi {
+  position: relative;
+}
+
+.filter-id-multi-btn {
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.filter-id-multi-btn--active {
+  border-color: #888;
+  color: #fff;
+}
+
+.filter-id-multi-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 3px;
+  max-height: 220px;
+  min-width: 160px;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.filter-id-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #ccc;
+  white-space: nowrap;
+}
+
+.filter-id-multi-option:hover {
+  background: #242424;
+}
+
+.filter-id-multi-option input[type="checkbox"] {
+  accent-color: #888;
+  cursor: pointer;
+}
+
+.filter-id-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 0.25rem;
+}
+
 .filter-mode-toggle {
   display: flex;
   border: 1px solid #333;

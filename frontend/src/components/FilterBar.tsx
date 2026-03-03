@@ -1,5 +1,5 @@
 // frontend/src/components/FilterBar.tsx
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { Attribute } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
 
@@ -80,6 +80,63 @@ function FilterSelect({ label, options, value, onChange, counts }: FilterSelectP
   )
 }
 
+interface IdMultiSelectProps {
+  tokenIdCounts: Map<string, number>
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+}
+
+function IdMultiSelect({ tokenIdCounts, selectedIds, onChange }: IdMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handler(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  function toggle(id: string) {
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter(x => x !== id))
+    } else {
+      onChange([...selectedIds, id])
+    }
+  }
+
+  const sorted = Array.from(tokenIdCounts.entries()).sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+  const label = selectedIds.length > 0 ? `IDs (${selectedIds.length})` : 'IDs'
+
+  return (
+    <div className="filter-id-multi" ref={ref}>
+      <button
+        type="button"
+        className={`filter-select filter-id-multi-btn${selectedIds.length > 0 ? ' filter-id-multi-btn--active' : ''}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        {label}
+      </button>
+      {open && (
+        <div className="filter-id-multi-dropdown">
+          {sorted.map(([id, count]) => (
+            <label key={id} className="filter-id-multi-option">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(id)}
+                onChange={() => toggle(id)}
+              />
+              <span>#{id} ({count})</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface FilterBarProps {
   filters: Filters
   onChange: (f: Filters) => void
@@ -91,11 +148,12 @@ interface FilterBarProps {
   walletOnly?: boolean
   onWalletOnlyChange?: (v: boolean) => void
   isConnected?: boolean
+  hideIdFilter?: boolean
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -141,6 +199,17 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
     return counts
   }, [permutations])
 
+  const tokenIdCounts = useMemo(() => {
+    if (!permutations?.length) return null
+    const counts = new Map<string, number>()
+    for (const p of permutations) {
+      for (const id of p.def.tokenIds ?? []) {
+        counts.set(id, (counts.get(id) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [permutations])
+
   const uniqueCheckIdCount = useMemo(() => {
     if (!permutations?.length) return null
     const ids = new Set<string>()
@@ -163,11 +232,20 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
       check('speed',     attributeCounts.speed),
       check('shift',     attributeCounts.shift),
     ].filter((k): k is 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift' => k !== null)
-    if (toReset.length > 0) {
-      const patch = Object.fromEntries(toReset.map(k => [k, ''])) as Partial<Filters>
-      onChange({ ...filters, ...patch })
+
+    const validSelected = tokenIdCounts
+      ? filters.selectedIds.filter(id => tokenIdCounts.has(id))
+      : filters.selectedIds
+    const idReset = validSelected.length !== filters.selectedIds.length
+
+    if (toReset.length > 0 || idReset) {
+      onChange({
+        ...filters,
+        ...Object.fromEntries(toReset.map(k => [k, ''])),
+        selectedIds: validSelected,
+      })
     }
-  }, [attributeCounts])  // eslint-disable-line react-hooks/exhaustive-deps -- intentional: fires only on dataset change; onChange is always stable (setFilters), filters read from current render
+  }, [attributeCounts, tokenIdCounts])  // eslint-disable-line react-hooks/exhaustive-deps
 
   function update(key: keyof Filters, val: string) {
     onChange({ ...filters, [key]: val })
@@ -254,6 +332,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
               >Mine</button>
             </div>
           )}
+          {!hideIdFilter && tokenIdCounts && tokenIdCounts.size > 0 && (
+            <IdMultiSelect
+              tokenIdCounts={tokenIdCounts}
+              selectedIds={filters.selectedIds}
+              onChange={ids => onChange({ ...filters, selectedIds: ids })}
+            />
+          )}
           <FilterSelect label="Checks"     options={CHECKS_OPTIONS}     value={filters.checks}    onChange={v => update('checks', v)}    counts={attributeCounts?.checks} />
           <FilterSelect label="Color Band" options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} counts={attributeCounts?.colorBand} />
           <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
@@ -335,6 +420,32 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                       title={!isConnected ? 'Connect wallet to see your likes' : undefined}
                       disabled={!isConnected}
                     >Mine</button>
+                  </div>
+                </div>
+              )}
+              {!hideIdFilter && tokenIdCounts && tokenIdCounts.size > 0 && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">
+                    IDs{filters.selectedIds.length > 0 ? ` (${filters.selectedIds.length})` : ''}
+                  </span>
+                  <div className="filter-id-panel-list">
+                    {Array.from(tokenIdCounts.entries())
+                      .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                      .map(([id, count]) => (
+                        <label key={id} className="filter-id-multi-option">
+                          <input
+                            type="checkbox"
+                            checked={filters.selectedIds.includes(id)}
+                            onChange={() => {
+                              const selected = filters.selectedIds.includes(id)
+                                ? filters.selectedIds.filter(x => x !== id)
+                                : [...filters.selectedIds, id]
+                              onChange({ ...filters, selectedIds: selected })
+                            }}
+                          />
+                          <span>#{id} ({count})</span>
+                        </label>
+                      ))}
                   </div>
                 </div>
               )}
