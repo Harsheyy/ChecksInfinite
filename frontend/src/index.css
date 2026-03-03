@@ -560,6 +560,18 @@ body {
   cursor: default;
 }
 
+.filter-explore-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.filter-explore-error {
+  font-size: 0.75rem;
+  color: #c0392b;
+  margin: 0;
+}
+
 .filter-id-input--error {
   border-color: #c0392b !important;
 }

@@ -162,11 +162,15 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
   const [panelOpen, setPanelOpen] = useState(false)
   const [exploreRaw, setExploreRaw] = useState('')
 
-  function handleExploreSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function submitExplore() {
     const ids = exploreRaw
       .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
     onExploreSearch?.([...new Set(ids)])
+  }
+
+  function handleExploreSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    submitExplore()
   }
 
   const exploreIdCount = exploreRaw
@@ -332,28 +336,32 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
         {/* ── Desktop: inline row ── */}
         <div className="filter-row">
           {exploreMode && (
-            <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
-              <label className="filter-select-label">
-                <span className="filter-select-name">IDs</span>
-                <input
-                  className={`filter-id-input${exploreError ? ' filter-id-input--error' : ''}`}
-                  type="text"
-                  placeholder="4–6 token IDs, comma-separated"
-                  value={exploreRaw}
-                  onChange={e => setExploreRaw(e.target.value)}
-                  disabled={exploreLoading}
-                  spellCheck={false}
-                  title={exploreError || undefined}
-                />
-              </label>
-              <button
-                type="submit"
-                className="filter-explore-submit"
-                disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
-              >
-                {exploreLoading ? '…' : '→'}
-              </button>
-            </form>
+            <div className="filter-explore-wrap">
+              <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
+                <label className="filter-select-label">
+                  <span className="filter-select-name">IDs</span>
+                  <input
+                    className={`filter-id-input${exploreError ? ' filter-id-input--error' : ''}`}
+                    type="text"
+                    placeholder="4–6 token IDs, comma-separated"
+                    value={exploreRaw}
+                    onChange={e => setExploreRaw(e.target.value)}
+                    disabled={exploreLoading}
+                    spellCheck={false}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="filter-explore-submit"
+                  disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
+                >
+                  {exploreLoading ? '…' : '→'}
+                </button>
+              </form>
+              {exploreError && (
+                <p className="filter-explore-error">{exploreError}</p>
+              )}
+            </div>
           )}
           {curatedMode && (
             <div className="filter-curated-toggle">
@@ -446,7 +454,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
               {exploreMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">IDs</span>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <form className="filter-explore-form" onSubmit={handleExploreSubmit}>
                     <input
                       className={`filter-id-input filter-id-input--full${exploreError ? ' filter-id-input--error' : ''}`}
                       type="text"
@@ -457,18 +465,13 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                       spellCheck={false}
                     />
                     <button
-                      type="button"
+                      type="submit"
                       className="filter-explore-submit"
                       disabled={exploreLoading || exploreIdCount < 4 || exploreIdCount > 6}
-                      onClick={() => {
-                        const ids = exploreRaw
-                          .split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
-                        onExploreSearch?.([...new Set(ids)])
-                      }}
                     >
                       {exploreLoading ? '…' : '→'}
                     </button>
-                  </div>
+                  </form>
                   {exploreError && (
                     <p style={{ fontSize: '0.75rem', color: '#c0392b', margin: '0.25rem 0 0' }}>
                       {exploreError}
