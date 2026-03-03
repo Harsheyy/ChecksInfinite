@@ -136,13 +136,13 @@ export default function App() {
     else shuffleDB()
   }
 
-  async function handleToggleLike(result: PermutationResult, source: 'token-works' | 'my-checks' | 'search-wallet' | 'curated') {
+  async function handleToggleLike(result: PermutationResult, source: 'token-works' | 'my-checks' | 'search-wallet' | 'curated' | 'explore') {
     if (!address || !supabase) return
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
-    // 'curated' is a view mode, not a source — likes from the curated page attribute to 'token-works'
-    const rpcSource = source === 'curated' ? 'token-works' : source
+    // 'curated' and 'explore' are view modes, not sources — attribute to 'token-works'
+    const rpcSource = (source === 'curated' || source === 'explore') ? 'token-works' : source
 
     const wasLiked  = likedKeys.has(key)
     const prevCount = likeCounts.get(key) ?? 0
@@ -169,6 +169,12 @@ export default function App() {
     if (!wasLiked && source !== 'curated') {
       if (source === 'my-checks') {
         const m = myChecks.checks
+        p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
+        p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
+        p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
+        p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
+      } else if (source === 'explore') {
+        const m = explore.checks
         p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
         p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
@@ -234,7 +240,7 @@ export default function App() {
       alwaysShow: isCurated,
       canLike:    isConnected,
       onLike:     isConnected
-        ? () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated')
+        ? () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated' | 'explore')
         : () => {},
     }
   }
