@@ -485,6 +485,18 @@ body {
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
+  padding-right: 1.3rem;
+  position: relative;
+}
+
+.filter-id-multi-btn::after {
+  content: '▾';
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .filter-id-multi-dropdown {
