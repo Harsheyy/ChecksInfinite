@@ -666,6 +666,7 @@ export function matchesFilters(
   attributes: Attribute[],
   filters: Filters,
   tokenIds?: string[],
+  totalCost?: number | null,
 ): boolean {
   function check(key: keyof Pick<Filters, 'checks' | 'colorBand' | 'gradient' | 'speed' | 'shift'>, traitType: string): boolean {
     if (!filters[key]) return true
@@ -686,6 +687,9 @@ export function matchesFilters(
   if (filters.selectedIds.length > 0 && tokenIds) {
     if (!filters.selectedIds.every(id => tokenIds.includes(id))) return false
   }
+
+  if (filters.minCost !== null && (totalCost == null || totalCost < filters.minCost)) return false
+  if (filters.maxCost !== null && (totalCost == null || totalCost > filters.maxCost)) return false
 
   return true
 }

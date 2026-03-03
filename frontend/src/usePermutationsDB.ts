@@ -58,6 +58,7 @@ interface PermRowBasic {
   abcd_gradient: string | null
   abcd_speed: string | null
   abcd_shift: string | null
+  total_cost: number | null
 }
 
 // Full row after attaching check structs
@@ -180,6 +181,7 @@ function rowToPermutationResult(row: PermRow): PermutationResult {
       label:    `#${id0}▸#${id1}, #${id2}▸#${id3}`,
       tokenIds: [id0, id1, id2, id3],
     },
+    total_cost: row.total_cost,
     // Individual check SVGs fetched lazily by TreePanel on demand
     nodeA: { name: `Token #${id0}`, svg: '', attributes: [], loading: false, error: '' },
     nodeB: { name: `Token #${id1}`, svg: '', attributes: [], loading: false, error: '' },
@@ -232,7 +234,7 @@ export function usePermutationsDB() {
 
       const { data, error } = await supabase
         .from('permutations')
-        .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift')
+        .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
         .order('rand_key')
         .range(offset, offset + RANDOM_TOTAL - 1)
 

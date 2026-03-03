@@ -23,6 +23,7 @@ export interface PermutationResult {
   nodeL1a: CardState
   nodeL1b: CardState
   nodeAbcd: CardState
+  total_cost?: number | null
 }
 
 export interface AllPermutationsState {

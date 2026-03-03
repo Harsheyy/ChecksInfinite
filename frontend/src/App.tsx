@@ -74,7 +74,7 @@ export default function App() {
   const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map())
 
   // ── Price bounds (DB / Token Works mode only) ─────────────────────────────
-  const priceBoundsEnabled = false
+  const priceBoundsEnabled = dbMode && viewMode === 'token-works'
   const priceBounds = usePriceBounds(priceBoundsEnabled)
 
   // Generate permutations when checks load
@@ -270,7 +270,7 @@ export default function App() {
     if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
     const [p0, p1, p2, p3] = p.def.indices
     const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
-    return matchesFilters(p.nodeAbcd.attributes, filters, tids)
+    return matchesFilters(p.nodeAbcd.attributes, filters, tids, p.total_cost)
   })
 
   const visibleCount = showFlags.filter(Boolean).length
