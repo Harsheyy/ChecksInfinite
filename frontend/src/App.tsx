@@ -17,7 +17,6 @@ import { useCuratedOutputs, type CuratedPermutationResult } from './useCuratedOu
 import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
 import type { LikeInfo } from './components/PermutationCard'
 import { useExplorePermutations } from './useExplorePermutations'
-import { ExploreInput } from './components/ExploreInput'
 
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
 
@@ -282,7 +281,7 @@ export default function App() {
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
   const showFilters = isExploreMode
-    ? explore.permutations.length > 0
+    ? true
     : isCuratedMode
       ? curatedState.outputs.length > 0 || curatedState.loading
       : isSearchWalletMode
@@ -330,13 +329,18 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           visible={visibleCount}
-          onShuffle={(!isCuratedMode && (isMyChecksMode || dbMode)) ? handleShuffle : undefined}
+          onShuffle={(!isCuratedMode && (isMyChecksMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
           priceRange={priceBoundsEnabled ? priceBounds ?? undefined : undefined}
           permutations={visiblePermutations}
           curatedMode={isCuratedMode}
           walletOnly={walletOnly}
           onWalletOnlyChange={setWalletOnly}
           isConnected={isConnected}
+          hideIdFilter={isCuratedMode || isExploreMode}
+          exploreMode={isExploreMode}
+          onExploreSearch={isExploreMode ? explore.search : undefined}
+          exploreLoading={isExploreMode ? explore.loading : undefined}
+          exploreError={isExploreMode && explore.error ? explore.error : undefined}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
@@ -364,15 +368,8 @@ export default function App() {
           {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
         </div>
       )}
-      {isExploreMode && (
-        <ExploreInput
-          onSearch={explore.search}
-          loading={explore.loading}
-          error={explore.error}
-        />
-      )}
       {isExploreMode && explore.searched && !explore.loading && explore.permutations.length === 0 && !explore.error && (
-        <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#666' }}>
+        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No compatible permutations found. Tokens must share the same check count.
         </div>
       )}
