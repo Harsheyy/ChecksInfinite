@@ -151,13 +151,15 @@ interface FilterBarProps {
   hideIdFilter?: boolean
   exploreMode?: boolean
   onExploreSearch?: (ids: string[]) => void
+  onExploreClear?: () => void
   exploreLoading?: boolean
   exploreError?: string
+  exploreSearched?: boolean
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, exploreLoading, exploreError }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
   const [exploreRaw, setExploreRaw] = useState('')
@@ -357,6 +359,15 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                 >
                   {exploreLoading ? '…' : '→'}
                 </button>
+                {exploreSearched && (
+                  <button
+                    type="button"
+                    className="filter-explore-clear"
+                    onClick={() => { setExploreRaw(''); onExploreClear?.() }}
+                  >
+                    Clear
+                  </button>
+                )}
               </form>
               {exploreError && (
                 <p className="filter-explore-error">{exploreError}</p>
@@ -471,6 +482,15 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                     >
                       {exploreLoading ? '…' : '→'}
                     </button>
+                    {exploreSearched && (
+                      <button
+                        type="button"
+                        className="filter-explore-clear"
+                        onClick={() => { setExploreRaw(''); onExploreClear?.() }}
+                      >
+                        Clear
+                      </button>
+                    )}
                   </form>
                   {exploreError && (
                     <p className="filter-explore-error">{exploreError}</p>
