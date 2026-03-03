@@ -1042,3 +1042,65 @@ body {
     top: 148px; /* 116px filter + 32px error */
   }
 }
+
+/* ── Explore / Curate mode input ───────────────────────────────────────────── */
+
+.explore-input-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem 1rem;
+  gap: 0.5rem;
+}
+
+.explore-input-form {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 540px;
+}
+
+.explore-input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+  outline: none;
+}
+
+.explore-input:focus {
+  border-color: #555;
+}
+
+.explore-input--invalid {
+  border-color: #c0392b;
+}
+
+.explore-search-btn {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.explore-search-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.explore-input-hint {
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.explore-input-hint--error {
+  color: #c0392b;
+}
