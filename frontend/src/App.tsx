@@ -326,6 +326,7 @@ export default function App() {
       )}
       {showFilters && (
         <FilterBar
+          key={isExploreMode ? 'explore' : 'default'}
           filters={filters}
           onChange={setFilters}
           visible={visibleCount}

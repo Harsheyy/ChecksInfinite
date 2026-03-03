@@ -473,9 +473,7 @@ export function FilterBar({ filters, onChange, visible, onShuffle, priceRange, p
                     </button>
                   </form>
                   {exploreError && (
-                    <p style={{ fontSize: '0.75rem', color: '#c0392b', margin: '0.25rem 0 0' }}>
-                      {exploreError}
-                    </p>
+                    <p className="filter-explore-error">{exploreError}</p>
                   )}
                 </div>
               )}
