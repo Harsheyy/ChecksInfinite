@@ -1,5 +1,6 @@
 import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
+import { isValidAddress } from '../utils'
 
 type ViewMode = 'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet'
 
@@ -36,7 +37,6 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
     }
   }
 
-  const isValidAddress = (addr: string) => /^0x[0-9a-fA-F]{40}$/.test(addr)
   const addressInputInvalid = searchWalletAddress.length > 0 && !isValidAddress(searchWalletAddress)
 
   return (

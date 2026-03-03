@@ -11,7 +11,7 @@ import { useMyChecks } from './useMyChecks'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase, supabase } from './supabaseClient'
 import { hasAlchemyKey } from './client'
-import { parseIds, validateIds } from './utils'
+import { parseIds, validateIds, isValidAddress } from './utils'
 import { useWalletTracking } from './useWalletTracking'
 import { useCuratedOutputs, type CuratedPermutationResult } from './useCuratedOutputs'
 import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
@@ -19,10 +19,6 @@ import type { LikeInfo } from './components/PermutationCard'
 import { useExplorePermutations } from './useExplorePermutations'
 
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
-
-function isValidAddress(addr: string): boolean {
-  return /^0x[0-9a-fA-F]{40}$/.test(addr)
-}
 
 export default function App() {
   const dbMode = hasSupabase()

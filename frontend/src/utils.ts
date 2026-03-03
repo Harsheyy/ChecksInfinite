@@ -110,3 +110,7 @@ export interface CardState {
   loading: boolean
   error: string
 }
+
+export function isValidAddress(addr: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr)
+}
