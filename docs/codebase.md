@@ -25,12 +25,13 @@ Infinite/
 │       ├── client.ts                   Viem Ethereum RPC client
 │       ├── checksAbi.ts                Checks contract ABI fragments
 │       ├── checksArtJS.ts              JS port of ChecksArt.sol (rendering engine)
-│       ├── utils.ts                    Types, parseTokenURI, mapCheckAttributes
+│       ├── utils.ts                    Types, attribute helpers, parseTokenURI, isValidAddress
 │       ├── supabaseClient.ts           Supabase JS client (DB mode)
 │       ├── useAllPermutations.ts       Chain mode hook (fetch + compute on client)
-│       ├── usePermutationsDB.ts        DB mode hook (query Supabase, serializeCheckStruct)
+│       ├── usePermutationsDB.ts        DB mode hook (query Supabase, price bounds)
 │       ├── useMyChecks.ts              Fetches Checks tokens owned by connected wallet
 │       ├── useMyCheckPermutations.ts   Generates all permutations from owned checks
+│       ├── useExplorePermutations.ts   Explore mode hook (arbitrary token ID search)
 │       ├── useCuratedOutputs.ts        Curated mode hook (load liked outputs from Supabase)
 │       ├── useMyLikedKeys.ts           Tracks which outputs the wallet has liked (set + RPC)
 │       ├── useWalletTracking.ts        Logs wallet connects to connected_wallets via RPC
@@ -38,7 +39,7 @@ Infinite/
 │       ├── test-utils.tsx              WagmiWrapper helper for tests
 │       └── components/
 │           ├── Navbar.tsx              Top bar: token input (chain) or view toggle (DB) + wallet connect
-│           ├── FilterBar.tsx           Filter dropdowns + Community/Mine toggle (curated mode)
+│           ├── FilterBar.tsx           Filter dropdowns + price slider + Community/Mine toggle
 │           ├── InfiniteGrid.tsx        Torus infinite scroll grid of PermutationCards
 │           ├── PermutationCard.tsx     Single card: ABCD composite SVG + heart button
 │           ├── CheckCard.tsx           Reusable card: SVG + attribute list
@@ -46,14 +47,15 @@ Infinite/
 │
 ├── backend/           Node.js scripts (tsx, no bundler)
 │   ├── .env.example                   Required env vars template
-│   ├── package.json                   Scripts: backfill, compute-permutations
+│   ├── package.json                   Scripts: backfill, compute-permutations, populate-ranked
 │   ├── tsconfig.json
 │   ├── lib/
 │   │   └── engine.ts                  Backend port of checksArtJS + utils (Buffer-safe)
 │   └── scripts/
 │       ├── backfill.ts                Fetch checks from TokenStrategy wallet → tokenstr_checks table
-│       ├── compute-permutations.ts    Compute P(n,4) attributes → permutations table (general)
-│       └── populate-ranked-permutations.ts  Nightly populate: eligible-only, ranked, 500K cap, rand_key
+│       ├── backfill-prices.ts         Fetch eth_price from contract → tokenstr_checks; backfill total_cost in permutations
+│       ├── compute-permutations.ts    Compute P(n,4) attributes → permutations table (general, kept for reference)
+│       └── populate-ranked-permutations.ts  Nightly populate: eligible-only, ranked, 500K cap, total_cost inline
 │
 ├── supabase/
 │   ├── functions/
@@ -62,11 +64,14 @@ Infinite/
 │   │   └── tokenstr-webhook/
 │   │       └── index.ts               Deno edge function: TokenStrategy wallet activity → tokenstr_checks
 │   └── migrations/
-│       ├── 001_checks_backend.sql     Base schema: checks, permutations, listed_checks, sync_log
+│       ├── 001_checks_backend.sql     Base schema: tokenstr_checks, permutations, sync_log
 │       ├── 002_permutations_nullable_svgs.sql
 │       ├── 003_drop_abcd_svg.sql      Drop SVG columns from permutations; switch to client-side render
-│       ├── 005_rename_checks_table.sql  ALTER TABLE checks RENAME TO tokenstr_checks
+│       ├── 004_public_read_policies.sql  RLS read policies
+│       ├── 005_rename_checks_table.sql   ALTER TABLE checks RENAME TO tokenstr_checks
 │       ├── 006_drop_listed_checks_view.sql
+│       ├── 007_fix_permutations_rls.sql
+│       ├── 008_prices.sql             ADD eth_price to tokenstr_checks; total_cost + backfill RPC on permutations
 │       ├── 009_rank_score.sql         ADD COLUMN rank_score smallint + index
 │       ├── 010_truncate_permutations_fn.sql
 │       ├── 011_curated_outputs.sql    curated_outputs + curated_likes tables + toggle_like / get_curated_outputs RPCs
@@ -121,7 +126,7 @@ Root component. Detects mode via `hasSupabase()` and renders the right data sour
 
 **DB mode behaviour:**
 - On mount → `loadRandom()` (random 2500 from permutations pool via `rand_key` index)
-- On filter change → `load(filters)` (server-side filtering)
+- On filter change → client-side `matchesFilters()` against the loaded 2500
 - Shuffle button → `shuffleDB()` (re-fetches a fresh random 2500)
 - `Navbar` shows view toggle when wallet connected
 
@@ -133,8 +138,8 @@ Root component. Detects mode via `hasSupabase()` and renders the right data sour
 | Variable | Type | Purpose |
 |---|---|---|
 | `idsRaw` | `string` | Raw comma-separated token ID input |
-| `filters` | `Filters` | Active filter values for all 5 dropdowns |
-| `viewMode` | `'token-works' \| 'my-checks' \| 'curated' \| 'search-wallet'` | Active view in DB mode |
+| `filters` | `Filters` | Active filter values for all dropdowns + price range |
+| `viewMode` | `'token-works' \| 'my-checks' \| 'explore' \| 'curated' \| 'search-wallet'` | Active view in DB mode |
 | `walletOnly` | `boolean` | Curated mode: show only the wallet's own likes |
 | `searchWalletAddress` | `string` | Raw 0x address entered in Search Wallet mode |
 | `chainState` | `AllPermutationsState` | All permutation results from chain hook |
@@ -142,6 +147,7 @@ Root component. Detects mode via `hasSupabase()` and renders the right data sour
 | `likedKeys` | `Set<string>` | Keys of outputs the wallet has liked (`k1-b1-k2-b2`) |
 | `likeCounts` | `Map<string, number>` | Per-key like counts (populated from curated outputs) |
 | `dbMode` | `boolean` | `true` when Supabase env vars are present |
+| `priceBoundsEnabled` | `boolean` | `dbMode && viewMode === 'token-works'` — drives price slider |
 
 **Like flow (`handleToggleLike`):**
 1. Optimistic UI update (immediate) before any async work
@@ -151,7 +157,7 @@ Root component. Detects mode via `hasSupabase()` and renders the right data sour
    - `curated` → pass null (row already has stored structs)
 3. Call `toggle_like` RPC with structs; revert optimistic state on error
 
-**Search Wallet gate:** `SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'` — the 4th toggle only appears when this address is connected.
+**Search Wallet gate:** `SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'` — the Search Wallet toggle only appears when this address is connected.
 
 `dbMode` is passed down the tree: `App → InfiniteGrid → TreePanel`.
 
@@ -209,6 +215,7 @@ formatSpeed(speed: number): string     // 4→'2x', 2→'1x', 1→'0.5x'
 formatShift(direction: number): string // 0→'IR', 1→'UV'
 parseIds(raw: string): string[]        // "1,2, 3" → ["1","2","3"]
 validateIds(ids, hasKey): string       // returns error string or ''
+isValidAddress(addr: string): boolean  // true if valid 0x Ethereum address
 ```
 
 ---
@@ -222,6 +229,7 @@ DIVISORS   // [80, 40, 20, 10, 5, 4, 1, 0] — checks count at each divisorIndex
 COLOR_BANDS // [80, 60, 40, 20, 10, 5, 1] — palette sizes
 GRADIENTS_TABLE // [0, 1, 2, 5, 8, 9, 10] — gradient step sizes
 EIGHTY_COLORS   // 80 hex color strings — the full checks palette
+CD_VIRTUAL_ID = 65535  // virtual composite pointer used for L2 rendering
 ```
 
 **Core functions:**
@@ -251,7 +259,6 @@ computeGenesJS(keeper, burner): { gradient, colorBand }
 gradientIndex(check, divisorIndex): number
 
 // L2 helpers:
-CD_VIRTUAL_ID = 65535
 computeL2(l1a, l1b): CheckStruct
 // Wires l1a's composite pointer to CD_VIRTUAL_ID, then simulateCompositeJS(l1a, l1b, CD_VIRTUAL_ID)
 
@@ -287,6 +294,7 @@ interface PermutationResult {
   nodeA, nodeB, nodeC, nodeD: CardState  // leaf tokens
   nodeL1a, nodeL1b: CardState            // L1 composites
   nodeAbcd: CardState                    // final ABCD composite
+  total_cost?: number | null             // sum of 4 leaf eth_price values (DB mode only)
 }
 ```
 
@@ -312,12 +320,14 @@ Phase 2 (parallel multicall):
 
 **`loadRandom(force?)`** — loads a random 2500 permutations:
 - Counts total rows, picks a random offset, fetches 2500 rows ordered by `rand_key` (fast index scan)
+- Selects `total_cost` alongside attribute columns
 - Results cached in sessionStorage (`checks-infinite-perms-v2`)
 - `force=true` bypasses cache
 
 **`shuffle()`** — calls `loadRandom(true)`: fetches a brand new random 2500 from the pool.
 
 **`rowToPermutationResult(row)`** — converts a Supabase row to `PermutationResult`:
+- Sets `total_cost: row.total_cost` on the result (used by price filter)
 - Lazy SVG getters: SVGs only computed when the card first scrolls into view
 - Calls `computeAllNodes(row)` for L1a, L1b, ABCD
 
@@ -336,6 +346,13 @@ abcd = computeL2(l1a, l1b)
 **`serializeCheckStruct(cs: CheckStruct): CheckStructJSON`** — serializes for Supabase storage: converts `bigint seed` → string, spreads typed arrays to plain arrays. Used by `App.tsx` before calling `toggle_like`.
 
 **`fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>>`** — batch-fetches `check_struct` from `tokenstr_checks` (500 IDs/batch). Used for Token Works likes.
+
+**`usePriceBounds(enabled: boolean)`** — fetches min/max `eth_price` from `tokenstr_checks` and returns bounds scaled ×4 (since `total_cost` = sum of 4 tokens). Only fires when `enabled=true`. Used by Token Works price slider.
+
+---
+
+### `src/useExplorePermutations.ts`
+**Explore mode hook.** Takes up to 10 arbitrary token IDs entered by the user, fetches their `check_struct` from `tokenstr_checks`, and computes all valid P(n,4) permutations client-side (same JS engine as DB mode). Results capped at 2500 (shuffled). No DB writes.
 
 ---
 
@@ -391,28 +408,40 @@ Calls `log_wallet_connect` RPC once per session per address (guarded by a ref). 
 ### `Navbar.tsx`
 Fixed top bar (48px height).
 - **Chain mode:** Token ID text input + "Preview →" submit button
-- **DB mode:** View toggle `[Token Works | My Checks | Curated Checks]` (or `[... | Search Wallet]` when gated wallet connected)
+- **DB mode:** View toggle `[Token Works | My Checks | Explore | Curated Checks]` (or `[... | Search Wallet]` when gated wallet connected)
   - **Search Wallet active:** inline address input appears to the right of the toggle
   - Input shows red border on invalid address; fetch only fires on valid 42-char `0x` address
 - Wallet connect button (right side) — uses wagmi `useAccount` / `useConnect` / `useDisconnect`
   - Disconnected: shows "Connect Wallet"
   - Connected: shows ENS name if resolved, otherwise abbreviated address (`0x1234…abcd`)
-- Shows error string below the form when set
 
 ### `FilterBar.tsx`
-5 `<select>` dropdowns: Checks, Color Band, Gradient, Speed, Shift. Includes visible count and (DB mode) a Shuffle button.
+5 `<select>` dropdowns: Checks, Color Band, Gradient, Speed, Shift. Plus:
+- **Price range slider** — dual-handle range input, visible in Token Works DB mode only. Bounds come from `usePriceBounds` (min/max `eth_price` × 4). Filters by `total_cost` on each `PermutationResult`.
+- **ID multi-select** — pick specific token IDs to filter by (Token Works / My Checks)
+- **Shuffle button** — re-fetches a random 2500 (DB mode)
+- **Visible count** — shows how many permutations match current filters
 
 **Curated mode extras:**
-- **Community / Mine toggle** — two-button pill (matches navbar toggle style: bordered container, `#eee` active background)
-- Community: shows all liked outputs; Mine: shows only this wallet's likes (disabled when not connected)
+- **Community / Mine toggle** — two-button pill (matches navbar toggle style)
+- Community: shows all liked outputs; Mine: shows only this wallet's likes
 - Toggle fires `onWalletOnlyChange` which re-triggers the curated load in `App.tsx`
+
+**Explore mode extras:**
+- Token ID input (up to 10 IDs) + Search button replaces the ID multi-select
+- Search triggers `useExplorePermutations.search(ids)`
 
 **Responsive:** inline row on desktop, collapsible side panel on mobile (slide-in overlay with Escape key dismiss).
 
 ```typescript
-export function matchesFilters(attributes: Attribute[], filters: Filters, tokenIds?: string[]): boolean
+export function matchesFilters(
+  attributes: Attribute[],
+  filters: Filters,
+  tokenIds?: string[],
+  totalCost?: number | null,
+): boolean
 // AND logic: all active filters must match. Missing attributes pass all filters.
-// In DB mode (curated/token-works), filters are applied server-side — matchesFilters not called.
+// totalCost checked against filters.minCost / filters.maxCost when set.
 ```
 
 ### `InfiniteGrid.tsx`
@@ -422,19 +451,6 @@ export function matchesFilters(attributes: Attribute[], filters: Filters, tokenI
 - `N ≥ 25` → virtual torus: only cards in viewport + overscan are mounted (`~55 DOM nodes` for a 2500-item grid)
 - Click on a card → `setSelected(i)` → renders `<TreePanel>`
 - Passes `getLikeInfo` prop down to both `PermutationCard` and `TreePanel`
-
-Props:
-```typescript
-interface Props {
-  permutations: PermutationResult[]
-  ids: string[]
-  showFlags: boolean[]
-  hasFilters?: boolean
-  dbMode?: boolean
-  hideBuy?: boolean
-  getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
-}
-```
 
 ### `PermutationCard.tsx`
 Single card in the grid. Shows the ABCD composite SVG and an optional heart button.
@@ -516,6 +532,14 @@ node --env-file=.env node_modules/.bin/tsx scripts/backfill.ts
 node --env-file=.env node_modules/.bin/tsx scripts/backfill.ts --incremental
 ```
 
+### `backend/scripts/backfill-prices.ts`
+Fetches current ETH listing price for each token in `tokenstr_checks` from the TokenStrategy contract (`nftForSale(tokenId)`) and writes it to `eth_price`. After updating prices, calls the `backfill_permutation_costs()` RPC to recompute `total_cost` for all existing permutation rows.
+
+Run after `backfill.ts` and any time prices need refreshing:
+```bash
+cd backend && npx tsx scripts/backfill-prices.ts
+```
+
 ### `backend/scripts/compute-permutations.ts`
 General-purpose permutation compute script. Kept for reference/incremental use.
 
@@ -524,12 +548,12 @@ General-purpose permutation compute script. Kept for reference/incremental use.
 
 **Flow:**
 1. Delete all existing rows from `permutations`
-2. Load all non-burned checks from `tokenstr_checks`
+2. Load all non-burned checks from `tokenstr_checks` including `eth_price`
 3. Filter to eligible only: `color_band IN ('Twenty','Ten','Five','One') OR gradient != 'None'`
 4. Group by `checks_count`
 5. Fisher-Yates shuffle tokens within each group (different sample each night)
 6. Generate P(n,4) 4-tuples in shuffled order, stop at `MAX_PERMS_PER_GROUP = 500_000`
-7. For each 4-tuple: compute L1a, L1b, ABCD attributes + `rank_score` + `rand_key = Math.random()`
+7. For each 4-tuple: compute L1a, L1b, ABCD attributes + `rank_score` + `rand_key = Math.random()` + `total_cost = sum of 4 eth_prices` (null if any price is null)
 8. Batch-insert to `permutations` (500 rows/batch)
 
 **`rank_score`** = `(gradient_count × 4) + rarity_score`
@@ -538,6 +562,8 @@ General-purpose permutation compute script. Kept for reference/incremental use.
 - Range: 0 (four Twenty-band, no gradients) → 32 (four One-band, all gradients)
 
 **`rand_key`**: random float `[0,1)` assigned per row at insert time. Indexed. Used by the frontend for fast random window sampling without `ORDER BY random()`.
+
+**`total_cost`**: sum of `eth_price` for the 4 leaf tokens (in ETH). `null` if any token lacks a price. Written inline — no separate backfill call needed.
 
 **Run:**
 ```bash
@@ -564,6 +590,7 @@ speed           text              -- '0.5x'|'1x'|'2x'
 shift           text              -- 'IR'|'UV'|null
 svg             text              -- pre-rendered SVG from tokenURI
 check_struct    jsonb             -- full CheckStruct (seed as string)
+eth_price       float             -- current listing price in ETH (from nftForSale)
 last_synced_at  timestamptz
 created_at      timestamptz
 ```
@@ -582,11 +609,12 @@ abcd_speed      text
 abcd_shift      text
 rank_score      smallint NOT NULL DEFAULT 0  -- (gradient_count × 4) + rarity_score, range 0–32
 rand_key        float NOT NULL DEFAULT random() -- random [0,1) for fast random window queries
+total_cost      float             -- sum of 4 leaf eth_price values; null if any price missing
 computed_at     timestamptz
 UNIQUE(keeper_1_id, burner_1_id, keeper_2_id, burner_2_id)
 ```
 No SVG columns — all SVGs computed client-side from `check_struct` data.
-Indexes: `idx_perm_rank_score (rank_score DESC)`, `idx_perm_rand_key (rand_key)`.
+Indexes: `idx_perm_rank_score (rank_score DESC)`, `idx_perm_rand_key (rand_key)`, `permutations_total_cost_idx (total_cost)`.
 
 **`curated_outputs` table** — one row per liked 4-tuple recipe
 ```sql
@@ -660,6 +688,10 @@ tokens_processed, perms_computed, error_message, started_at, finished_at
 
 **`log_wallet_purchase(p_address, p_spent_eth, p_checks_count)`** — adds to `total_spent_eth` + `checks_purchased`
 
+**`backfill_permutation_costs()`** — recomputes `total_cost` for all existing permutation rows by joining to `tokenstr_checks.eth_price`. Used by `backfill-prices.ts` after updating prices.
+
+**`truncate_permutations()`** — truncates the `permutations` table. Called by the populate script at the start of each nightly run.
+
 ### Edge Function: `tokenstr-webhook`
 Deno function deployed to Supabase. Receives Alchemy "Address Activity" webhooks watching the **TokenStrategy wallet** (`0x2090Dc81F42f6ddD8dEaCE0D3C3339017417b0Dc`) for Checks ERC-721 transfers.
 
@@ -708,18 +740,27 @@ App loads → usePermutationsDB.loadRandom()
   → fetchCheckStructMap: batch-fetch check_structs for all unique token IDs
   → rowToPermutationResult × 2500
       computeAllNodes: simulateCompositeJS × 2 + computeL2 (JS, lazy SVG getters)
+      total_cost passed through from DB row
   → InfiniteGrid renders results
 
 Shuffle → loadRandom(force=true) → fresh random 2500 from pool
 
-Filter change → load(newFilters)
-  → Supabase: WHERE abcd_checks=? AND ... (server-side)
-  → fresh results replace previous
+Price slider → matchesFilters checks total_cost against filters.minCost / filters.maxCost
+  → showFlags updated; no DB re-fetch (filter is client-side over the loaded 2500)
 
 TreePanel opened → loads individual SVGs for the 4 leaf tokens
   → useReadContracts: nftForSale(tokenId) × 4 → prices in wei
   → Buy All 4 button shows total ETH price
   → Click → sellTargetNFT(price, tokenId) × 4 (sequential wallet prompts)
+```
+
+### Explore Mode
+```
+User enters up to 10 token IDs → useExplorePermutations.search(ids)
+  → fetchCheckStructMap: fetch check_structs from tokenstr_checks
+  → compute all P(n,4) permutations client-side (JS engine, no RPC)
+  → shuffle + cap at 2500 results
+  → InfiniteGrid renders (no DB writes, no price data)
 ```
 
 ### Curated Mode
@@ -754,12 +795,17 @@ One-time / periodic backfill:
       tokenURI + getCheck per token (concurrent eth_call, no multicall)
   → tokenstr_checks table
 
-tokenstr_checks
-  → compute-permutations.ts
-      groups by checks_count
-      simulateCompositeJS × 2 per 4-tuple (JS only, no RPC)
-      computeL2 → mapCheckAttributes → 5 attribute values
-  → permutations table (50 rows/batch)
+Price refresh:
+  → backfill-prices.ts
+      nftForSale(tokenId) per token → eth_price in tokenstr_checks
+      backfill_permutation_costs() RPC → total_cost in permutations
+
+Nightly permutation refresh:
+  → populate-ranked-permutations.ts (GitHub Actions, 2 AM UTC)
+      truncate permutations
+      load eligible checks + eth_price from tokenstr_checks
+      compute P(n,4) per group, rank_score, rand_key, total_cost
+      batch-insert to permutations
 ```
 
 ---
@@ -801,9 +847,11 @@ ALCHEMY_API_KEY
 | `tokenstr_checks` not `listed_checks` view | Data source is now the TokenStrategy wallet directly — `backfill.ts` uses Alchemy `getNFTsForOwner` and the webhook watches wallet activity. No external listings table needed |
 | Webhook JWT verification disabled | Alchemy webhook requests have no Supabase JWT. The function is not sensitive (it re-fetches data from the chain before upserting), so disabling JWT is safe |
 | `burnerVirtualId` parameter | The on-chain composite stores the burner's token ID in `composites[divisorIndex]`. The JS engine needs this to build the recursive color resolution map |
-| DB mode filters server-side | With 657k+ rows, client-side filtering would require loading all rows. Supabase index on each attribute column makes server-side filters fast |
-| `sellTargetNFT` not `buyTargetNFT` | The TokenStrategy contract uses `sellTargetNFT(payableAmount, tokenId)` as the public buy function. Price is read via `nftForSale(tokenId)` and sent as both the function arg and `msg.value` |
+| Price filter is client-side | Token Works loads 2500 rows; price filtering is a local pass over that array. No index or extra query needed |
+| `total_cost` written inline at populate time | The populate script already has all 4 eth_prices in memory. Computing the sum inline is free; calling a separate RPC after-the-fact would require a second pass over 500K rows |
+| `total_cost = null` when any price is null | A partial cost would be misleading. Rows with null cost are excluded by the price filter when a bound is set, which is the expected behaviour |
 | No FK on `curated_outputs` token IDs | My Checks tokens are not in `tokenstr_checks`. FKs would block liking from My Checks mode. Token identity is validated implicitly via the stored struct data |
 | Structs stored in `curated_outputs` | Enables SVG rendering for any token source (Token Works, My Checks, Search Wallet) without a secondary DB fetch. Filled via COALESCE so re-liking after unlike doesn't lose existing data |
 | Delete-first toggle in `toggle_like` | `DELETE … GET DIAGNOSTICS ROW_COUNT` is atomic. Avoids the TOCTOU race of `SELECT … IF EXISTS … INSERT` under rapid double-clicks |
 | `total_likes` in `connected_wallets` | Maintained by `toggle_like` for analytics. Uses `INSERT … ON CONFLICT DO UPDATE` to handle wallets that liked before formally connecting |
+| `isValidAddress` in `utils.ts` | Single source of truth for Ethereum address validation, shared by `App.tsx` (search wallet gate) and `Navbar.tsx` (address input validation) |
