@@ -12,7 +12,7 @@ export function useExplorePermutations() {
   const [error,   setError]     = useState('')
   const [searched, setSearched] = useState(false)
 
-  const { permutations, generate, shuffle } = useMyCheckPermutations(checks)
+  const { permutations, generate, shuffle, reset } = useMyCheckPermutations(checks)
 
   // Auto-generate when checks update after a search
   useEffect(() => {
@@ -64,6 +64,7 @@ export function useExplorePermutations() {
     setChecks({})
     setSearched(false)
     setError('')
+    reset()
   }
 
   return { search, clear, permutations, shuffle, loading, error, searched, checks }

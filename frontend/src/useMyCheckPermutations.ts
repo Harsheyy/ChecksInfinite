@@ -162,6 +162,7 @@ export function useMyCheckPermutations(checks: Record<string, CheckStruct>) {
   }, [checks])
 
   const shuffle = useCallback(() => generate(), [generate])
+  const reset = useCallback(() => setPermutations([]), [])
 
-  return { permutations, generate, shuffle }
+  return { permutations, generate, shuffle, reset }
 }
