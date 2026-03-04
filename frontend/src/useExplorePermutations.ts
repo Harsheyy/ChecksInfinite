@@ -3,10 +3,11 @@ import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
+import { supabase } from './supabaseClient'
 
 export const EXPLORE_MAX_IDS = 10
 
-export function useExplorePermutations() {
+export function useExplorePermutations(address?: string) {
   const [checks, setChecks] = useState<Record<string, CheckStruct>>({})
   const [loading, setLoading]   = useState(false)
   const [error,   setError]     = useState('')
@@ -58,6 +59,11 @@ export function useExplorePermutations() {
 
     setChecks(newChecks)
     setLoading(false)
+
+    if (supabase && address) {
+      supabase.rpc('log_explore_query', { p_address: address.toLowerCase() })
+        .then(() => {}, err => console.warn('[analytics] log_explore_query failed:', err))
+    }
   }
 
   function clear() {

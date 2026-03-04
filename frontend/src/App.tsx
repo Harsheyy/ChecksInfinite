@@ -68,7 +68,7 @@ export default function App() {
   const { state: curatedState, load: loadCurated } = useCuratedOutputs()
 
   // ── Explore (Curate) mode ─────────────────────────────────────────────────
-  const explore = useExplorePermutations()
+  const explore = useExplorePermutations(address)
 
   // ── Like state (across all modes) ────────────────────────────────────────────
   const { likedKeys, setLikedKeys } = useMyLikedKeys(address?.toLowerCase())
