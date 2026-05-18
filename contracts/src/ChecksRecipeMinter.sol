@@ -34,6 +34,18 @@ contract ChecksRecipeMinter is Ownable, ReentrancyGuard, IERC721Receiver {
     error RefundFailed();
     error ZeroAddress();
 
+    event RecipeMinted(
+        address indexed minter,
+        uint256 indexed abcdTokenId,
+        uint256 b1,
+        uint256 k2,
+        uint256 b2,
+        uint256 tokenCost,
+        uint256 fee
+    );
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+    event ServiceFeeUpdated(uint256 oldFee, uint256 newFee);
+
     constructor(address _feeRecipient) Ownable(msg.sender) {
         if (_feeRecipient == address(0)) revert ZeroAddress();
         feeRecipient = _feeRecipient;
@@ -88,6 +100,23 @@ contract ChecksRecipeMinter is Ownable, ReentrancyGuard, IERC721Receiver {
             if (!refundOk) revert RefundFailed();
         }
 
+        emit RecipeMinted(msg.sender, k1, b1, k2, b2, tokenCost, serviceFee);
+    }
+
+    /// @notice Update the address that receives the service fee.
+    function setFeeRecipient(address _newRecipient) external onlyOwner {
+        if (_newRecipient == address(0)) revert ZeroAddress();
+        address old = feeRecipient;
+        feeRecipient = _newRecipient;
+        emit FeeRecipientUpdated(old, _newRecipient);
+    }
+
+    /// @notice Update the service fee. Cannot exceed `MAX_FEE`.
+    function setServiceFee(uint256 _newFee) external onlyOwner {
+        if (_newFee > MAX_FEE) revert FeeAboveMax(_newFee, MAX_FEE);
+        uint256 old = serviceFee;
+        serviceFee = _newFee;
+        emit ServiceFeeUpdated(old, _newFee);
     }
 
     function onERC721Received(address, address, uint256, bytes calldata)
