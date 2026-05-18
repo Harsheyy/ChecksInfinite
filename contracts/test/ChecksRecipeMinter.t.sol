@@ -68,4 +68,32 @@ contract ChecksRecipeMinterTest is Test {
         // Fee recipient received the service fee
         assertEq(feeRecipient.balance - feeBalanceBefore, fee);
     }
+
+    function test_mintRecipe_revertsWhenPaymentTooLow() public {
+        address user = address(0xA11CE);
+        (uint256 total,,) = minter.quote(K1, B1, K2, B2);
+        vm.deal(user, total);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ChecksRecipeMinter.InsufficientPayment.selector,
+                total,
+                total - 1
+            )
+        );
+        minter.mintRecipe{value: total - 1}(K1, B1, K2, B2);
+    }
+
+    function test_mintRecipe_refundsExcessEth() public {
+        address user = address(0xA11CE);
+        (uint256 total,,) = minter.quote(K1, B1, K2, B2);
+        uint256 excess = 0.1 ether;
+        vm.deal(user, total + excess);
+
+        vm.prank(user);
+        minter.mintRecipe{value: total + excess}(K1, B1, K2, B2);
+
+        assertEq(user.balance, excess);
+    }
 }
