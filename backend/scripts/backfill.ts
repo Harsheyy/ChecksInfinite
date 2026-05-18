@@ -1,6 +1,6 @@
 /**
  * backfill.ts — fetches all Checks held by the TokenStrategy wallet from
- * the Alchemy NFT API and upserts them into the `tokenstr_checks` Supabase table.
+ * the Alchemy NFT API and upserts them into the `all_checks` Supabase table.
  *
  * Usage:
  *   npx tsx scripts/backfill.ts              # full run
@@ -157,7 +157,7 @@ async function main() {
     if (INCREMENTAL) {
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const { data: synced } = await supabase
-        .from('tokenstr_checks')
+        .from('all_checks')
         .select('token_id')
         .gt('last_synced_at', cutoff)
 
@@ -245,7 +245,7 @@ async function main() {
 
       if (rows.length > 0) {
         const { error } = await supabase
-          .from('tokenstr_checks')
+          .from('all_checks')
           .upsert(rows, { onConflict: 'token_id' })
         if (error) throw error
         tokensProcessed += rows.length

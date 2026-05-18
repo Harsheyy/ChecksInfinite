@@ -192,7 +192,7 @@ export default function App() {
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
         p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
       } else {
-        // token-works: fetch from tokenstr_checks
+        // token-works: fetch from all_checks
         const structMap = await fetchCheckStructMap([k1, b1, k2, b2].map(Number))
         p_k1_struct = structMap.get(parseInt(k1)) ?? null
         p_b1_struct = structMap.get(parseInt(b1)) ?? null

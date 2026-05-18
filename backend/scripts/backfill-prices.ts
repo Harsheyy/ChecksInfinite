@@ -1,6 +1,6 @@
 /**
  * backfill-prices.ts — fetches nftForSale() prices from the TokenStrategy contract
- * for all checks in tokenstr_checks and populates eth_price.
+ * for all checks in all_checks and populates eth_price.
  * Then calls backfill_permutation_costs() to fill total_cost in permutations.
  *
  * Usage:
@@ -42,9 +42,9 @@ const NFT_FOR_SALE_ABI = [{
 }] as const
 
 async function main() {
-  // 1. Fetch all token IDs from tokenstr_checks
+  // 1. Fetch all token IDs from all_checks
   const { data: rows, error } = await supabase
-    .from('tokenstr_checks')
+    .from('all_checks')
     .select('token_id')
   if (error) throw error
 
@@ -82,7 +82,7 @@ async function main() {
     if (upsertRows.length > 0) {
       const updateResults = await Promise.allSettled(
         upsertRows.map(row =>
-          supabase.from('tokenstr_checks').update({ eth_price: row!.eth_price }).eq('token_id', row!.token_id)
+          supabase.from('all_checks').update({ eth_price: row!.eth_price }).eq('token_id', row!.token_id)
         )
       )
       const failed = updateResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error))

@@ -36,7 +36,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
     if (!supabase || !dbMode || nodeA.svg) return
     const tokenIds = [id0, id1, id2, id3].map(Number)
     supabase
-      .from('tokenstr_checks')
+      .from('all_checks')
       .select('token_id, svg, check_struct')
       .in('token_id', tokenIds)
       .then(({ data }) => {

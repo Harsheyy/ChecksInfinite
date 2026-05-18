@@ -68,7 +68,7 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
       if (to.toLowerCase() === ZERO_ADDRESS) {
         // Burn: mark token as burned
         await supabase
-          .from('tokenstr_checks')
+          .from('all_checks')
           .update({ is_burned: true, owner: ZERO_ADDRESS, last_synced_at: new Date().toISOString() })
           .eq('token_id', tokenId)
 
@@ -138,7 +138,7 @@ async function refetchTokens(
 
       const attrs = decodeTokenURIAttrs(uriResult)
 
-      await supabase.from('tokenstr_checks').upsert({
+      await supabase.from('all_checks').upsert({
         token_id:      tokenId,
         owner,
         is_burned:     isBurned,

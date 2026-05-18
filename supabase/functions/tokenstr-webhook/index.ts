@@ -3,8 +3,8 @@
  *
  * Receives Alchemy "Address Activity" webhook payloads for the TokenStrategy wallet.
  * Tracks ERC-721 Checks tokens entering or leaving the wallet:
- *   - Token received → fetch from chain and upsert into tokenstr_checks
- *   - Token sent     → delete from tokenstr_checks and clean up permutations
+ *   - Token received → fetch from chain and upsert into all_checks
+ *   - Token sent     → delete from all_checks and clean up permutations
  *
  * Deploy: supabase functions deploy tokenstr-webhook
  *
@@ -78,7 +78,7 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
         // Token left our wallet — delete and clean up permutations
         console.log(`Token ${tokenId} left TokenStrategy wallet — deleting.`)
         await supabase
-          .from('tokenstr_checks')
+          .from('all_checks')
           .delete()
           .eq('token_id', tokenId)
 
@@ -140,7 +140,7 @@ async function refetchAndUpsert(
   const checkStruct = decodeGetCheck(checkResult)
   const attrs      = decodeTokenURIAttrs(uriResult)
 
-  await supabase.from('tokenstr_checks').upsert({
+  await supabase.from('all_checks').upsert({
     token_id:      tokenId,
     owner,
     is_burned:     isBurned,

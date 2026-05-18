@@ -78,7 +78,7 @@ export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, Ch
   const map = new Map<number, CheckStructJSON>()
   for (let i = 0; i < ids.length; i += BATCH) {
     const { data, error } = await supabase
-      .from('tokenstr_checks')
+      .from('all_checks')
       .select('token_id, check_struct')
       .in('token_id', ids.slice(i, i + BATCH))
     if (error) throw error
@@ -272,13 +272,13 @@ export function usePriceBounds(enabled: boolean) {
     if (!enabled || !supabase) return
     Promise.all([
       supabase
-        .from('tokenstr_checks')
+        .from('all_checks')
         .select('eth_price')
         .not('eth_price', 'is', null)
         .order('eth_price', { ascending: true })
         .limit(1),
       supabase
-        .from('tokenstr_checks')
+        .from('all_checks')
         .select('eth_price')
         .not('eth_price', 'is', null)
         .order('eth_price', { ascending: false })

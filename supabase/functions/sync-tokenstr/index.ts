@@ -1,7 +1,7 @@
 /**
  * sync-tokenstr — Supabase Edge Function
  *
- * Hourly full reconciliation of tokenstr_checks against on-chain truth:
+ * Hourly full reconciliation of all_checks against on-chain truth:
  *   1. Fetch all Checks currently owned by the TokenStrategy wallet (Alchemy NFT API)
  *   2. Delete DB rows for tokens no longer in the wallet (sold/transferred, webhook missed)
  *   3. Refresh eth_price for every on-chain token (nftForSale can change without Transfer events)
@@ -43,7 +43,7 @@ Deno.serve(async (_req: Request) => {
 
     // ── 2. DB state ──────────────────────────────────────────────────────────
     const { data: dbRows, error: dbErr } = await supabase
-      .from('tokenstr_checks')
+      .from('all_checks')
       .select('token_id')
     if (dbErr) throw dbErr
 
@@ -60,7 +60,7 @@ Deno.serve(async (_req: Request) => {
     // ── 4. Remove tokens no longer in wallet ─────────────────────────────────
     for (const tokenId of toDelete) {
       console.log(`Deleting token ${tokenId} (no longer in wallet)`)
-      await supabase.from('tokenstr_checks').delete().eq('token_id', tokenId)
+      await supabase.from('all_checks').delete().eq('token_id', tokenId)
       await supabase.from('permutations').delete().or(
         `keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`
       )
@@ -78,7 +78,7 @@ Deno.serve(async (_req: Request) => {
 
       await Promise.allSettled(
         updates.map(u =>
-          supabase.from('tokenstr_checks')
+          supabase.from('all_checks')
             .update({ eth_price: u.ethPrice, last_synced_at: new Date().toISOString() })
             .eq('token_id', u.tokenId)
         )
@@ -177,7 +177,7 @@ async function refetchAndUpsert(
   const checkStruct = decodeGetCheck(checkResult)
   const attrs       = decodeTokenURIAttrs(uriResult)
 
-  await supabase.from('tokenstr_checks').upsert({
+  await supabase.from('all_checks').upsert({
     token_id:       tokenId,
     owner,
     is_burned:      isBurned,
