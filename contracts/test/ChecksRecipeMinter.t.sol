@@ -31,4 +31,17 @@ contract ChecksRecipeMinterTest is Test {
         vm.expectRevert(ChecksRecipeMinter.ZeroAddress.selector);
         new ChecksRecipeMinter(address(0));
     }
+
+    // 4 currently-listed 80-check tokens on mainnet (verified 2026-05-17)
+    uint256 constant K1 = 3960;
+    uint256 constant B1 = 2243;
+    uint256 constant K2 = 15081;
+    uint256 constant B2 = 3637;
+
+    function test_quote_returnsTokenCostPlusFee() public view {
+        (uint256 total, uint256 tokenCost, uint256 fee) = minter.quote(K1, B1, K2, B2);
+        assertEq(fee, 0.005 ether);
+        assertGt(tokenCost, 0);
+        assertEq(total, tokenCost + fee);
+    }
 }

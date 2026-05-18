@@ -39,6 +39,21 @@ contract ChecksRecipeMinter is Ownable, ReentrancyGuard, IERC721Receiver {
         feeRecipient = _feeRecipient;
     }
 
+    /// @notice Quote the total ETH required to mint a recipe.
+    /// @return totalCost The total ETH the user must send (tokenCost + serviceFee)
+    /// @return tokenCost The combined listing price of the 4 tokens
+    /// @return fee The current service fee
+    function quote(uint256 k1, uint256 b1, uint256 k2, uint256 b2)
+        external view returns (uint256 totalCost, uint256 tokenCost, uint256 fee)
+    {
+        tokenCost = TOKEN_STRATEGY.nftForSale(k1)
+                  + TOKEN_STRATEGY.nftForSale(b1)
+                  + TOKEN_STRATEGY.nftForSale(k2)
+                  + TOKEN_STRATEGY.nftForSale(b2);
+        fee = serviceFee;
+        totalCost = tokenCost + fee;
+    }
+
     function onERC721Received(address, address, uint256, bytes calldata)
         external pure returns (bytes4)
     {
