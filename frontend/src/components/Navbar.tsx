@@ -2,7 +2,7 @@ import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 import { isValidAddress } from '../utils'
 
-type ViewMode = 'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet'
+type ViewMode = 'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet' | 'all-checks'
 
 interface NavbarProps {
   ids: string
@@ -91,6 +91,12 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('curated')}
             >Curated Checks</button>
+            {isConnected && (
+              <button
+                className={`view-toggle-btn${viewMode === 'all-checks' ? ' view-toggle-btn--active' : ''}`}
+                onClick={() => onViewModeChange('all-checks')}
+              >All Checks</button>
+            )}
             {isConnected && showSearchWallet && (
               <button
                 className={`view-toggle-btn${viewMode === 'search-wallet' ? ' view-toggle-btn--active' : ''}`}
@@ -107,6 +113,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
             {isConnected && <option value="my-checks">My Checks</option>}
             {isConnected && <option value="explore">Explore</option>}
             <option value="curated">Curated Checks</option>
+            {isConnected && <option value="all-checks">All Checks</option>}
             {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
           </select>
           {viewMode === 'search-wallet' && showSearchWallet && (

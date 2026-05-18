@@ -48,7 +48,7 @@ export function serializeCheckStruct(cs: CheckStruct): CheckStructJSON {
 }
 
 // Basic perm row — no join, just scalar columns
-interface PermRowBasic {
+export interface PermRowBasic {
   keeper_1_id: number
   burner_1_id: number
   keeper_2_id: number
@@ -90,7 +90,7 @@ export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, Ch
 }
 
 // Attach check structs to basic perm rows (rows missing any struct are dropped)
-async function attachChecks(basicRows: PermRowBasic[]): Promise<PermRow[]> {
+export async function attachChecks(basicRows: PermRowBasic[]): Promise<PermRow[]> {
   const uniqueIds = [...new Set(
     basicRows.flatMap(r => [r.keeper_1_id, r.burner_1_id, r.keeper_2_id, r.burner_2_id])
   )]
@@ -169,7 +169,7 @@ function computeAllNodes(
   }
 }
 
-function rowToPermutationResult(row: PermRow): PermutationResult {
+export function rowToPermutationResult(row: PermRow): PermutationResult {
   const id0 = String(row.keeper_1_id)
   const id1 = String(row.burner_1_id)
   const id2 = String(row.keeper_2_id)
