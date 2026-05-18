@@ -19,7 +19,7 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const OPENSEA_API_KEY      = process.env.OPENSEA_API_KEY!
-const COLLECTION_SLUG      = 'checks-vv'
+const COLLECTION_SLUG      = 'vv-checks-originals'
 const CHECKS_CONTRACT      = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
 const DB_BATCH             = 500
 
@@ -152,16 +152,17 @@ async function main() {
 
     console.log(`Listed: ${listedUpdates.length}  |  Unlisted: ${unlistedUpdates.length}`)
 
-    // 3. Upsert listed tokens (with price)
+    // 3. Update listed tokens (rows already exist from backfill-market-checks)
     let updated = 0
-    for (let i = 0; i < listedUpdates.length; i += DB_BATCH) {
-      const batch = listedUpdates.slice(i, i + DB_BATCH)
+    for (const row of listedUpdates) {
       const { error: e } = await supabase
         .from('all_checks')
-        .upsert(batch, { onConflict: 'token_id', ignoreDuplicates: false })
+        .update({ eth_price: row.eth_price, is_listed: row.is_listed, price_source: row.price_source })
+        .eq('token_id', row.token_id)
+        .eq('is_tokenstr', false)
       if (e) throw e
-      updated += batch.length
-      process.stdout.write(`  Listed upsert: ${updated}/${listedUpdates.length}\r`)
+      updated++
+      process.stdout.write(`  Listed update: ${updated}/${listedUpdates.length}\r`)
     }
     if (listedUpdates.length > 0) console.log()
 
