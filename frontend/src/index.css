@@ -1093,16 +1093,13 @@ body {
 .check-card--has-tooltip:hover .check-card-tooltip { display: block; }
 
 /* ─── Buy button (in header) ───────────────────────────────── */
+.tree-panel-header-price { font-family: monospace; font-size: 0.72rem; color: #aaa; margin-left: 4px; }
 .tree-panel__mint { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; }
-.tree-panel__price-breakdown { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; font-family: monospace; font-size: 12px; margin: 0; }
-.tree-panel__price-breakdown dt { color: #888; }
-.tree-panel__price-breakdown dd { margin: 0; text-align: right; }
-.tree-panel__price-breakdown dt:last-of-type,
-.tree-panel__price-breakdown dd:last-of-type { font-weight: bold; color: #fff; border-top: 1px solid #333; padding-top: 4px; }
 .tree-panel__mint-button { padding: 10px 16px; font-family: monospace; font-size: 13px; background: #fff; color: #000; border: 0; cursor: pointer; }
 .tree-panel__mint-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tree-panel__tx-link { font-family: monospace; font-size: 11px; color: #4DFFB4; text-align: center; }
 .tree-panel__mint-error { font-family: monospace; font-size: 11px; color: #ff3d3d; word-break: break-word; margin: 0; }
+.tree-panel__mint-fee-note { font-family: monospace; font-size: 10px; color: #555; margin: 0; }
 
 @media (max-width: 1024px) {
   .filter-panel { width: 100%; border-left: none; }

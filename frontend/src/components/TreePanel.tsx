@@ -72,7 +72,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
 
   const totalCost = quote?.[0]
   const tokenCost = quote?.[1]
-  const serviceFee = quote?.[2]
 
   const { writeContract, data: txHash, isPending: isSigning, error: writeError } = useWriteContract()
   const { isLoading: isMining, isSuccess: isMined } = useWaitForTransactionReceipt({ hash: txHash })
@@ -115,6 +114,9 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
             <span className="tree-panel-id-chip">#{id2}</span>
             <span className="tree-panel-id-chip">#{id3}</span>
           </div>
+          {dbMode && !hideBuy && result.fromTokenWorks !== false && totalCost !== undefined && (
+            <span className="tree-panel-header-price">{formatEther(totalCost)} ETH</span>
+          )}
         </div>
         <div className="tree-panel-header-actions">
           {likeInfo && (
@@ -169,16 +171,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
 
         {dbMode && !hideBuy && result.fromTokenWorks !== false && !!CHECKS_RECIPE_MINTER_ADDRESS && (
           <div className="tree-panel__mint">
-            {tokenCost !== undefined && serviceFee !== undefined && totalCost !== undefined && (
-              <dl className="tree-panel__price-breakdown">
-                <dt>Tokens</dt>
-                <dd>{formatEther(tokenCost)} ETH</dd>
-                <dt>Service fee</dt>
-                <dd>{formatEther(serviceFee)} ETH</dd>
-                <dt>Total</dt>
-                <dd>{formatEther(totalCost)} ETH</dd>
-              </dl>
-            )}
             <button
               className="tree-panel__mint-button"
               disabled={buttonDisabled}
@@ -199,6 +191,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
             {writeError && (
               <p className="tree-panel__mint-error">{writeError.message}</p>
             )}
+            <p className="tree-panel__mint-fee-note">All minting includes a flat 0.005 ETH fee</p>
           </div>
         )}
       </div>
