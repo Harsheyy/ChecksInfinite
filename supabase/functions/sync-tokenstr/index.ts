@@ -122,7 +122,7 @@ Deno.serve(async (_req: Request) => {
       headers: { 'Content-Type': 'application/json' },
     })
   }
-}
+})
 
 // ─── Alchemy NFT API ──────────────────────────────────────────────────────────
 
