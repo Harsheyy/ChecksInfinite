@@ -88,6 +88,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
     })
   }
 
+  const tokensNotListed = tokenCost !== undefined && tokenCost === 0n
+
   const buttonLabel = (() => {
     if (!isConnected) return 'Connect wallet to mint'
     if (quoteLoading) return 'Loading price…'
@@ -99,7 +101,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
     return `Mint Recipe (${formatEther(totalCost)} ETH)`
   })()
 
-  const tokensNotListed = tokenCost !== undefined && tokenCost === 0n
   const buttonDisabled = !isConnected || quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed
 
   return (
