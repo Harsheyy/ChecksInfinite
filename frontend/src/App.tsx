@@ -473,6 +473,7 @@ export default function App() {
         hideBuy={isMyChecksMode || isSearchWalletMode || isExploreMode}
         filtersTall={false}
         getLikeInfo={dbMode ? getLikeInfo : undefined}
+        tokenPriceMap={tokenPriceMap}
       />
       {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : dbState.loading)) && (
         <div style={{

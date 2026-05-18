@@ -20,9 +20,10 @@ interface Props {
   hideBuy?: boolean
   filtersTall?: boolean
   getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
+  tokenPriceMap?: Map<string, bigint>
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -130,7 +131,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
           </div>
         </div>
         {selectedPerm && (
-          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} likeInfo={getLikeInfo?.(selectedPerm)} />
+          <TreePanel result={selectedPerm} ids={ids} onClose={() => setSelected(null)} dbMode={dbMode} hideBuy={hideBuy} likeInfo={getLikeInfo?.(selectedPerm)} tokenPriceMap={tokenPriceMap} />
         )}
       </>
     )

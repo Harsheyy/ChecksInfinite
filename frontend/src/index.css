@@ -1134,6 +1134,7 @@ body {
   color: #aaa;
 }
 .tree-panel__mint-btn-wrap:hover .tree-panel__mint-tooltip { display: block; }
+.tree-panel__mint-tooltip--warning { color: #ff6b6b; }
 .tree-panel__tx-link { font-family: monospace; font-size: 11px; color: #4DFFB4; text-align: center; }
 
 @media (max-width: 1024px) {
