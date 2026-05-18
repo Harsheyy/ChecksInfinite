@@ -91,6 +91,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
   const buttonLabel = (() => {
     if (!isConnected) return 'Connect wallet to mint'
     if (quoteLoading) return 'Loading price…'
+    if (tokensNotListed) return 'Tokens not available'
     if (isSigning) return 'Confirm in wallet…'
     if (isMining) return 'Minting recipe…'
     if (isMined) return `✓ Minted ABCD #${id0}`
@@ -98,7 +99,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
     return `Mint Recipe (${formatEther(totalCost)} ETH)`
   })()
 
-  const buttonDisabled = !isConnected || quoteLoading || isSigning || isMining || isMined || !totalCost
+  const tokensNotListed = tokenCost !== undefined && tokenCost === 0n
+  const buttonDisabled = !isConnected || quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed
 
   return (
     <div className="tree-panel">
