@@ -7,7 +7,7 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 
 interface ITokenStrategy {
     function nftForSale(uint256 tokenId) external view returns (uint256);
-    function sellTargetNFT(uint256 payableAmount, uint256 tokenId) external payable;
+    function sellTargetNFT(uint256 tokenId) external payable;
 }
 
 interface IChecks {
@@ -52,6 +52,42 @@ contract ChecksRecipeMinter is Ownable, ReentrancyGuard, IERC721Receiver {
                   + TOKEN_STRATEGY.nftForSale(b2);
         fee = serviceFee;
         totalCost = tokenCost + fee;
+    }
+
+    /// @notice Buy 4 Checks tokens and composite them into a single ABCD output.
+    /// @dev The token surviving all 3 composites is `k1` — that is the token transferred to the caller.
+    function mintRecipe(uint256 k1, uint256 b1, uint256 k2, uint256 b2)
+        external payable nonReentrant
+    {
+        uint256 p1 = TOKEN_STRATEGY.nftForSale(k1);
+        uint256 p2 = TOKEN_STRATEGY.nftForSale(b1);
+        uint256 p3 = TOKEN_STRATEGY.nftForSale(k2);
+        uint256 p4 = TOKEN_STRATEGY.nftForSale(b2);
+        uint256 tokenCost = p1 + p2 + p3 + p4;
+        uint256 required = tokenCost + serviceFee;
+
+        if (msg.value < required) revert InsufficientPayment(required, msg.value);
+
+        TOKEN_STRATEGY.sellTargetNFT{value: p1}(k1);
+        TOKEN_STRATEGY.sellTargetNFT{value: p2}(b1);
+        TOKEN_STRATEGY.sellTargetNFT{value: p3}(k2);
+        TOKEN_STRATEGY.sellTargetNFT{value: p4}(b2);
+
+        CHECKS.composite(k1, b1, false);
+        CHECKS.composite(k2, b2, false);
+        CHECKS.composite(k1, k2, false);
+
+        CHECKS.safeTransferFrom(address(this), msg.sender, k1);
+
+        (bool feeOk,) = feeRecipient.call{value: serviceFee}("");
+        if (!feeOk) revert FeeTransferFailed();
+
+        uint256 excess = msg.value - required;
+        if (excess > 0) {
+            (bool refundOk,) = msg.sender.call{value: excess}("");
+            if (!refundOk) revert RefundFailed();
+        }
+
     }
 
     function onERC721Received(address, address, uint256, bytes calldata)

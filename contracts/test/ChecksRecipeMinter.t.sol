@@ -44,4 +44,28 @@ contract ChecksRecipeMinterTest is Test {
         assertGt(tokenCost, 0);
         assertEq(total, tokenCost + fee);
     }
+
+    // Minimal interface for the Checks ERC-721 read calls used in tests.
+    function _checksOwnerOf(uint256 tokenId) internal view returns (address) {
+        (bool ok, bytes memory data) = address(minter.CHECKS()).staticcall(
+            abi.encodeWithSignature("ownerOf(uint256)", tokenId)
+        );
+        require(ok, "ownerOf failed");
+        return abi.decode(data, (address));
+    }
+
+    function test_mintRecipe_happyPath_userReceivesAbcdAndFeeIsForwarded() public {
+        address user = address(0xA11CE);
+        (uint256 total,, uint256 fee) = minter.quote(K1, B1, K2, B2);
+        vm.deal(user, total);
+        uint256 feeBalanceBefore = feeRecipient.balance;
+
+        vm.prank(user);
+        minter.mintRecipe{value: total}(K1, B1, K2, B2);
+
+        // User owns the final ABCD token (which is k1 after 3 composites)
+        assertEq(_checksOwnerOf(K1), user);
+        // Fee recipient received the service fee
+        assertEq(feeRecipient.balance - feeBalanceBefore, fee);
+    }
 }
