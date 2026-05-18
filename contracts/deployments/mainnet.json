@@ -1,0 +1,10 @@
+{
+  "ChecksRecipeMinter": {
+    "address": "0x68D4E9ce1e23274e1Cfb1574D2dBA4Ca84e709aF",
+    "feeRecipient": "0xb7b14847a686db0C9bE10c22A203836E47b5EbC5",
+    "owner": "0xb7b14847a686db0C9bE10c22A203836E47b5EbC5",
+    "deployedAt": "2026-05-17",
+    "txHash": "0x2955cc0b3a2d5b440efe3de4ebad0169b2e702530617cfad9a6fe446f6ca00d0",
+    "blockNumber": 25119081
+  }
+}
