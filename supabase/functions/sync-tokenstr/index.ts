@@ -141,7 +141,9 @@ async function getNFTsForOwner(alchemyKey: string): Promise<number[]> {
     })
     const res  = await fetch(`${base}?${params}`)
     if (!res.ok) throw new Error(`Alchemy NFT API error: ${res.status} ${await res.text()}`)
-    const json = await res.json() as { ownedNfts: { tokenId: string }[]; pageKey?: string }
+    const text = await res.text()
+    let json: { ownedNfts: { tokenId: string }[]; pageKey?: string }
+    try { json = JSON.parse(text) } catch { throw new Error(`Alchemy NFT API bad JSON: ${text.slice(0, 200)}`) }
     for (const nft of json.ownedNfts) ids.push(Number(nft.tokenId))
     pageKey = json.pageKey
   } while (pageKey)
@@ -211,7 +213,10 @@ async function ethCall(rpcUrl: string, to: string, data: string): Promise<string
       params: [{ to, data }, 'latest'],
     }),
   })
-  const json = await res.json() as { result?: string; error?: unknown }
+  if (!res.ok) { console.warn(`eth_call HTTP ${res.status}`); return null }
+  const text = await res.text()
+  let json: { result?: string; error?: unknown }
+  try { json = JSON.parse(text) } catch { console.warn(`eth_call bad JSON: ${text.slice(0, 200)}`); return null }
   if (json.error) return null
   return json.result ?? null
 }
