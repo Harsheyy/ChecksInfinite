@@ -10,19 +10,22 @@ export interface Filters {
   speed: string
   shift: string
   selectedIds: string[]
+  priceMin: string
+  priceMax: string
 }
 
 export function emptyFilters(): Filters {
   return {
     checks: '', colorBand: '', gradient: '', speed: '', shift: '',
     selectedIds: [],
+    priceMin: '', priceMax: '',
   }
 }
 
 export function hasActiveFilters(f: Filters): boolean {
   return !!(
     f.checks || f.colorBand || f.gradient || f.speed || f.shift ||
-    f.selectedIds.length > 0
+    f.selectedIds.length > 0 || f.priceMin || f.priceMax
   )
 }
 
@@ -34,6 +37,7 @@ function countActiveFilters(f: Filters): number {
   if (f.speed) n++
   if (f.shift) n++
   if (f.selectedIds.length > 0) n++
+  if (f.priceMin || f.priceMax) n++
   return n
 }
 
@@ -133,6 +137,48 @@ function IdMultiSelect({ tokenIdCounts, selectedIds, onChange }: IdMultiSelectPr
   )
 }
 
+function fmtEth(n: number): string {
+  return parseFloat(n.toFixed(3)).toString()
+}
+
+interface PriceRangeFilterProps {
+  priceMin: string
+  priceMax: string
+  priceRange?: { min: number; max: number }
+  onChange: (min: string, max: string) => void
+}
+
+function PriceRangeFilter({ priceMin, priceMax, priceRange, onChange }: PriceRangeFilterProps) {
+  const minError = priceMin !== '' && priceRange !== undefined && parseFloat(priceMin) < priceRange.min
+  const maxError = priceMax !== '' && priceRange !== undefined && parseFloat(priceMax) > priceRange.max
+  return (
+    <label className="filter-select-label">
+      <span className="filter-select-name">Price (Ξ)</span>
+      <div className="filter-price-inputs">
+        <input
+          className={`filter-price-input${minError ? ' filter-price-input--error' : ''}`}
+          type="number"
+          step="0.001"
+          min="0"
+          placeholder={priceRange ? fmtEth(priceRange.min) : 'Min'}
+          value={priceMin}
+          onChange={e => onChange(e.target.value, priceMax)}
+        />
+        <span className="filter-price-sep">–</span>
+        <input
+          className={`filter-price-input${maxError ? ' filter-price-input--error' : ''}`}
+          type="number"
+          step="0.001"
+          min="0"
+          placeholder={priceRange ? fmtEth(priceRange.max) : 'Max'}
+          value={priceMax}
+          onChange={e => onChange(priceMin, e.target.value)}
+        />
+      </div>
+    </label>
+  )
+}
+
 interface FilterBarProps {
   filters: Filters
   onChange: (f: Filters) => void
@@ -152,11 +198,12 @@ interface FilterBarProps {
   exploreLoading?: boolean
   exploreError?: string
   exploreSearched?: boolean
+  priceRange?: { min: number; max: number }
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, exploreRaw = '', onExploreRawChange, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, exploreRaw = '', onExploreRawChange, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched, priceRange }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -349,6 +396,14 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
           <FilterSelect label="Gradient"   options={GRADIENT_OPTIONS}   value={filters.gradient}  onChange={v => update('gradient', v)}  counts={attributeCounts?.gradient} />
           <FilterSelect label="Speed"      options={SPEED_OPTIONS}      value={filters.speed}     onChange={v => update('speed', v)}     counts={attributeCounts?.speed} />
           <FilterSelect label="Shift"      options={SHIFT_OPTIONS}      value={filters.shift}     onChange={v => update('shift', v)}     counts={attributeCounts?.shift} />
+          {priceRange && (
+            <PriceRangeFilter
+              priceMin={filters.priceMin}
+              priceMax={filters.priceMax}
+              priceRange={priceRange}
+              onChange={(min, max) => onChange({ ...filters, priceMin: min, priceMax: max })}
+            />
+          )}
           <span className="filter-count">
             Showing {visible}
             {uniqueCheckIdCount != null && (
@@ -560,6 +615,20 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
                     ))}
                 </select>
               </div>
+
+              {priceRange && (
+                <div className="filter-panel-group filter-panel-group--price">
+                  <span className="filter-select-name">Price (Ξ)</span>
+                  <div className="filter-panel-price-row">
+                    <PriceRangeFilter
+                      priceMin={filters.priceMin}
+                      priceMax={filters.priceMax}
+                      priceRange={priceRange}
+                      onChange={(min, max) => onChange({ ...filters, priceMin: min, priceMax: max })}
+                    />
+                  </div>
+                </div>
+              )}
 
             </div>
 

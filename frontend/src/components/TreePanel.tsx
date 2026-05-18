@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { formatEther } from 'viem'
 import { CheckCard } from './CheckCard'
 import type { LikeInfo } from './PermutationCard'
 import { supabase } from '../supabaseClient'
 import { checksRecipeMinterAbi, CHECKS_RECIPE_MINTER_ADDRESS } from '../checksRecipeMinterAbi'
+import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from '../tokenStrategyAbi'
 import { mapCheckAttributes } from '../utils'
 import type { Attribute, CardState, CheckStruct } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
@@ -73,7 +74,29 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
   const totalCost = quote?.[0]
   const tokenCost = quote?.[1]
 
-  const { writeContract, data: txHash, isPending: isSigning, error: writeError } = useWriteContract()
+  const { data: tokenPrices } = useReadContracts({
+    contracts: [id0, id1, id2, id3].map(id => ({
+      address: TOKEN_STRATEGY_ADDRESS,
+      abi: tokenStrategyAbi,
+      functionName: 'nftForSale' as const,
+      args: [BigInt(id)] as const,
+    })),
+    query: { enabled: quoteEnabled },
+  })
+
+  function trimEth(wei: bigint): string {
+    const s = formatEther(wei)
+    const dot = s.indexOf('.')
+    if (dot === -1) return s
+    return s.slice(dot + 1).length <= 3 ? s : s.slice(0, dot + 4)
+  }
+
+  function priceLabel(i: number) {
+    const p = tokenPrices?.[i]?.result as bigint | undefined
+    return p && p > 0n ? `${trimEth(p)} ETH` : undefined
+  }
+
+  const { writeContract, data: txHash, isPending: isSigning } = useWriteContract()
   const { isLoading: isMining, isSuccess: isMined } = useWaitForTransactionReceipt({ hash: txHash })
 
   function handleMint() {
@@ -114,11 +137,20 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
             <span className="tree-panel-id-chip">#{id2}</span>
             <span className="tree-panel-id-chip">#{id3}</span>
           </div>
-          {dbMode && !hideBuy && result.fromTokenWorks !== false && totalCost !== undefined && (
-            <span className="tree-panel-header-price">{formatEther(totalCost)} ETH</span>
-          )}
         </div>
         <div className="tree-panel-header-actions">
+          {dbMode && !hideBuy && result.fromTokenWorks !== false && !!CHECKS_RECIPE_MINTER_ADDRESS && (
+            <span className="tree-panel__mint-btn-wrap">
+              <button
+                className="tree-panel__mint-button"
+                disabled={buttonDisabled}
+                onClick={handleMint}
+              >
+                {buttonLabel}
+              </button>
+              <div className="tree-panel__mint-tooltip">All minting includes a flat 0.005 ETH fee</div>
+            </span>
+          )}
           {likeInfo && (
             <span className={likeInfo.canLike === false ? 'tree-panel-like-wrap--no-connect' : undefined}>
             <button
@@ -144,8 +176,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
           <div className="tree-row-leaves">
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1a)} />
@@ -153,8 +185,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
             </div>
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1b)} />
@@ -171,13 +203,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
 
         {dbMode && !hideBuy && result.fromTokenWorks !== false && !!CHECKS_RECIPE_MINTER_ADDRESS && (
           <div className="tree-panel__mint">
-            <button
-              className="tree-panel__mint-button"
-              disabled={buttonDisabled}
-              onClick={handleMint}
-            >
-              {buttonLabel}
-            </button>
             {isMined && txHash && (
               <a
                 className="tree-panel__tx-link"
@@ -188,10 +213,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo }: T
                 View on Etherscan ↗
               </a>
             )}
-            {writeError && (
-              <p className="tree-panel__mint-error">{writeError.message}</p>
-            )}
-            <p className="tree-panel__mint-fee-note">All minting includes a flat 0.005 ETH fee</p>
           </div>
         )}
       </div>

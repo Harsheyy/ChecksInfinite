@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 import { useState, useMemo, useEffect } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useReadContracts } from 'wagmi'
+import { formatEther } from 'viem'
 import { Navbar } from './components/Navbar'
 import { FilterBar, emptyFilters, matchesFilters, type Filters } from './components/FilterBar'
 import { InfiniteGrid } from './components/InfiniteGrid'
@@ -12,6 +13,7 @@ import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { hasSupabase, supabase } from './supabaseClient'
 import { hasAlchemyKey } from './client'
 import { parseIds, validateIds, isValidAddress } from './utils'
+import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from './tokenStrategyAbi'
 import { useWalletTracking } from './useWalletTracking'
 import { useCuratedOutputs, type CuratedPermutationResult } from './useCuratedOutputs'
 import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
@@ -275,11 +277,68 @@ export default function App() {
           ? myChecks.loading
           : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
+  // ── Price filter ──────────────────────────────────────────────────────────
+  const priceFilterEnabled = dbMode && !isMyChecksMode && !isSearchWalletMode && !isExploreMode
+
+  const uniqueTokenIds = useMemo(() => {
+    if (!priceFilterEnabled) return []
+    const set = new Set<string>()
+    for (const p of permutations) {
+      for (const id of p.def.tokenIds ?? []) set.add(id)
+    }
+    return Array.from(set)
+  }, [priceFilterEnabled, permutations])
+
+  const { data: priceResults } = useReadContracts({
+    contracts: uniqueTokenIds.map(id => ({
+      address: TOKEN_STRATEGY_ADDRESS,
+      abi: tokenStrategyAbi,
+      functionName: 'nftForSale' as const,
+      args: [BigInt(id)] as const,
+    })),
+    query: { enabled: priceFilterEnabled && uniqueTokenIds.length > 0 },
+  })
+
+  const tokenPriceMap = useMemo(() => {
+    const map = new Map<string, bigint>()
+    if (!priceResults) return map
+    uniqueTokenIds.forEach((id, i) => {
+      const r = priceResults[i]?.result as bigint | undefined
+      if (r !== undefined) map.set(id, r)
+    })
+    return map
+  }, [priceResults, uniqueTokenIds])
+
+  const priceRange = useMemo(() => {
+    if (!tokenPriceMap.size) return undefined
+    let minCost = Infinity, maxCost = -Infinity
+    for (const p of permutations) {
+      const tids = p.def.tokenIds
+      if (!tids || tids.length !== 4) continue
+      const prices = tids.map(id => tokenPriceMap.get(id))
+      if (!prices.every(p => p !== undefined)) continue
+      const total = prices.reduce((sum, p) => sum + Number(formatEther(p!)), 0)
+      minCost = Math.min(minCost, total)
+      maxCost = Math.max(maxCost, total)
+    }
+    if (minCost === Infinity) return undefined
+    return { min: minCost, max: maxCost }
+  }, [tokenPriceMap, permutations])
+
   const showFlags = permutations.map(p => {
     if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
     const [p0, p1, p2, p3] = p.def.indices
     const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
-    return matchesFilters(p.nodeAbcd.attributes, filters, tids)
+    if (!matchesFilters(p.nodeAbcd.attributes, filters, tids)) return false
+    if ((filters.priceMin || filters.priceMax) && tids.length === 4) {
+      const prices = tids.map(id => tokenPriceMap.get(id))
+      if (prices.every(p => p !== undefined)) {
+        const total = prices.reduce((sum, p) => sum + Number(formatEther(p!)), 0)
+        if (filters.priceMin && parseFloat(filters.priceMin) > total) return false
+        if (filters.priceMax && parseFloat(filters.priceMax) < total) return false
+      }
+    }
+    return true
   })
 
   const visibleCount = showFlags.filter(Boolean).length
@@ -349,6 +408,7 @@ export default function App() {
           exploreLoading={isExploreMode ? explore.loading : undefined}
           exploreError={isExploreMode && explore.error ? explore.error : undefined}
           exploreSearched={isExploreMode ? explore.searched : undefined}
+          priceRange={priceRange}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
