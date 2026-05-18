@@ -23,7 +23,7 @@ import {
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const BATCH_SIZE           = 500
-const MAX_PERMS_PER_GROUP  = 500_000  // cap per checks_count group for storage safety
+const MAX_PERMS_PER_GROUP  = 100_000  // cap per checks_count group for storage safety
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Missing env vars. Copy .env.example to .env and fill in values.')
@@ -93,9 +93,10 @@ async function main() {
     // 1. Load all non-burned checks with band/gradient metadata
     console.log('Loading checks from Supabase...')
     const { data: rawRows, error } = await supabase
-      .from('tokenstr_checks')
+      .from('all_checks')
       .select('token_id, checks_count, color_band, gradient, check_struct, eth_price')
       .eq('is_burned', false)
+      .eq('is_tokenstr', true)
       .order('checks_count')
 
     if (error) throw error
