@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import type { PermutationResult } from './useAllPermutations'
 import {
   type PermRowBasic,
   type PermRow,
