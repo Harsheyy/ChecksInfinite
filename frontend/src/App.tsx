@@ -169,10 +169,10 @@ export default function App() {
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
-    // Map UI view modes to the DB's allowed source values
+    // Map UI view modes to DB source values: token-works | my-checks | opensea | search
     const rpcSource = source === 'my-checks' ? 'my-checks'
-      : source === 'search-wallet' ? 'search-wallet'
-      : 'token-works'
+      : (source === 'search-wallet' || source === 'search') ? 'search'
+      : feedSource // 'token-works' or 'opensea' for explore and curated modes
 
     const wasLiked  = likedKeys.has(key)
     const prevCount = likeCounts.get(key) ?? 0
