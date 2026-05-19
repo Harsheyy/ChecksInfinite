@@ -169,8 +169,10 @@ export default function App() {
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
-    // curated and search are view modes, not DB sources — attribute to explore
-    const rpcSource = (source === 'curated' || source === 'search') ? 'explore' : source
+    // Map UI view modes to the DB's allowed source values
+    const rpcSource = source === 'my-checks' ? 'my-checks'
+      : source === 'search-wallet' ? 'search-wallet'
+      : 'token-works'
 
     const wasLiked  = likedKeys.has(key)
     const prevCount = likeCounts.get(key) ?? 0
