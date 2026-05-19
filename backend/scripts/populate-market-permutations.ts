@@ -34,7 +34,7 @@ import {
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const BATCH_SIZE           = 500
-const MAX_TOTAL            = 500_000
+const MAX_TOTAL            = 250_000
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Missing env vars. Set SUPABASE_URL, SUPABASE_SERVICE_KEY in backend/.env')
@@ -68,6 +68,7 @@ interface AllPermRow {
   abcd_shift:      string | null
   color_family:    number | null
   total_cost:      number | null
+  is_all_listed:   boolean
 }
 
 // ─── Rarity weight for weighted shuffle ───────────────────────────────────────
@@ -122,9 +123,8 @@ function computePermutation(
     // non-critical — bucket remains null
   }
 
-  const total_cost = (price0 !== null && price1 !== null && price2 !== null && price3 !== null)
-    ? price0 + price1 + price2 + price3
-    : null
+  const allListed = price0 !== null && price1 !== null && price2 !== null && price3 !== null
+  const total_cost = allListed ? price0 + price1 + price2 + price3 : null
 
   return {
     keeper_1_id:     id0,
@@ -138,6 +138,7 @@ function computePermutation(
     abcd_shift:      getAttr('Shift')      as string | null,
     color_family:    colorFamily,
     total_cost,
+    is_all_listed:   allListed,
   }
 }
 
@@ -205,38 +206,51 @@ async function main() {
       return
     }
 
-    // 2. Group by checks_count
-    const byCount = new Map<number, CheckRow[]>()
+    // 2. Split into listed (eth_price set) and unlisted, each grouped by checks_count.
+    //    Listed groups are processed first, sorted ASC by checks_count so the rarest
+    //    bands (1-check → 5-check → 10-check → 20-check → 80-check) fill the table
+    //    first. Unlisted groups follow, sorted DESC (80-check first, as before) to
+    //    favour valid composite inputs.
+    const listedByCount   = new Map<number, CheckRow[]>()
+    const unlistedByCount = new Map<number, CheckRow[]>()
+
     for (const row of rows) {
-      const group = byCount.get(row.checks_count) ?? []
+      const map   = row.eth_price !== null ? listedByCount : unlistedByCount
+      const group = map.get(row.checks_count) ?? []
       group.push(row)
-      byCount.set(row.checks_count, group)
+      map.set(row.checks_count, group)
     }
 
-    // 3. For each checks_count group, compute diversity-weighted permutations
-    const batch: AllPermRow[] = []
+    const listedGroups   = [...listedByCount.entries()].sort((a, b) => a[0] - b[0])   // ASC
+    const unlistedGroups = [...unlistedByCount.entries()].sort((a, b) => b[0] - a[0]) // DESC
 
-    groupLoop:
-    for (const [checksCount, tokens] of byCount) {
+    console.log(`Listed groups:   ${listedGroups.map(([c, t]) => `${c}×${t.length}`).join(', ') || 'none'}`)
+    console.log(`Unlisted groups: ${unlistedGroups.map(([c, t]) => `${c}×${t.length}`).join(', ').slice(0, 200)}`)
+
+    // 3. Helper: iterate one group of tokens until cap or exhaustion
+    async function processGroup(
+      checksCount: number,
+      tokens: CheckRow[],
+      label: string,
+      batch: AllPermRow[],
+    ): Promise<void> {
       const n = tokens.length
       if (n < 4) {
-        console.log(`checks_count=${checksCount}: only ${n} tokens, skipping (need ≥4).`)
-        continue
+        console.log(`  [${label}] checks_count=${checksCount}: only ${n} tokens, skipping (need ≥4).`)
+        return
       }
 
-      // Allocate up to remaining budget for this group
       const remaining = MAX_TOTAL - totalPerms
-      if (remaining <= 0) break
+      if (remaining <= 0) return
 
       const perGroup = Math.min(perm4(n), remaining)
-      console.log(`\nchecks_count=${checksCount}: ${n} tokens → sampling up to ${perGroup.toLocaleString()} perms`)
+      console.log(`\n[${label}] checks_count=${checksCount}: ${n} tokens → up to ${perGroup.toLocaleString()} perms`)
 
-      // Weighted shuffle so rare tokens appear earlier in iteration
       const shuffled = weightedShuffle(tokens, tokenWeight)
       const structs  = shuffled.map(t => checkStructFromJSON(t.check_struct))
 
-      let computed  = 0
-      let lastPct   = -1
+      let computed = 0
+      let lastPct  = -1
 
       outer:
       for (let i0 = 0; i0 < n; i0++) {
@@ -256,7 +270,7 @@ async function main() {
                 ))
                 computed++
               } catch (err) {
-                console.warn(`  Skip (${shuffled[i0].token_id},${shuffled[i1].token_id},${shuffled[i2].token_id},${shuffled[i3].token_id}): ${String(err)}`)
+                console.warn(`  Skip (...): ${String(err)}`)
                 continue
               }
 
@@ -280,16 +294,28 @@ async function main() {
         }
       }
 
-      // Flush remaining rows from this group
       if (batch.length > 0) {
         await flushBatch(batch)
         totalPerms += batch.length
         batch.length = 0
       }
-
       console.log(`  Done: ${computed.toLocaleString()} perms stored (total: ${totalPerms.toLocaleString()})`)
+    }
 
-      if (totalPerms >= MAX_TOTAL) break groupLoop
+    const batch: AllPermRow[] = []
+
+    // 4a. Listed groups first (rarest bands first → is_all_listed=true rows)
+    console.log('\n=== LISTED token groups (OpenSea-purchasable) ===')
+    for (const [checksCount, tokens] of listedGroups) {
+      if (totalPerms >= MAX_TOTAL) break
+      await processGroup(checksCount, tokens, 'listed', batch)
+    }
+
+    // 4b. Unlisted groups next (fill remaining budget)
+    console.log('\n=== UNLISTED token groups ===')
+    for (const [checksCount, tokens] of unlistedGroups) {
+      if (totalPerms >= MAX_TOTAL) break
+      await processGroup(checksCount, tokens, 'unlisted', batch)
     }
 
     await finishLog(logId, 'done', totalPerms)

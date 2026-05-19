@@ -9,6 +9,8 @@ import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from '../tokenStrategyAbi'
 import { mapCheckAttributes } from '../utils'
 import type { Attribute, CardState, CheckStruct } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
+import { generateSVGJS } from '../checksArtJS'
+import { fromJSON } from '../usePermutationsDB'
 
 interface TreePanelProps {
   result: PermutationResult
@@ -32,6 +34,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   // Lazy-load individual check SVGs + attributes (DB mode omits them from the grid query)
   const [liveSvgs, setLiveSvgs] = useState<Record<string, string>>({})
   const [liveAttrs, setLiveAttrs] = useState<Record<string, Attribute[]>>({})
+  const isOpenSea = result.fromTokenWorks === false
+
   useEffect(() => {
     if (!supabase || !dbMode || nodeA.svg) return
     const tokenIds = [id0, id1, id2, id3].map(Number)
@@ -43,11 +47,11 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
         if (!data) return
         const svgMap: Record<string, string> = {}
         const attrsMap: Record<string, Attribute[]> = {}
-        for (const row of data as { token_id: number; svg: string; check_struct: { seed: string } }[]) {
-          svgMap[String(row.token_id)] = row.svg
-          attrsMap[String(row.token_id)] = mapCheckAttributes(
-            { ...row.check_struct, seed: BigInt(row.check_struct.seed) } as CheckStruct
-          )
+        for (const row of data as { token_id: number; svg: string | null; check_struct: { seed: string } }[]) {
+          const struct = { ...row.check_struct, seed: BigInt(row.check_struct.seed) } as CheckStruct
+          // Market tokens have no stored SVG — generate from check_struct instead
+          svgMap[String(row.token_id)] = row.svg || generateSVGJS(fromJSON(row.check_struct as Parameters<typeof fromJSON>[0]), new Map())
+          attrsMap[String(row.token_id)] = mapCheckAttributes(struct)
         }
         setLiveSvgs(svgMap)
         setLiveAttrs(attrsMap)
@@ -96,6 +100,10 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   }
 
   function priceLabel(tokenId: string, idx: number) {
+    if (isOpenSea) {
+      const ethPrice = result.tokenPrices?.[tokenId]
+      return ethPrice != null ? `${parseFloat(ethPrice.toFixed(3))} ETH` : undefined
+    }
     // tokenPriceMap from App.tsx is a fast-path (pre-fetched); local reads are the reliable fallback
     const p = tokenPriceMap?.get(tokenId) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
     return p !== undefined && p > 0n ? `${trimEth(p)} ETH` : undefined

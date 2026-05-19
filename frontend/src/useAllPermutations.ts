@@ -25,6 +25,7 @@ export interface PermutationResult {
   nodeAbcd: CardState
   total_cost?: number | null
   fromTokenWorks?: boolean
+  tokenPrices?: Record<string, number | null>
 }
 
 export interface AllPermutationsState {

@@ -21,10 +21,9 @@ import type { LikeInfo } from './components/PermutationCard'
 import { useExplorePermutations } from './useExplorePermutations'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
 
-type FeedSource = 'token-works' | 'opensea' | 'both'
+type FeedSource = 'token-works' | 'opensea'
 
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
-const FEED_LIMIT = 500  // max combined items shown (250 from each source)
 
 export default function App() {
   const dbMode = hasSupabase()
@@ -37,8 +36,7 @@ export default function App() {
   const [walletOnly, setWalletOnly] = useState(false)
   const [searchRaw, setSearchRaw] = useState('')
 
-  // Source filter for the Explore tab: token-works | opensea | both
-  // Defaults to token-works; switches to both when wallet connects
+  // Source filter for the Explore tab: token-works | opensea
   const [feedSource, setFeedSource] = useState<FeedSource>('token-works')
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
@@ -68,13 +66,14 @@ export default function App() {
     loadRandom()
   }, [dbMode, viewMode])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Market (OpenSea) feed — loaded when wallet connected in explore ────────
-  const { state: allChecksState, loadRandom: loadAllChecks, shuffle: shuffleAllChecks } = useAllChecksPermutations()
+  // ── Market (OpenSea) feed — loaded on demand when the OpenSea source is selected ──
+  const { state: allChecksState, load: loadAllChecks, shuffle: shuffleAllChecks } = useAllChecksPermutations()
 
   useEffect(() => {
-    if (!dbMode || viewMode !== 'explore' || !isConnected) return
+    if (!dbMode || viewMode !== 'explore' || feedSource !== 'opensea') return
+    if (allChecksState.permutations.length > 0 || allChecksState.loading) return
     loadAllChecks()
-  }, [dbMode, viewMode, isConnected])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbMode, viewMode, feedSource])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── My Checks mode ────────────────────────────────────────────────────────
   const myChecksEnabled = dbMode && viewMode === 'my-checks' && isConnected
@@ -161,7 +160,6 @@ export default function App() {
     else if (viewMode === 'search') search.shuffle()
     else if (viewMode === 'explore') {
       if (feedSource === 'opensea') shuffleAllChecks()
-      else if (feedSource === 'both') { shuffleDB(); shuffleAllChecks() }
       else shuffleDB()
     }
   }
@@ -281,19 +279,10 @@ export default function App() {
   const isSearchWalletMode = dbMode && viewMode === 'search-wallet'
   const isCuratedMode    = dbMode && viewMode === 'curated'
 
-  // Combined feed for the Explore tab
+  // Feed for the Explore tab
   const feedPermutations = useMemo<PermutationResult[]>(() => {
-    if (feedSource === 'token-works') return dbState.permutations
-    if (feedSource === 'opensea')     return allChecksState.permutations
-    // Both: interleave token-works and opensea up to FEED_LIMIT
-    const a = dbState.permutations
-    const b = allChecksState.permutations
-    const out: PermutationResult[] = []
-    for (let i = 0; out.length < FEED_LIMIT && i < Math.max(a.length, b.length); i++) {
-      if (i < a.length) out.push(a[i])
-      if (out.length < FEED_LIMIT && i < b.length) out.push(b[i])
-    }
-    return out
+    if (feedSource === 'opensea') return allChecksState.permutations
+    return dbState.permutations
   }, [feedSource, dbState.permutations, allChecksState.permutations])
 
   const permutations = isSearchMode
@@ -317,7 +306,7 @@ export default function App() {
         : isMyChecksMode
           ? myChecks.loading
           : isExploreMode
-            ? (feedSource === 'opensea' ? allChecksState.loading : feedSource === 'both' ? (dbState.loading || allChecksState.loading) : dbState.loading)
+            ? (feedSource === 'opensea' ? allChecksState.loading : dbState.loading)
             : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
   // ── Price filter (token-works only — uses TokenStrategy contract) ──────────

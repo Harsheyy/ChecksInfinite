@@ -5,7 +5,7 @@ import { mapCheckAttributes, type CheckStruct } from './utils'
 import type { PermutationResult } from './useAllPermutations'
 import { readCache, writeCache } from './permutationsCache'
 
-const RANDOM_TOTAL  = 250   // items loaded per browse page
+const RANDOM_TOTAL  = 900
 
 // CheckStruct stored in Supabase has seed as string (bigint serialization)
 export interface CheckStructJSON {
@@ -70,12 +70,16 @@ export interface PermRow extends PermRowBasic {
 }
 
 
-// Module-level cache — check_structs are immutable on-chain so this is safe
-// for the lifetime of the page session. Eliminates re-fetching on source
-// switches and shuffles once a token's struct has been seen.
+// Module-level caches — check_structs are immutable on-chain; eth_price is
+// refreshed nightly but stable enough to cache for a page session.
 const _structCache = new Map<number, CheckStructJSON>()
+const _priceCache  = new Map<number, number | null>()
 
-// Fetch check_struct for a set of token IDs and return a lookup map.
+export function getTokenEthPrice(id: number): number | null {
+  return _priceCache.get(id) ?? null
+}
+
+// Fetch check_struct + eth_price for a set of token IDs.
 // Hits the module cache first; only queries DB for unknowns.
 export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
   if (!supabase || ids.length === 0) return new Map()
@@ -84,11 +88,12 @@ export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, Ch
   for (let i = 0; i < uncached.length; i += BATCH) {
     const { data, error } = await supabase
       .from('all_checks')
-      .select('token_id, check_struct')
+      .select('token_id, check_struct, eth_price')
       .in('token_id', uncached.slice(i, i + BATCH))
     if (error) throw error
-    for (const row of (data ?? []) as { token_id: number; check_struct: CheckStructJSON }[]) {
+    for (const row of (data ?? []) as { token_id: number; check_struct: CheckStructJSON; eth_price: number | null }[]) {
       _structCache.set(row.token_id, row.check_struct)
+      _priceCache.set(row.token_id, row.eth_price ?? null)
     }
   }
   const map = new Map<number, CheckStructJSON>()
@@ -192,6 +197,12 @@ export function rowToPermutationResult(row: PermRow): PermutationResult {
       tokenIds: [id0, id1, id2, id3],
     },
     total_cost: row.total_cost,
+    tokenPrices: {
+      [id0]: getTokenEthPrice(row.keeper_1_id),
+      [id1]: getTokenEthPrice(row.burner_1_id),
+      [id2]: getTokenEthPrice(row.keeper_2_id),
+      [id3]: getTokenEthPrice(row.burner_2_id),
+    },
     // Individual check SVGs fetched lazily by TreePanel on demand
     nodeA: { name: `Token #${id0}`, svg: '', attributes: [], loading: false, error: '' },
     nodeB: { name: `Token #${id1}`, svg: '', attributes: [], loading: false, error: '' },

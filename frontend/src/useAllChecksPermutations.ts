@@ -9,10 +9,9 @@ import {
   type DBPermutationsState,
 } from './usePermutationsDB'
 
-const RANDOM_TOTAL = 250
-
-// all_permutations rows have color_family too, but we don't need it for rendering
-type AllPermRowBasic = PermRowBasic & { color_family: number | null }
+// Always show top 900 all-listed permutations sorted rarest-first (no random offset —
+// deterministic so the user sees the best buyable combos every time).
+const PAGE_SIZE = 900
 
 export function useAllChecksPermutations() {
   const [state, setState] = useState<DBPermutationsState>({
@@ -22,32 +21,25 @@ export function useAllChecksPermutations() {
     total: 0,
   })
 
-  const loadRandom = useCallback(async (force = false) => {
+  const load = useCallback(async () => {
     if (!supabase) return
 
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
-      const { count } = await supabase
-        .from('all_permutations')
-        .select('*', { count: 'exact', head: true })
-
-      const total  = count ?? 0
-      const offset = total > RANDOM_TOTAL ? Math.floor(Math.random() * (total - RANDOM_TOTAL)) : 0
-
       const { data, error } = await supabase
         .from('all_permutations')
-        .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost, color_family')
-        .order('rand_key')
-        .range(offset, offset + RANDOM_TOTAL - 1)
+        .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
+        .eq('is_all_listed', true)
+        .order('abcd_checks', { ascending: true, nullsFirst: false })
+        .limit(PAGE_SIZE)
 
       if (error) throw error
 
-      const basicRows = (data ?? []) as unknown as AllPermRowBasic[]
-      // attachChecks only needs the PermRowBasic fields — color_family is extra
-      const rows: PermRow[] = await attachChecks(basicRows as PermRowBasic[])
+      const basicRows = (data ?? []) as unknown as PermRowBasic[]
+      const rows: PermRow[] = await attachChecks(basicRows)
 
       setState({
-        permutations: rows.map(rowToPermutationResult),
+        permutations: rows.map(r => ({ ...rowToPermutationResult(r), fromTokenWorks: false })),
         loading: false,
         error: '',
         total: rows.length,
@@ -61,9 +53,10 @@ export function useAllChecksPermutations() {
     }
   }, [])
 
-  const shuffle = useCallback(() => loadRandom(true), [loadRandom])
+  // Reload = refresh in case prices changed since last sync
+  const shuffle = useCallback(() => load(), [load])
 
-  return { state, loadRandom, shuffle }
+  return { state, load, shuffle }
 }
 
 export type { DBPermutationsState }

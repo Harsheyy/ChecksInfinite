@@ -1,8 +1,21 @@
 /**
  * populate-ranked-permutations.ts
  *
- * Repopulates the permutations table with only low-band and gradient checks.
- * Eligible: color_band IN ('Twenty','Ten','Five','One') OR gradient != 'None'
+ * Nightly refresh of the permutations table (Token Works feed) — up to 100K
+ * tokenstr permutations, biased heavily toward gradient and low-band results.
+ *
+ * Eligibility: input token must have a low color band (Twenty/Ten/Five/One)
+ *              OR a gradient — unlisted plain Eighty-band checks are excluded.
+ *
+ * Sampling strategy:
+ *   - Filter eligible tokenstr checks (is_tokenstr = true, not burned)
+ *   - Group by checks_count (to pair same-depth tokens)
+ *   - Within each group, use weighted shuffle so gradient + low-band tokens
+ *     appear earlier in the P(n,4) iteration
+ *   - Stop globally at MAX_TOTAL across all groups
+ *
+ * Weight map: One→12, Five→9, Ten→6, Twenty→4, Forty→2, Eighty/null→1
+ * Gradient bonus: +5 (primary emphasis per product spec)
  *
  * Usage:
  *   npm run populate-ranked
@@ -23,7 +36,7 @@ import {
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const BATCH_SIZE           = 500
-const MAX_PERMS_PER_GROUP  = 100_000  // cap per checks_count group for storage safety
+const MAX_TOTAL            = 100_000
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Missing env vars. Copy .env.example to .env and fill in values.')
@@ -60,7 +73,7 @@ interface PermutationRow {
   total_cost:      number | null
 }
 
-// ─── Eligibility & scoring ────────────────────────────────────────────────────
+// ─── Eligibility: low-band OR gradient ───────────────────────────────────────
 
 const LOW_BAND_NAMES = new Set(['Twenty', 'Ten', 'Five', 'One'])
 
@@ -69,146 +82,40 @@ function isEligible(row: CheckRow): boolean {
     (row.gradient !== null && row.gradient !== 'None')
 }
 
-/** rank_score = gradient_count × 4 + rarity_score
- *  rarity: colorBand index 3→1, 4→2, 5→3, 6→4 (Twenty/Ten/Five/One) */
+// ─── Weighted shuffle — gradient has primary emphasis ─────────────────────────
+
+const BAND_WEIGHT: Record<string, number> = {
+  One:    12,
+  Five:   9,
+  Ten:    6,
+  Twenty: 4,
+  Forty:  2,
+  Sixty:  1,
+  Eighty: 1,
+}
+
+function tokenWeight(row: CheckRow): number {
+  const base       = BAND_WEIGHT[row.color_band ?? ''] ?? 1
+  const gradBonus  = (row.gradient && row.gradient !== 'None') ? 5 : 0
+  return base + gradBonus
+}
+
+function weightedShuffle<T>(items: T[], weight: (t: T) => number): T[] {
+  return items
+    .map(t => ({ t, key: -Math.log(Math.random()) / weight(t) }))
+    .sort((a, b) => a.key - b.key)
+    .map(({ t }) => t)
+}
+
+// ─── rank_score: stored for potential future ordering ─────────────────────────
+
 function computeRankScore(structs: CheckStruct[]): number {
   const gradientCount = structs.filter(s => s.gradient > 0).length
   const rarityScore   = structs.reduce((sum, s) => sum + Math.max(0, s.colorBand - 2), 0)
   return gradientCount * 4 + rarityScore
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-async function main() {
-  const logId = await startLog()
-  let totalPerms = 0
-
-  try {
-    // 0. Wipe existing permutations for a clean nightly refresh
-    console.log('Truncating existing permutations...')
-    const { error: truncErr } = await supabase.rpc('truncate_permutations')
-    if (truncErr) throw truncErr
-    console.log('Truncated.')
-
-    // 1. Load all non-burned checks with band/gradient metadata
-    console.log('Loading checks from Supabase...')
-    const { data: rawRows, error } = await supabase
-      .from('all_checks')
-      .select('token_id, checks_count, color_band, gradient, check_struct, eth_price')
-      .eq('is_burned', false)
-      .eq('is_tokenstr', true)
-      .order('checks_count')
-
-    if (error) throw error
-
-    // 2. Filter to eligible checks (low-band OR gradient)
-    const rows = (rawRows as CheckRow[]).filter(isEligible)
-    console.log(`${rawRows?.length ?? 0} total checks → ${rows.length} eligible (low-band or gradient).`)
-
-    if (rows.length === 0) {
-      console.log('No eligible checks found.')
-      await finishLog(logId, 'done', 0)
-      return
-    }
-
-    // 3. Group by checks_count
-    const byCount = new Map<number, CheckRow[]>()
-    for (const row of rows) {
-      const key   = row.checks_count
-      const group = byCount.get(key) ?? []
-      group.push(row)
-      byCount.set(key, group)
-    }
-
-    // 4. For each group, compute all P(n, 4) permutations
-    for (const [checksCount, tokens] of byCount) {
-      const n = tokens.length
-      if (n < 4) {
-        console.log(`checks_count=${checksCount}: only ${n} eligible tokens, skipping (need ≥4).`)
-        continue
-      }
-
-      const total = perm4(n)
-      console.log(`\nchecks_count=${checksCount}: ${n} tokens → ${total.toLocaleString()} permutations`)
-
-      // Shuffle tokens so each nightly run samples a different subset of P(n,4)
-      const shuffled = [...tokens]
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-      }
-
-      // Pre-convert to CheckStruct once per token (after shuffle)
-      const structs: CheckStruct[] = shuffled.map(t => checkStructFromJSON(t.check_struct))
-
-      const batch: PermutationRow[] = []
-      let computed = 0
-      let lastPct = -1
-
-      const cappedTotal = Math.min(total, MAX_PERMS_PER_GROUP)
-      console.log(`  Sampling up to ${cappedTotal.toLocaleString()} permutations (cap: ${MAX_PERMS_PER_GROUP.toLocaleString()})`)
-
-      outer:
-      for (let i0 = 0; i0 < n; i0++) {
-        for (let i1 = 0; i1 < n; i1++) {
-          if (i1 === i0) continue
-          for (let i2 = 0; i2 < n; i2++) {
-            if (i2 === i0 || i2 === i1) continue
-            for (let i3 = 0; i3 < n; i3++) {
-              if (i3 === i0 || i3 === i1 || i3 === i2) continue
-
-              try {
-                const row = computePermutation(
-                  structs[i0], shuffled[i0].token_id, shuffled[i0].eth_price,
-                  structs[i1], shuffled[i1].token_id, shuffled[i1].eth_price,
-                  structs[i2], shuffled[i2].token_id, shuffled[i2].eth_price,
-                  structs[i3], shuffled[i3].token_id, shuffled[i3].eth_price,
-                )
-                batch.push(row)
-                computed++
-              } catch (err) {
-                console.warn(`  Skipping (${shuffled[i0].token_id},${shuffled[i1].token_id},${shuffled[i2].token_id},${shuffled[i3].token_id}): ${String(err)}`)
-                continue
-              }
-
-              if (batch.length >= BATCH_SIZE) {
-                await flushBatch(batch)
-                totalPerms += batch.length
-                batch.length = 0
-                const pct = Math.floor((computed / cappedTotal) * 10) * 10
-                if (pct !== lastPct) {
-                  lastPct = pct
-                  const filled = Math.floor(pct * 30 / 100)
-                  const bar = '█'.repeat(filled) + '░'.repeat(30 - filled)
-                  console.log(`  [${bar}] ${pct}% (${computed.toLocaleString()} / ${cappedTotal.toLocaleString()})`)
-                }
-              }
-
-              if (computed >= MAX_PERMS_PER_GROUP) break outer
-            }
-          }
-        }
-      }
-
-      if (batch.length > 0) {
-        await flushBatch(batch)
-        totalPerms += batch.length
-        batch.length = 0
-      }
-
-      console.log(`\n  Done: ${computed.toLocaleString()} permutations stored.`)
-    }
-
-    await finishLog(logId, 'done', totalPerms)
-    console.log(`\nFinished. ${totalPerms.toLocaleString()} total permutations stored.`)
-  } catch (err) {
-    await finishLog(logId, 'error', totalPerms, String(err))
-    console.error('Script failed:', err)
-    process.exit(1)
-  }
-}
-
-// ─── Compute one permutation ───────────────────────────────────────────────
+// ─── Compute one permutation row ─────────────────────────────────────────────
 
 function computePermutation(
   s0: CheckStruct, id0: number, price0: number | null,
@@ -242,12 +149,10 @@ function computePermutation(
   }
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function flushBatch(batch: PermutationRow[]) {
-  const { error } = await supabase
-    .from('permutations')
-    .insert(batch)
+  const { error } = await supabase.from('permutations').insert(batch)
   if (error) throw error
 }
 
@@ -274,6 +179,129 @@ async function finishLog(id: number, status: 'done' | 'error', permsComputed: nu
       finished_at:     new Date().toISOString(),
     })
     .eq('id', id)
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const logId = await startLog()
+  let totalPerms = 0
+
+  try {
+    console.log('Truncating existing permutations…')
+    const { error: truncErr } = await supabase.rpc('truncate_permutations')
+    if (truncErr) throw truncErr
+    console.log('Truncated.')
+
+    console.log('Loading tokenstr checks…')
+    const { data: rawRows, error } = await supabase
+      .from('all_checks')
+      .select('token_id, checks_count, color_band, gradient, check_struct, eth_price')
+      .eq('is_burned', false)
+      .eq('is_tokenstr', true)
+      .order('checks_count', { ascending: false }) // largest groups first
+
+    if (error) throw error
+
+    const allRows = rawRows as CheckRow[]
+    const rows    = allRows.filter(isEligible)
+    console.log(`${allRows.length} tokenstr checks → ${rows.length} eligible (low-band or gradient).`)
+
+    if (rows.length === 0) {
+      await finishLog(logId, 'done', 0)
+      return
+    }
+
+    // Group by checks_count
+    const byCount = new Map<number, CheckRow[]>()
+    for (const row of rows) {
+      const group = byCount.get(row.checks_count) ?? []
+      group.push(row)
+      byCount.set(row.checks_count, group)
+    }
+
+    // Process groups largest-first (80-check tokenstr tokens dominate)
+    const groups = [...byCount.entries()].sort((a, b) => b[0] - a[0])
+    const batch: PermutationRow[] = []
+
+    for (const [checksCount, tokens] of groups) {
+      if (totalPerms >= MAX_TOTAL) break
+
+      const n = tokens.length
+      if (n < 4) {
+        console.log(`checks_count=${checksCount}: only ${n} eligible tokens, skipping.`)
+        continue
+      }
+
+      const remaining = MAX_TOTAL - totalPerms
+      const perGroup  = Math.min(perm4(n), remaining)
+      console.log(`\nchecks_count=${checksCount}: ${n} eligible tokens → up to ${perGroup.toLocaleString()} perms`)
+
+      // Weighted shuffle: gradient tokens and rare bands appear earlier
+      const shuffled = weightedShuffle(tokens, tokenWeight)
+      const structs  = shuffled.map(t => checkStructFromJSON(t.check_struct))
+
+      let computed = 0
+      let lastPct  = -1
+
+      outer:
+      for (let i0 = 0; i0 < n; i0++) {
+        for (let i1 = 0; i1 < n; i1++) {
+          if (i1 === i0) continue
+          for (let i2 = 0; i2 < n; i2++) {
+            if (i2 === i0 || i2 === i1) continue
+            for (let i3 = 0; i3 < n; i3++) {
+              if (i3 === i0 || i3 === i1 || i3 === i2) continue
+
+              try {
+                batch.push(computePermutation(
+                  structs[i0], shuffled[i0].token_id, shuffled[i0].eth_price,
+                  structs[i1], shuffled[i1].token_id, shuffled[i1].eth_price,
+                  structs[i2], shuffled[i2].token_id, shuffled[i2].eth_price,
+                  structs[i3], shuffled[i3].token_id, shuffled[i3].eth_price,
+                ))
+                computed++
+              } catch (err) {
+                console.warn(`  Skip: ${String(err)}`)
+                continue
+              }
+
+              if (batch.length >= BATCH_SIZE) {
+                await flushBatch(batch)
+                totalPerms += batch.length
+                batch.length = 0
+
+                const pct = Math.floor((computed / perGroup) * 10) * 10
+                if (pct !== lastPct) {
+                  lastPct = pct
+                  const filled = Math.floor(pct * 30 / 100)
+                  const bar = '█'.repeat(filled) + '░'.repeat(30 - filled)
+                  console.log(`  [${bar}] ${pct}% (${computed.toLocaleString()} / ${perGroup.toLocaleString()})`)
+                }
+              }
+
+              if (computed >= perGroup || totalPerms + batch.length >= MAX_TOTAL) break outer
+            }
+          }
+        }
+      }
+
+      if (batch.length > 0) {
+        await flushBatch(batch)
+        totalPerms += batch.length
+        batch.length = 0
+      }
+
+      console.log(`  Done: ${computed.toLocaleString()} perms stored (total: ${totalPerms.toLocaleString()})`)
+    }
+
+    await finishLog(logId, 'done', totalPerms)
+    console.log(`\nFinished. ${totalPerms.toLocaleString()} total permutations stored.`)
+  } catch (err) {
+    await finishLog(logId, 'error', totalPerms, String(err))
+    console.error('Script failed:', err)
+    process.exit(1)
+  }
 }
 
 main()

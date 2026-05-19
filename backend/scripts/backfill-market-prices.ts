@@ -183,6 +183,12 @@ async function main() {
     if (unlistedUpdates.length > 0) console.log()
 
     console.log(`\nDone. ${listedUpdates.length} prices set, ${unlistedUpdates.length} cleared.`)
+
+    // 5. Sync is_all_listed in all_permutations (marks combos where all 4 are buyable)
+    console.log('Syncing is_all_listed in all_permutations…')
+    const { error: syncErr } = await supabase.rpc('sync_all_listed_permutations')
+    if (syncErr) throw syncErr
+    console.log('is_all_listed sync complete.')
   } catch (err) {
     console.error('Price backfill failed:', err)
     process.exit(1)
