@@ -193,7 +193,7 @@ async function main() {
       .select('token_id, checks_count, color_band, gradient, check_struct, eth_price')
       .eq('is_burned', false)
       .eq('is_tokenstr', false)
-      .order('checks_count')
+      .order('checks_count', { ascending: false })
 
     if (error) throw error
 

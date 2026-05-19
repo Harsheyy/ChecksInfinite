@@ -2,11 +2,11 @@ import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import type { PermutationResult } from './useAllPermutations'
 import {
-  PermRowBasic,
-  PermRow,
+  type PermRowBasic,
+  type PermRow,
   attachChecks,
   rowToPermutationResult,
-  DBPermutationsState,
+  type DBPermutationsState,
 } from './usePermutationsDB'
 
 const RANDOM_TOTAL = 2500
@@ -66,4 +66,4 @@ export function useAllChecksPermutations() {
   return { state, loadRandom, shuffle }
 }
 
-export type { PermutationResult, DBPermutationsState }
+export type { DBPermutationsState }
