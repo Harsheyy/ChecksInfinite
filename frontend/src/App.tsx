@@ -309,7 +309,9 @@ export default function App() {
             ? (feedSource === 'opensea' ? allChecksState.loading : dbState.loading)
             : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
-  // ── Price filter (token-works only — uses TokenStrategy contract) ──────────
+  // ── Price filter ──────────────────────────────────────────────────────────
+  // Token Works: prices from TokenStrategy contract (on-chain, bigint wei)
+  // OpenSea:     prices from DB total_cost column (ETH float, pre-summed)
   const priceFilterEnabled = dbMode && isExploreMode && feedSource === 'token-works'
 
   const uniqueTokenIds = useMemo(() => {
@@ -357,17 +359,38 @@ export default function App() {
     return { min: minCost, max: maxCost }
   }, [tokenPriceMap, permutations])
 
+  // OpenSea price range — derived directly from total_cost (ETH, pre-summed in DB)
+  const openSeaPriceRange = useMemo(() => {
+    if (feedSource !== 'opensea' || !isExploreMode) return undefined
+    let min = Infinity, max = -Infinity
+    for (const p of feedPermutations) {
+      if (p.total_cost == null) continue
+      min = Math.min(min, p.total_cost)
+      max = Math.max(max, p.total_cost)
+    }
+    return min === Infinity ? undefined : { min, max }
+  }, [feedSource, isExploreMode, feedPermutations])
+
   const showFlags = permutations.map(p => {
     if (p.nodeAbcd.loading || p.nodeAbcd.error) return true
     const [p0, p1, p2, p3] = p.def.indices
     const tids = p.def.tokenIds ?? [ids[p0], ids[p1], ids[p2], ids[p3]]
     if (!matchesFilters(p.nodeAbcd.attributes, filters, tids)) return false
-    if ((filters.priceMin || filters.priceMax) && tids.length === 4) {
-      const prices = tids.map(id => tokenPriceMap.get(id))
-      if (prices.every(p => p !== undefined)) {
-        const total = prices.reduce((sum, p) => sum + Number(formatEther(p!)), 0)
-        if (filters.priceMin && parseFloat(filters.priceMin) > total) return false
-        if (filters.priceMax && parseFloat(filters.priceMax) < total) return false
+    if (filters.priceMin || filters.priceMax) {
+      if (p.fromTokenWorks === false) {
+        // OpenSea: use pre-summed total_cost (ETH)
+        if (p.total_cost != null) {
+          if (filters.priceMin && parseFloat(filters.priceMin) > p.total_cost) return false
+          if (filters.priceMax && parseFloat(filters.priceMax) < p.total_cost) return false
+        }
+      } else if (tids.length === 4) {
+        // Token Works: sum from TokenStrategy contract (wei)
+        const prices = tids.map(id => tokenPriceMap.get(id))
+        if (prices.every(p => p !== undefined)) {
+          const total = prices.reduce((sum, p) => sum + Number(formatEther(p!)), 0)
+          if (filters.priceMin && parseFloat(filters.priceMin) > total) return false
+          if (filters.priceMax && parseFloat(filters.priceMax) < total) return false
+        }
       }
     }
     return true
@@ -440,7 +463,7 @@ export default function App() {
           exploreLoading={isSearchMode ? search.loading : undefined}
           exploreError={isSearchMode && search.error ? search.error : undefined}
           exploreSearched={isSearchMode ? search.searched : undefined}
-          priceRange={priceRange}
+          priceRange={feedSource === 'opensea' ? openSeaPriceRange : priceRange}
           feedSource={isExploreMode && isConnected ? feedSource : undefined}
           onFeedSourceChange={isExploreMode && isConnected ? setFeedSource : undefined}
         />
