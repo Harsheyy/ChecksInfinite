@@ -24,7 +24,7 @@ import { useAllChecksPermutations } from './useAllChecksPermutations'
 type FeedSource = 'token-works' | 'opensea' | 'both'
 
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
-const FEED_LIMIT = 2500
+const FEED_LIMIT = 500  // max combined items shown (250 from each source)
 
 export default function App() {
   const dbMode = hasSupabase()
@@ -43,11 +43,9 @@ export default function App() {
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
 
-  // Reset on wallet disconnect; switch to 'both' when wallet connects
+  // On disconnect: reset view; feedSource stays what it was until explicitly changed
   useEffect(() => {
-    if (isConnected) {
-      setFeedSource(prev => prev === 'token-works' ? 'both' : prev)
-    } else {
+    if (!isConnected) {
       setViewMode('explore')
       setWalletOnly(false)
       setFeedSource('token-works')

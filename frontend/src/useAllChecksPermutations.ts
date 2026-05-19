@@ -9,7 +9,7 @@ import {
   type DBPermutationsState,
 } from './usePermutationsDB'
 
-const RANDOM_TOTAL = 2500
+const RANDOM_TOTAL = 250
 
 // all_permutations rows have color_family too, but we don't need it for rendering
 type AllPermRowBasic = PermRowBasic & { color_family: number | null }

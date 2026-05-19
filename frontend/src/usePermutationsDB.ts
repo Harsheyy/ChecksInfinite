@@ -5,7 +5,7 @@ import { mapCheckAttributes, type CheckStruct } from './utils'
 import type { PermutationResult } from './useAllPermutations'
 import { readCache, writeCache } from './permutationsCache'
 
-const RANDOM_TOTAL  = 2500   // items loaded for the random browse view
+const RANDOM_TOTAL  = 250   // items loaded per browse page
 
 // CheckStruct stored in Supabase has seed as string (bigint serialization)
 export interface CheckStructJSON {
@@ -70,21 +70,31 @@ export interface PermRow extends PermRowBasic {
 }
 
 
-// Fetch check_struct for a set of token IDs and return a lookup map
+// Module-level cache — check_structs are immutable on-chain so this is safe
+// for the lifetime of the page session. Eliminates re-fetching on source
+// switches and shuffles once a token's struct has been seen.
+const _structCache = new Map<number, CheckStructJSON>()
+
+// Fetch check_struct for a set of token IDs and return a lookup map.
+// Hits the module cache first; only queries DB for unknowns.
 export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
   if (!supabase || ids.length === 0) return new Map()
-  // Batch to avoid excessively long query strings
-  const BATCH = 500
-  const map = new Map<number, CheckStructJSON>()
-  for (let i = 0; i < ids.length; i += BATCH) {
+  const uncached = ids.filter(id => !_structCache.has(id))
+  const BATCH = 1000
+  for (let i = 0; i < uncached.length; i += BATCH) {
     const { data, error } = await supabase
       .from('all_checks')
       .select('token_id, check_struct')
-      .in('token_id', ids.slice(i, i + BATCH))
+      .in('token_id', uncached.slice(i, i + BATCH))
     if (error) throw error
     for (const row of (data ?? []) as { token_id: number; check_struct: CheckStructJSON }[]) {
-      map.set(row.token_id, row.check_struct)
+      _structCache.set(row.token_id, row.check_struct)
     }
+  }
+  const map = new Map<number, CheckStructJSON>()
+  for (const id of ids) {
+    const s = _structCache.get(id)
+    if (s) map.set(id, s)
   }
   return map
 }
