@@ -2,7 +2,7 @@ import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 import { isValidAddress } from '../utils'
 
-type ViewMode = 'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet' | 'all-checks'
+type ViewMode = 'explore' | 'search' | 'my-checks' | 'curated' | 'search-wallet'
 
 interface NavbarProps {
   ids: string
@@ -72,31 +72,25 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
         <div className="view-toggle-row">
           <div className="view-toggle">
             <button
-              className={`view-toggle-btn${viewMode === 'token-works' ? ' view-toggle-btn--active' : ''}`}
-              onClick={() => onViewModeChange('token-works')}
-            >Token Works</button>
+              className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
+              onClick={() => onViewModeChange('explore')}
+            >Explore</button>
+            {isConnected && (
+              <button
+                className={`view-toggle-btn${viewMode === 'search' ? ' view-toggle-btn--active' : ''}`}
+                onClick={() => onViewModeChange('search')}
+              >Search</button>
+            )}
             {isConnected && (
               <button
                 className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
                 onClick={() => onViewModeChange('my-checks')}
               >My Checks</button>
             )}
-            {isConnected && (
-              <button
-                className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
-                onClick={() => onViewModeChange('explore')}
-              >Explore</button>
-            )}
             <button
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('curated')}
             >Curated Checks</button>
-            {isConnected && (
-              <button
-                className={`view-toggle-btn${viewMode === 'all-checks' ? ' view-toggle-btn--active' : ''}`}
-                onClick={() => onViewModeChange('all-checks')}
-              >All Checks</button>
-            )}
             {isConnected && showSearchWallet && (
               <button
                 className={`view-toggle-btn${viewMode === 'search-wallet' ? ' view-toggle-btn--active' : ''}`}
@@ -109,11 +103,10 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
             value={viewMode}
             onChange={e => onViewModeChange(e.target.value as ViewMode)}
           >
-            <option value="token-works">Token Works</option>
+            <option value="explore">Explore</option>
+            {isConnected && <option value="search">Search</option>}
             {isConnected && <option value="my-checks">My Checks</option>}
-            {isConnected && <option value="explore">Explore</option>}
             <option value="curated">Curated Checks</option>
-            {isConnected && <option value="all-checks">All Checks</option>}
             {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
           </select>
           {viewMode === 'search-wallet' && showSearchWallet && (

@@ -21,25 +21,38 @@ import type { LikeInfo } from './components/PermutationCard'
 import { useExplorePermutations } from './useExplorePermutations'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
 
+type FeedSource = 'token-works' | 'opensea' | 'both'
+
 const SEARCH_WALLET_GATE = '0x6ab9b2ae58bc7eb5c401deae86fc095467c6d3e4'
+const FEED_LIMIT = 2500
 
 export default function App() {
   const dbMode = hasSupabase()
   const { address, isConnected } = useAccount()
   useWalletTracking(address, isConnected)
 
-  // ── View mode (only relevant in dbMode) ──────────────────────────────────
-  const [viewMode, setViewMode] = useState<'token-works' | 'my-checks' | 'explore' | 'curated' | 'search-wallet' | 'all-checks'>('token-works')
+  // ── View mode ────────────────────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'explore' | 'search' | 'my-checks' | 'curated' | 'search-wallet'>('explore')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
   const [walletOnly, setWalletOnly] = useState(false)
-  const [exploreEmptyRaw, setExploreEmptyRaw] = useState('')
+  const [searchRaw, setSearchRaw] = useState('')
+
+  // Source filter for the Explore tab: token-works | opensea | both
+  // Defaults to token-works; switches to both when wallet connects
+  const [feedSource, setFeedSource] = useState<FeedSource>('token-works')
 
   const showSearchWallet = address?.toLowerCase() === SEARCH_WALLET_GATE
 
-  // Reset to token-works when wallet disconnects
+  // Reset on wallet disconnect; switch to 'both' when wallet connects
   useEffect(() => {
-    if (!isConnected) { setViewMode('token-works'); setWalletOnly(false) }  // eslint-disable-line react-hooks/set-state-in-effect
-  }, [isConnected])
+    if (isConnected) {
+      setFeedSource(prev => prev === 'token-works' ? 'both' : prev)
+    } else {
+      setViewMode('explore')
+      setWalletOnly(false)
+      setFeedSource('token-works')
+    }
+  }, [isConnected])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chain mode state ──────────────────────────────────────────────────────
   const [idsRaw, setIdsRaw] = useState('')
@@ -49,18 +62,21 @@ export default function App() {
   // ── Shared filter state ───────────────────────────────────────────────────
   const [filters, setFilters] = useState<Filters>(emptyFilters())
 
-  // ── DB / Token Works mode ─────────────────────────────────────────────────
+  // ── DB / Token Works feed ─────────────────────────────────────────────────
   const { state: dbState, loadRandom, shuffle: shuffleDB } = usePermutationsDB()
 
   useEffect(() => {
-    if (!dbMode || viewMode !== 'token-works') return
+    if (!dbMode || viewMode !== 'explore') return
     loadRandom()
   }, [dbMode, viewMode])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Market (OpenSea) feed — loaded when wallet connected in explore ────────
+  const { state: allChecksState, loadRandom: loadAllChecks, shuffle: shuffleAllChecks } = useAllChecksPermutations()
+
   useEffect(() => {
-    if (!dbMode || viewMode !== 'all-checks') return
+    if (!dbMode || viewMode !== 'explore' || !isConnected) return
     loadAllChecks()
-  }, [dbMode, viewMode])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbMode, viewMode, isConnected])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── My Checks mode ────────────────────────────────────────────────────────
   const myChecksEnabled = dbMode && viewMode === 'my-checks' && isConnected
@@ -72,20 +88,17 @@ export default function App() {
   const searchChecks = useMyChecks(searchWalletEnabled ? searchWalletAddress : undefined, searchWalletEnabled)
   const searchCheckPerms = useMyCheckPermutations(searchChecks.checks)
 
-  // ── Curated mode ──────────────────────────────────────────────────────────────
+  // ── Curated mode ──────────────────────────────────────────────────────────
   const { state: curatedState, load: loadCurated } = useCuratedOutputs()
 
-  // ── Explore (Curate) mode ─────────────────────────────────────────────────
-  const explore = useExplorePermutations(address)
+  // ── Search (token ID custom search) mode ──────────────────────────────────
+  const search = useExplorePermutations(address)
 
-  // ── All Checks (market-wide) mode ─────────────────────────────────────────
-  const { state: allChecksState, loadRandom: loadAllChecks, shuffle: shuffleAllChecks } = useAllChecksPermutations()
-
-  // ── Like state (across all modes) ────────────────────────────────────────────
+  // ── Like state ────────────────────────────────────────────────────────────
   const { likedKeys, setLikedKeys } = useMyLikedKeys(address?.toLowerCase())
   const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map())
 
-  // Generate permutations when checks load
+  // Generate permutations when wallet checks load
   useEffect(() => {
     if (myChecksEnabled && !myChecks.loading && Object.keys(myChecks.checks).length > 0) {
       myCheckPerms.generate()
@@ -104,7 +117,7 @@ export default function App() {
   }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (viewMode !== 'explore') { explore.clear(); setExploreEmptyRaw('') }
+    if (viewMode !== 'search') { search.clear(); setSearchRaw('') }
   }, [viewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -132,33 +145,36 @@ export default function App() {
     preview(ids)
   }
 
-  const exploreEmptyIds = useMemo(
-    () => [...new Set(exploreEmptyRaw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)))],
-    [exploreEmptyRaw]
+  const searchIds = useMemo(
+    () => [...new Set(searchRaw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)))],
+    [searchRaw]
   )
 
-  function handleExploreEmptySubmit(e: React.FormEvent) {
+  function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
-    explore.search(exploreEmptyIds)
+    search.search(searchIds)
   }
 
-  const exploreEmptyIdCount = exploreEmptyIds.length
+  const searchIdCount = searchIds.length
 
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
     else if (viewMode === 'search-wallet') searchCheckPerms.shuffle()
-    else if (viewMode === 'explore') explore.shuffle()
-    else if (viewMode === 'all-checks') shuffleAllChecks()
-    else shuffleDB()
+    else if (viewMode === 'search') search.shuffle()
+    else if (viewMode === 'explore') {
+      if (feedSource === 'opensea') shuffleAllChecks()
+      else if (feedSource === 'both') { shuffleDB(); shuffleAllChecks() }
+      else shuffleDB()
+    }
   }
 
-  async function handleToggleLike(result: PermutationResult, source: 'token-works' | 'my-checks' | 'search-wallet' | 'curated' | 'explore' | 'all-checks') {
+  async function handleToggleLike(result: PermutationResult, source: 'explore' | 'my-checks' | 'search-wallet' | 'curated' | 'search') {
     if (!address || !supabase) return
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
-    // 'curated' and 'explore' are view modes, not sources — attribute to 'token-works'
-    const rpcSource = (source === 'curated' || source === 'explore' || source === 'all-checks') ? 'token-works' : source
+    // curated and search are view modes, not DB sources — attribute to explore
+    const rpcSource = (source === 'curated' || source === 'search') ? 'explore' : source
 
     const wasLiked  = likedKeys.has(key)
     const prevCount = likeCounts.get(key) ?? 0
@@ -176,7 +192,6 @@ export default function App() {
     const attrs = result.nodeAbcd.attributes
     const getAttr = (t: string) => attrs.find(a => a.trait_type === t)?.value as string | undefined
 
-    // Gather check structs for new likes (curated rows already have structs stored)
     let p_k1_struct = null
     let p_b1_struct = null
     let p_k2_struct = null
@@ -189,8 +204,8 @@ export default function App() {
         p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
         p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
-      } else if (source === 'explore') {
-        const m = explore.checks
+      } else if (source === 'search') {
+        const m = search.checks
         p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
         p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
@@ -202,7 +217,7 @@ export default function App() {
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
         p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
       } else {
-        // token-works: fetch from all_checks
+        // explore (token-works, opensea, or both) — fetch from all_checks
         const structMap = await fetchCheckStructMap([k1, b1, k2, b2].map(Number))
         p_k1_struct = structMap.get(parseInt(k1)) ?? null
         p_b1_struct = structMap.get(parseInt(b1)) ?? null
@@ -256,44 +271,59 @@ export default function App() {
       alwaysShow: isCurated,
       canLike:    isConnected,
       onLike:     isConnected
-        ? () => handleToggleLike(result, viewMode as 'token-works' | 'my-checks' | 'search-wallet' | 'curated' | 'explore' | 'all-checks')
+        ? () => handleToggleLike(result, viewMode as 'explore' | 'my-checks' | 'search-wallet' | 'curated' | 'search')
         : () => {},
     }
   }
 
   // ── Derive display values ─────────────────────────────────────────────────
-  const isMyChecksMode = dbMode && viewMode === 'my-checks'
+  const isExploreMode    = dbMode && viewMode === 'explore'
+  const isSearchMode     = dbMode && viewMode === 'search'
+  const isMyChecksMode   = dbMode && viewMode === 'my-checks'
   const isSearchWalletMode = dbMode && viewMode === 'search-wallet'
-  const isCuratedMode = dbMode && viewMode === 'curated'
-  const isExploreMode = dbMode && viewMode === 'explore'
-  const isAllChecksMode = dbMode && viewMode === 'all-checks'
+  const isCuratedMode    = dbMode && viewMode === 'curated'
 
-  const permutations = isExploreMode
-    ? explore.permutations
+  // Combined feed for the Explore tab
+  const feedPermutations = useMemo<PermutationResult[]>(() => {
+    if (feedSource === 'token-works') return dbState.permutations
+    if (feedSource === 'opensea')     return allChecksState.permutations
+    // Both: interleave token-works and opensea up to FEED_LIMIT
+    const a = dbState.permutations
+    const b = allChecksState.permutations
+    const out: PermutationResult[] = []
+    for (let i = 0; out.length < FEED_LIMIT && i < Math.max(a.length, b.length); i++) {
+      if (i < a.length) out.push(a[i])
+      if (out.length < FEED_LIMIT && i < b.length) out.push(b[i])
+    }
+    return out
+  }, [feedSource, dbState.permutations, allChecksState.permutations])
+
+  const permutations = isSearchMode
+    ? search.permutations
     : isCuratedMode
       ? curatedState.outputs
       : isSearchWalletMode
         ? searchCheckPerms.permutations
         : isMyChecksMode
           ? myCheckPerms.permutations
-          : isAllChecksMode
-            ? allChecksState.permutations
-            : dbMode ? dbState.permutations : chainState.permutations
+          : isExploreMode
+            ? feedPermutations
+            : dbMode ? feedPermutations : chainState.permutations
 
-  const isLoading = isExploreMode
-    ? explore.loading
+  const isLoading = isSearchMode
+    ? search.loading
     : isCuratedMode
       ? curatedState.loading
       : isSearchWalletMode
         ? searchChecks.loading
         : isMyChecksMode
           ? myChecks.loading
-          : isAllChecksMode
-            ? allChecksState.loading
+          : isExploreMode
+            ? (feedSource === 'opensea' ? allChecksState.loading : feedSource === 'both' ? (dbState.loading || allChecksState.loading) : dbState.loading)
             : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
-  // ── Price filter ──────────────────────────────────────────────────────────
-  const priceFilterEnabled = dbMode && !isMyChecksMode && !isSearchWalletMode && !isExploreMode && !isAllChecksMode
+  // ── Price filter (token-works only — uses TokenStrategy contract) ──────────
+  const priceFilterEnabled = dbMode && isExploreMode && feedSource === 'token-works'
 
   const uniqueTokenIds = useMemo(() => {
     if (!priceFilterEnabled) return []
@@ -359,19 +389,17 @@ export default function App() {
   const visibleCount = showFlags.filter(Boolean).length
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
-  const showFilters = isExploreMode
-    ? explore.searched
+  const showFilters = isSearchMode
+    ? search.searched
     : isCuratedMode
       ? curatedState.outputs.length > 0 || curatedState.loading
       : isSearchWalletMode
         ? searchCheckPerms.permutations.length > 0
         : isMyChecksMode
           ? myCheckPerms.permutations.length > 0
-          : isAllChecksMode
-            ? allChecksState.permutations.length > 0 || allChecksState.loading
-            : dbMode
-              ? dbState.permutations.length > 0 || dbState.loading
-              : permutations.length > 0
+          : isExploreMode
+            ? feedPermutations.length > 0 || isLoading
+            : permutations.length > 0
 
   const myChecksError = isMyChecksMode
     ? (myChecks.error || (myChecks.tokenIds.length === 0 && !myChecks.loading ? 'No Checks VV tokens found in this wallet.' : ''))
@@ -406,26 +434,28 @@ export default function App() {
       )}
       {showFilters && (
         <FilterBar
-          key={isExploreMode ? 'explore' : 'default'}
+          key={isSearchMode ? 'search' : 'default'}
           filters={filters}
           onChange={setFilters}
           visible={visibleCount}
-          onShuffle={(!isCuratedMode && (isMyChecksMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
+          onShuffle={(!isCuratedMode && (isMyChecksMode || isSearchMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
           permutations={visiblePermutations}
           curatedMode={isCuratedMode}
           walletOnly={walletOnly}
           onWalletOnlyChange={setWalletOnly}
           isConnected={isConnected}
-          hideIdFilter={isCuratedMode || isExploreMode}
-          exploreMode={isExploreMode}
-          exploreRaw={isExploreMode ? exploreEmptyRaw : undefined}
-          onExploreRawChange={isExploreMode ? setExploreEmptyRaw : undefined}
-          onExploreSearch={isExploreMode ? explore.search : undefined}
-          onExploreClear={isExploreMode ? () => { explore.clear(); setExploreEmptyRaw('') } : undefined}
-          exploreLoading={isExploreMode ? explore.loading : undefined}
-          exploreError={isExploreMode && explore.error ? explore.error : undefined}
-          exploreSearched={isExploreMode ? explore.searched : undefined}
+          hideIdFilter={isCuratedMode || isSearchMode}
+          exploreMode={isSearchMode}
+          exploreRaw={isSearchMode ? searchRaw : undefined}
+          onExploreRawChange={isSearchMode ? setSearchRaw : undefined}
+          onExploreSearch={isSearchMode ? search.search : undefined}
+          onExploreClear={isSearchMode ? () => { search.clear(); setSearchRaw('') } : undefined}
+          exploreLoading={isSearchMode ? search.loading : undefined}
+          exploreError={isSearchMode && search.error ? search.error : undefined}
+          exploreSearched={isSearchMode ? search.searched : undefined}
           priceRange={priceRange}
+          feedSource={isExploreMode && isConnected ? feedSource : undefined}
+          onFeedSourceChange={isExploreMode && isConnected ? setFeedSource : undefined}
         />
       )}
       {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
@@ -448,39 +478,34 @@ export default function App() {
           {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
         </div>
       )}
-      {isExploreMode && explore.searched && !explore.loading && explore.permutations.length === 0 && !explore.error && (
+      {isSearchMode && search.searched && !search.loading && search.permutations.length === 0 && !search.error && (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
           No compatible permutations found. Tokens must share the same check count.
         </div>
       )}
-      {isAllChecksMode && !allChecksState.loading && allChecksState.permutations.length === 0 && !allChecksState.error && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          No market permutations available yet. Run the nightly populate-market script to populate.
-        </div>
-      )}
-      {isExploreMode && !explore.searched && (
+      {isSearchMode && !search.searched && (
         <div className="explore-empty">
           <h2 className="explore-empty__headline">View infinite check permutations</h2>
           <p className="explore-empty__subtitle">Enter up to 10 token IDs to see possible outcomes.</p>
-          <form className="explore-empty__form" onSubmit={handleExploreEmptySubmit}>
+          <form className="explore-empty__form" onSubmit={handleSearchSubmit}>
             <input
               className="explore-empty__input"
               type="text"
               placeholder="e.g. 42, 137, 509, 1024"
-              value={exploreEmptyRaw}
-              onChange={e => setExploreEmptyRaw(e.target.value)}
+              value={searchRaw}
+              onChange={e => setSearchRaw(e.target.value)}
               spellCheck={false}
               autoFocus
             />
             <button
               type="submit"
               className="explore-empty__submit"
-              disabled={exploreEmptyIdCount < 4 || exploreEmptyIdCount > 10}
+              disabled={searchIdCount < 4 || searchIdCount > 10}
             >
               →
             </button>
           </form>
-          {exploreEmptyIdCount > 10 && (
+          {searchIdCount > 10 && (
             <p className="explore-empty__hint">Max 10 IDs</p>
           )}
         </div>
@@ -492,12 +517,12 @@ export default function App() {
         hasFilters={showFilters}
         hasError={!!navbarError}
         dbMode={dbMode}
-        hideBuy={isMyChecksMode || isSearchWalletMode || isExploreMode || isAllChecksMode}
+        hideBuy={isMyChecksMode || isSearchWalletMode || isSearchMode || (isExploreMode && feedSource !== 'token-works')}
         filtersTall={false}
         getLikeInfo={dbMode ? getLikeInfo : undefined}
         tokenPriceMap={tokenPriceMap}
       />
-      {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : isAllChecksMode ? allChecksState.loading : dbState.loading)) && (
+      {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : isLoading)) && (
         <div style={{
           position: 'fixed', bottom: '1rem', right: '1rem',
           background: '#1a1a1a', border: '1px solid #333', borderRadius: '3px',

@@ -199,11 +199,13 @@ interface FilterBarProps {
   exploreError?: string
   exploreSearched?: boolean
   priceRange?: { min: number; max: number }
+  feedSource?: 'token-works' | 'opensea' | 'both'
+  onFeedSourceChange?: (v: 'token-works' | 'opensea' | 'both') => void
 }
 
 const SHUFFLE_COOLDOWN = 60  // seconds
 
-export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, exploreRaw = '', onExploreRawChange, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched, priceRange }: FilterBarProps) {
+export function FilterBar({ filters, onChange, visible, onShuffle, permutations, curatedMode, walletOnly, onWalletOnlyChange, isConnected, hideIdFilter, exploreMode, exploreRaw = '', onExploreRawChange, onExploreSearch, onExploreClear, exploreLoading, exploreError, exploreSearched, priceRange, feedSource, onFeedSourceChange }: FilterBarProps) {
   const [cooldown, setCooldown] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -368,6 +370,25 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
               )}
             </div>
           )}
+          {feedSource && onFeedSourceChange && (
+            <div className="filter-curated-toggle">
+              <button
+                type="button"
+                className={`filter-mode-btn${feedSource === 'token-works' ? ' filter-mode-btn--active' : ''}`}
+                onClick={() => onFeedSourceChange('token-works')}
+              >Token Works</button>
+              <button
+                type="button"
+                className={`filter-mode-btn${feedSource === 'opensea' ? ' filter-mode-btn--active' : ''}`}
+                onClick={() => onFeedSourceChange('opensea')}
+              >OpenSea</button>
+              <button
+                type="button"
+                className={`filter-mode-btn${feedSource === 'both' ? ' filter-mode-btn--active' : ''}`}
+                onClick={() => onFeedSourceChange('both')}
+              >Both</button>
+            </div>
+          )}
           {curatedMode && (
             <div className="filter-curated-toggle">
               <button
@@ -499,6 +520,16 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
             </div>
 
             <div className="filter-panel-body">
+              {feedSource && onFeedSourceChange && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">Source</span>
+                  <div className="filter-mode-toggle">
+                    <button type="button" className={`filter-mode-btn${feedSource === 'token-works' ? ' filter-mode-btn--active' : ''}`} onClick={() => onFeedSourceChange('token-works')}>Token Works</button>
+                    <button type="button" className={`filter-mode-btn${feedSource === 'opensea' ? ' filter-mode-btn--active' : ''}`} onClick={() => onFeedSourceChange('opensea')}>OpenSea</button>
+                    <button type="button" className={`filter-mode-btn${feedSource === 'both' ? ' filter-mode-btn--active' : ''}`} onClick={() => onFeedSourceChange('both')}>Both</button>
+                  </div>
+                </div>
+              )}
               {curatedMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">View</span>
