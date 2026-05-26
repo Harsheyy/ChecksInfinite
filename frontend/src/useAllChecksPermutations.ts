@@ -7,9 +7,17 @@ import {
   rowToPermutationResult,
   type DBPermutationsState,
 } from './usePermutationsDB'
+import { readOpenSeaCache, writeOpenSeaCache } from './permutationsCache'
 
-// Always show top 900 all-listed permutations sorted rarest-first (no random offset —
-// deterministic so the user sees the best buyable combos every time).
+function fisherYates<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 const PAGE_SIZE = 900
 
 export function useAllChecksPermutations() {
@@ -20,22 +28,45 @@ export function useAllChecksPermutations() {
     total: 0,
   })
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (!supabase) return
+
+    if (!force) {
+      const cached = readOpenSeaCache()
+      if (cached) {
+        setState({
+          permutations: cached.map(r => ({ ...rowToPermutationResult(r), fromTokenWorks: false })),
+          loading: false,
+          error: '',
+          total: cached.length,
+        })
+        return
+      }
+    }
 
     setState(prev => ({ ...prev, loading: true, error: '', permutations: [] }))
     try {
+      const { count } = await supabase
+        .from('all_permutations')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_all_listed', true)
+
+      const total  = count ?? 0
+      const offset = total > PAGE_SIZE ? Math.floor(Math.random() * (total - PAGE_SIZE)) : 0
+
       const { data, error } = await supabase
         .from('all_permutations')
         .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
         .eq('is_all_listed', true)
-        .order('abcd_checks', { ascending: true, nullsFirst: false })
-        .limit(PAGE_SIZE)
+        .order('rand_key')
+        .range(offset, offset + PAGE_SIZE - 1)
 
       if (error) throw error
 
       const basicRows = (data ?? []) as unknown as PermRowBasic[]
-      const rows: PermRow[] = await attachChecks(basicRows)
+      const rows: PermRow[] = fisherYates(await attachChecks(basicRows))
+
+      writeOpenSeaCache(rows)
 
       setState({
         permutations: rows.map(r => ({ ...rowToPermutationResult(r), fromTokenWorks: false })),
@@ -52,8 +83,7 @@ export function useAllChecksPermutations() {
     }
   }, [])
 
-  // Reload = refresh in case prices changed since last sync
-  const shuffle = useCallback(() => load(), [load])
+  const shuffle = useCallback(() => load(true), [load])
 
   return { state, load, shuffle }
 }
