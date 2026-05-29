@@ -1,8 +1,7 @@
 import { type FormEvent } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
-import { isValidAddress } from '../utils'
 
-type ViewMode = 'explore' | 'search' | 'my-checks' | 'curated' | 'search-wallet'
+type ViewMode = 'explore' | 'search' | 'curated'
 
 interface NavbarProps {
   ids: string
@@ -12,12 +11,9 @@ interface NavbarProps {
   dbMode?: boolean
   viewMode?: ViewMode
   onViewModeChange?: (mode: ViewMode) => void
-  showSearchWallet?: boolean
-  searchWalletAddress?: string
-  onSearchWalletAddressChange?: (addr: string) => void
 }
 
-export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange, showSearchWallet, searchWalletAddress = '', onSearchWalletAddressChange }: NavbarProps) {
+export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
@@ -36,8 +32,6 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
       if (connector) connect({ connector })
     }
   }
-
-  const addressInputInvalid = searchWalletAddress.length > 0 && !isValidAddress(searchWalletAddress)
 
   return (
     <nav className="navbar" aria-label="main navigation">
@@ -81,22 +75,10 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
                 onClick={() => onViewModeChange('search')}
               >Search</button>
             )}
-            {isConnected && (
-              <button
-                className={`view-toggle-btn${viewMode === 'my-checks' ? ' view-toggle-btn--active' : ''}`}
-                onClick={() => onViewModeChange('my-checks')}
-              >My Checks</button>
-            )}
             <button
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('curated')}
-            >Curated Checks</button>
-            {isConnected && showSearchWallet && (
-              <button
-                className={`view-toggle-btn${viewMode === 'search-wallet' ? ' view-toggle-btn--active' : ''}`}
-                onClick={() => onViewModeChange('search-wallet')}
-              >Search Wallet</button>
-            )}
+            >Curated</button>
           </div>
           <select
             className="view-toggle-select"
@@ -105,20 +87,8 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
           >
             <option value="explore">Explore</option>
             {isConnected && <option value="search">Search</option>}
-            {isConnected && <option value="my-checks">My Checks</option>}
-            <option value="curated">Curated Checks</option>
-            {isConnected && showSearchWallet && <option value="search-wallet">Search Wallet</option>}
+            <option value="curated">Curated</option>
           </select>
-          {viewMode === 'search-wallet' && showSearchWallet && (
-            <input
-              type="text"
-              className={`search-wallet-input${addressInputInvalid ? ' search-wallet-input--invalid' : ''}`}
-              placeholder="Wallet address (0x...)"
-              value={searchWalletAddress}
-              onChange={e => onSearchWalletAddressChange?.(e.target.value)}
-              spellCheck={false}
-            />
-          )}
         </div>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>
