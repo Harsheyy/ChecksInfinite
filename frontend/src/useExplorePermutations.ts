@@ -4,6 +4,7 @@ import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
 import { supabase } from './supabaseClient'
+import { fetchCheckStructMap, fromJSON } from './usePermutationsDB'
 
 export const EXPLORE_MAX_IDS = 10
 
@@ -29,30 +30,43 @@ export function useExplorePermutations(address?: string) {
     setSearched(true)
     setChecks({})
 
-    const bigIds = ids.map(id => BigInt(id))
-
-    const results = await Promise.allSettled(
-      bigIds.map(id =>
-        checksClient.readContract({
-          address: CHECKS_CONTRACT,
-          abi: CHECKS_ABI,
-          functionName: 'getCheck',
-          args: [id],
-        })
-      )
-    )
+    const idsAsNums = ids.map(id => parseInt(id, 10))
+    const dbMap = await fetchCheckStructMap(idsAsNums)
 
     const newChecks: Record<string, CheckStruct> = {}
+    for (const id of ids) {
+      const numId = parseInt(id, 10)
+      const json = dbMap.get(numId)
+      if (json) {
+        newChecks[id] = fromJSON(json)
+      }
+    }
+
+    // Fallback on-chain for IDs missing from all_checks
+    const missing = ids.filter(id => !newChecks[id])
     const fetchErrors: string[] = []
 
-    results.forEach((result, i) => {
-      if (result.status === 'fulfilled') {
-        newChecks[ids[i]] = result.value as CheckStruct
-      } else {
-        fetchErrors.push(`#${ids[i]}`)
-      }
-    })
+    if (missing.length > 0) {
+      const results = await Promise.allSettled(
+        missing.map(id =>
+          checksClient.readContract({
+            address: CHECKS_CONTRACT,
+            abi: CHECKS_ABI,
+            functionName: 'getCheck',
+            args: [BigInt(id)],
+          })
+        )
+      )
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          newChecks[missing[i]] = result.value as CheckStruct
+        } else {
+          fetchErrors.push(`#${missing[i]}`)
+        }
+      })
+    }
 
+    // Token IDs path policy: hard error if any user-typed ID can't be resolved
     if (fetchErrors.length > 0) {
       setError(`Could not fetch: ${fetchErrors.join(', ')}. Check that these token IDs exist.`)
     }
