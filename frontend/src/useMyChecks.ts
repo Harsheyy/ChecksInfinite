@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
+import { fetchCheckStructMap, type CheckStructJSON } from './usePermutationsDB'
 
 export const CACHE_TTL = 48 * 60 * 60 * 1000  // 48 hours in ms
 
@@ -138,41 +139,62 @@ export function useMyChecks(address: string | undefined, enabled: boolean): MyCh
           return
         }
 
-        const bigIds = tokenIds.map(id => BigInt(id))
-        const results = await Promise.allSettled(
-          bigIds.map(id =>
-            checksClient.readContract({
-              address: CHECKS_CONTRACT,
-              abi: CHECKS_ABI,
-              functionName: 'getCheck',
-              args: [id],
-            })
-          )
-        )
+        // Supabase first: pull check structs in one query
+        const idsAsNums = tokenIds.map(id => parseInt(id, 10))
+        const dbMap = await fetchCheckStructMap(idsAsNums)
 
         const checks: Record<string, CheckStruct> = {}
         const serialized: Record<string, SerializedCheckStruct> = {}
 
-        for (let i = 0; i < tokenIds.length; i++) {
-          const r = results[i]
-          if (r.status === 'fulfilled') {
-            const cs = r.value as CheckStruct
-            checks[tokenIds[i]] = cs
-            serialized[tokenIds[i]] = {
-              ...cs,
-              seed: cs.seed.toString(),
-              stored: {
-                ...cs.stored,
-                composites: [...cs.stored.composites],
-                colorBands: [...cs.stored.colorBands],
-                gradients: [...cs.stored.gradients],
-              },
-            }
+        // Hydrate from Supabase
+        for (const id of tokenIds) {
+          const numId = parseInt(id, 10)
+          const json = dbMap.get(numId)
+          if (json) {
+            const cs = deserialize(json as SerializedCheckStruct)
+            checks[id] = cs
+            serialized[id] = json as SerializedCheckStruct
           }
         }
 
-        writeMyChecksCache(address, { tokenIds, checks: serialized, cachedAt: Date.now() })
-        setState({ tokenIds, checks, loading: false, error: '' })
+        // Fallback on-chain for any IDs that weren't in `all_checks`
+        const missing = tokenIds.filter(id => !checks[id])
+        if (missing.length > 0) {
+          const results = await Promise.allSettled(
+            missing.map(id =>
+              checksClient.readContract({
+                address: CHECKS_CONTRACT,
+                abi: CHECKS_ABI,
+                functionName: 'getCheck',
+                args: [BigInt(id)],
+              })
+            )
+          )
+          for (let i = 0; i < missing.length; i++) {
+            const r = results[i]
+            if (r.status === 'fulfilled') {
+              const cs = r.value as CheckStruct
+              const id = missing[i]
+              checks[id] = cs
+              serialized[id] = {
+                ...cs,
+                seed: cs.seed.toString(),
+                stored: {
+                  ...cs.stored,
+                  composites: [...cs.stored.composites],
+                  colorBands: [...cs.stored.colorBands],
+                  gradients: [...cs.stored.gradients],
+                },
+              }
+            }
+            // failures: silently drop (Wallet path policy from spec)
+          }
+        }
+
+        // Only the tokenIds we actually have data for end up in the result
+        const resolvedTokenIds = tokenIds.filter(id => checks[id] !== undefined)
+        writeMyChecksCache(address, { tokenIds: resolvedTokenIds, checks: serialized, cachedAt: Date.now() })
+        setState({ tokenIds: resolvedTokenIds, checks, loading: false, error: '' })
       })
       .catch(err => {
         setState(prev => ({ ...prev, loading: false, error: String(err) }))
