@@ -18,7 +18,7 @@ import { useWalletTracking } from './useWalletTracking'
 import { useCuratedOutputs, type CuratedPermutationResult } from './useCuratedOutputs'
 import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
 import type { LikeInfo } from './components/PermutationCard'
-import { useExplorePermutations } from './useExplorePermutations'
+import { SearchPage } from './components/SearchPage'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
 
 type FeedSource = 'token-works' | 'opensea'
@@ -34,7 +34,6 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'explore' | 'search' | 'my-checks' | 'curated' | 'search-wallet'>('explore')
   const [searchWalletAddress, setSearchWalletAddress] = useState('')
   const [walletOnly, setWalletOnly] = useState(false)
-  const [searchRaw, setSearchRaw] = useState('')
 
   // Source filter for the Explore tab: token-works | opensea
   const [feedSource, setFeedSource] = useState<FeedSource>('token-works')
@@ -88,9 +87,6 @@ export default function App() {
   // ── Curated mode ──────────────────────────────────────────────────────────
   const { state: curatedState, load: loadCurated } = useCuratedOutputs()
 
-  // ── Search (token ID custom search) mode ──────────────────────────────────
-  const search = useExplorePermutations(address)
-
   // ── Like state ────────────────────────────────────────────────────────────
   const { likedKeys, setLikedKeys } = useMyLikedKeys(address?.toLowerCase())
   const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map())
@@ -112,10 +108,6 @@ export default function App() {
     if (!dbMode || viewMode !== 'curated') return
     loadCurated(filters, walletOnly, address?.toLowerCase())
   }, [dbMode, viewMode, walletOnly, filters.checks, filters.colorBand, filters.gradient, filters.speed, filters.shift])  // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (viewMode !== 'search') { search.clear(); setSearchRaw('') }
-  }, [viewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!curatedState.outputs.length) return
@@ -142,22 +134,9 @@ export default function App() {
     preview(ids)
   }
 
-  const searchIds = useMemo(
-    () => [...new Set(searchRaw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s)))],
-    [searchRaw]
-  )
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    search.search(searchIds)
-  }
-
-  const searchIdCount = searchIds.length
-
   function handleShuffle() {
     if (viewMode === 'my-checks') myCheckPerms.shuffle()
     else if (viewMode === 'search-wallet') searchCheckPerms.shuffle()
-    else if (viewMode === 'search') search.shuffle()
     else if (viewMode === 'explore') {
       if (feedSource === 'opensea') shuffleAllChecks()
       else shuffleDB()
@@ -198,12 +177,6 @@ export default function App() {
     if (!wasLiked && source !== 'curated') {
       if (source === 'my-checks') {
         const m = myChecks.checks
-        p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
-        p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
-        p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
-        p_b2_struct = m[b2] ? serializeCheckStruct(m[b2]) : null
-      } else if (source === 'search') {
-        const m = search.checks
         p_k1_struct = m[k1] ? serializeCheckStruct(m[k1]) : null
         p_b1_struct = m[b1] ? serializeCheckStruct(m[b1]) : null
         p_k2_struct = m[k2] ? serializeCheckStruct(m[k2]) : null
@@ -287,29 +260,25 @@ export default function App() {
     return dbState.permutations
   }, [feedSource, dbState.permutations, allChecksState.permutations])
 
-  const permutations = isSearchMode
-    ? search.permutations
-    : isCuratedMode
-      ? curatedState.outputs
-      : isSearchWalletMode
-        ? searchCheckPerms.permutations
-        : isMyChecksMode
-          ? myCheckPerms.permutations
-          : isExploreMode
-            ? feedPermutations
-            : dbMode ? feedPermutations : chainState.permutations
+  const permutations = isCuratedMode
+    ? curatedState.outputs
+    : isSearchWalletMode
+      ? searchCheckPerms.permutations
+      : isMyChecksMode
+        ? myCheckPerms.permutations
+        : isExploreMode
+          ? feedPermutations
+          : dbMode ? feedPermutations : chainState.permutations
 
-  const isLoading = isSearchMode
-    ? search.loading
-    : isCuratedMode
-      ? curatedState.loading
-      : isSearchWalletMode
-        ? searchChecks.loading
-        : isMyChecksMode
-          ? myChecks.loading
-          : isExploreMode
-            ? (feedSource === 'opensea' ? allChecksState.loading : dbState.loading)
-            : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
+  const isLoading = isCuratedMode
+    ? curatedState.loading
+    : isSearchWalletMode
+      ? searchChecks.loading
+      : isMyChecksMode
+        ? myChecks.loading
+        : isExploreMode
+          ? (feedSource === 'opensea' ? allChecksState.loading : dbState.loading)
+          : dbMode ? dbState.loading : chainState.permutations.some(p => p.nodeAbcd.loading)
 
   // ── Price filter ──────────────────────────────────────────────────────────
   // Token Works: prices from TokenStrategy contract (on-chain, bigint wei)
@@ -401,17 +370,15 @@ export default function App() {
   const visibleCount = showFlags.filter(Boolean).length
   const visiblePermutations = permutations.filter((_, i) => showFlags[i])
 
-  const showFilters = isSearchMode
-    ? search.searched
-    : isCuratedMode
-      ? curatedState.outputs.length > 0 || curatedState.loading
-      : isSearchWalletMode
-        ? searchCheckPerms.permutations.length > 0
-        : isMyChecksMode
-          ? myCheckPerms.permutations.length > 0
-          : isExploreMode
-            ? feedPermutations.length > 0 || isLoading
-            : permutations.length > 0
+  const showFilters = isCuratedMode
+    ? curatedState.outputs.length > 0 || curatedState.loading
+    : isSearchWalletMode
+      ? searchCheckPerms.permutations.length > 0
+      : isMyChecksMode
+        ? myCheckPerms.permutations.length > 0
+        : isExploreMode
+          ? feedPermutations.length > 0 || isLoading
+          : permutations.length > 0
 
   const myChecksError = isMyChecksMode
     ? (myChecks.error || (myChecks.tokenIds.length === 0 && !myChecks.loading ? 'No Checks VV tokens found in this wallet.' : ''))
@@ -439,110 +406,78 @@ export default function App() {
         searchWalletAddress={searchWalletAddress}
         onSearchWalletAddressChange={setSearchWalletAddress}
       />
-      {navbarError && (
-        <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
-          {navbarError}
-        </div>
-      )}
-      {showFilters && (
-        <FilterBar
-          key={isSearchMode ? 'search' : 'default'}
-          filters={filters}
-          onChange={setFilters}
-          visible={visibleCount}
-          onShuffle={(!isCuratedMode && (isMyChecksMode || isSearchMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
-          permutations={visiblePermutations}
-          curatedMode={isCuratedMode}
-          walletOnly={walletOnly}
-          onWalletOnlyChange={setWalletOnly}
-          isConnected={isConnected}
-          hideIdFilter={isCuratedMode || isSearchMode}
-          exploreMode={isSearchMode}
-          exploreRaw={isSearchMode ? searchRaw : undefined}
-          onExploreRawChange={isSearchMode ? setSearchRaw : undefined}
-          onExploreSearch={isSearchMode ? search.search : undefined}
-          onExploreClear={isSearchMode ? () => { search.clear(); setSearchRaw('') } : undefined}
-          exploreLoading={isSearchMode ? search.loading : undefined}
-          exploreError={isSearchMode && search.error ? search.error : undefined}
-          exploreSearched={isSearchMode ? search.searched : undefined}
-          priceRange={feedSource === 'opensea' ? openSeaPriceRange : priceRange}
-          feedSource={isExploreMode && isConnected ? feedSource : undefined}
-          onFeedSourceChange={isExploreMode && isConnected ? setFeedSource : undefined}
+      {isSearchMode ? (
+        <SearchPage
+          getLikeInfo={dbMode ? (r) => getLikeInfo(r) : undefined}
         />
-      )}
-      {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          Not enough compatible checks to generate permutations.
-        </div>
-      )}
-      {isSearchWalletMode && !isValidAddress(searchWalletAddress) && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          Enter a wallet address above to explore permutations.
-        </div>
-      )}
-      {isSearchWalletMode && isValidAddress(searchWalletAddress) && searchChecks.tokenIds.length > 0 && searchCheckPerms.permutations.length === 0 && !searchChecks.loading && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          Not enough compatible checks to generate permutations.
-        </div>
-      )}
-      {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
-        </div>
-      )}
-      {isSearchMode && search.searched && !search.loading && search.permutations.length === 0 && !search.error && (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-          No compatible permutations found. Tokens must share the same check count.
-        </div>
-      )}
-      {isSearchMode && !search.searched && (
-        <div className="explore-empty">
-          <h2 className="explore-empty__headline">View infinite check permutations</h2>
-          <p className="explore-empty__subtitle">Enter up to 10 token IDs to see possible outcomes.</p>
-          <form className="explore-empty__form" onSubmit={handleSearchSubmit}>
-            <input
-              className="explore-empty__input"
-              type="text"
-              placeholder="e.g. 42, 137, 509, 1024"
-              value={searchRaw}
-              onChange={e => setSearchRaw(e.target.value)}
-              spellCheck={false}
-              autoFocus
-            />
-            <button
-              type="submit"
-              className="explore-empty__submit"
-              disabled={searchIdCount < 4 || searchIdCount > 10}
-            >
-              →
-            </button>
-          </form>
-          {searchIdCount > 10 && (
-            <p className="explore-empty__hint">Max 10 IDs</p>
+      ) : (
+        <>
+          {navbarError && (
+            <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
+              {navbarError}
+            </div>
           )}
-        </div>
-      )}
-      <InfiniteGrid
-        permutations={permutations}
-        ids={ids}
-        showFlags={showFlags}
-        hasFilters={showFilters}
-        hasError={!!navbarError}
-        dbMode={dbMode}
-        hideBuy={isMyChecksMode || isSearchWalletMode || isSearchMode || (isExploreMode && feedSource !== 'token-works')}
-        filtersTall={false}
-        getLikeInfo={dbMode ? getLikeInfo : undefined}
-        tokenPriceMap={tokenPriceMap}
-      />
-      {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : isLoading)) && (
-        <div style={{
-          position: 'fixed', bottom: '1rem', right: '1rem',
-          background: '#1a1a1a', border: '1px solid #333', borderRadius: '3px',
-          padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: '#888',
-          zIndex: 50,
-        }}>
-          Loading…
-        </div>
+          {showFilters && (
+            <FilterBar
+              key={'default'}
+              filters={filters}
+              onChange={setFilters}
+              visible={visibleCount}
+              onShuffle={(!isCuratedMode && (isMyChecksMode || isExploreMode || dbMode)) ? handleShuffle : undefined}
+              permutations={visiblePermutations}
+              curatedMode={isCuratedMode}
+              walletOnly={walletOnly}
+              onWalletOnlyChange={setWalletOnly}
+              isConnected={isConnected}
+              hideIdFilter={isCuratedMode}
+              priceRange={feedSource === 'opensea' ? openSeaPriceRange : priceRange}
+              feedSource={isExploreMode && isConnected ? feedSource : undefined}
+              onFeedSourceChange={isExploreMode && isConnected ? setFeedSource : undefined}
+            />
+          )}
+          {isMyChecksMode && myChecks.tokenIds.length > 0 && myCheckPerms.permutations.length === 0 && !myChecks.loading && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+              Not enough compatible checks to generate permutations.
+            </div>
+          )}
+          {isSearchWalletMode && !isValidAddress(searchWalletAddress) && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+              Enter a wallet address above to explore permutations.
+            </div>
+          )}
+          {isSearchWalletMode && isValidAddress(searchWalletAddress) && searchChecks.tokenIds.length > 0 && searchCheckPerms.permutations.length === 0 && !searchChecks.loading && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+              Not enough compatible checks to generate permutations.
+            </div>
+          )}
+          {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+              {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
+            </div>
+          )}
+          <InfiniteGrid
+            permutations={permutations}
+            ids={ids}
+            showFlags={showFlags}
+            hasFilters={showFilters}
+            hasError={!!navbarError}
+            dbMode={dbMode}
+            hideBuy={isMyChecksMode || isSearchWalletMode || (isExploreMode && feedSource !== 'token-works')}
+            filtersTall={false}
+            getLikeInfo={dbMode ? getLikeInfo : undefined}
+            tokenPriceMap={tokenPriceMap}
+          />
+          {(dbMode && (isSearchWalletMode ? searchChecks.loading : isMyChecksMode ? myChecks.loading : isLoading)) && (
+            <div style={{
+              position: 'fixed', bottom: '1rem', right: '1rem',
+              background: '#1a1a1a', border: '1px solid #333', borderRadius: '3px',
+              padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: '#888',
+              zIndex: 50,
+            }}>
+              Loading…
+            </div>
+          )}
+        </>
       )}
     </>
   )
