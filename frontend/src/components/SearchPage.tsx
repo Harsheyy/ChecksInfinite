@@ -155,12 +155,6 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
     setWalletRaw('')
     idSearch.clear()
   }
-  function handleClearTrait(k: keyof SearchFilters) {
-    setFilters(prev => ({ ...prev, [k]: [] }))
-  }
-  function handleClearPrice() {
-    setFilters(prev => ({ ...prev, priceMin: '', priceMax: '' }))
-  }
   function handleClearAllTraits() {
     setFilters(emptySearchFilters())
   }

@@ -12,9 +12,10 @@ export function useBackgroundPermutations(): string[] {
     if (!supabase) return
     let cancelled = false
 
+    const db = supabase  // non-null (checked above)
     const run = async () => {
       const offset = Math.floor(Math.random() * 90_000)
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('permutations')
         .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
         .order('rand_key')

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
-import { fetchCheckStructMap, type CheckStructJSON } from './usePermutationsDB'
+import { fetchCheckStructMap } from './usePermutationsDB'
 
 export const CACHE_TTL = 48 * 60 * 60 * 1000  // 48 hours in ms
 
