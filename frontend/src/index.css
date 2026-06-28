@@ -342,10 +342,8 @@ body {
   .filter-row            { display: none; }
   .filter-mobile-bar     { display: flex; }
   .filter-mobile-explore { display: flex; }
-
-  /* Search filter bar: hide inline traits, show trigger button */
-  .search-fixed-bar__filters { display: none; }
-  .search-fixed-bar__mobile-trigger { display: block; }
+  /* Search filter bar hide rules live after the base .search-fixed-bar__filters
+     definition (cascade ordering) — see below. */
 }
 
 /* ─── Filter side panel ───────────────────────────────────── */
@@ -1589,11 +1587,27 @@ body {
   border-bottom: 1px solid #222;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0 28px;
+  padding: 0.5rem 28px;
   min-height: 40px;
 }
 .search-fixed-bar__spacer { flex: 1; min-width: 12px; }
+
+/* Filters laid out horizontally on desktop */
+.search-fixed-bar__filters {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+/* Hide inline filters / show trigger on mobile — placed AFTER the base rule
+   so it wins the cascade at equal specificity (source order matters). */
+@media (max-width: 1280px) {
+  .search-fixed-bar__filters       { display: none; }
+  .search-fixed-bar__mobile-trigger { display: block; }
+}
 
 /* Input context chip (right side) */
 .search-fixed-bar__input-chip {
@@ -1709,7 +1723,7 @@ body {
     background: #161616;
     border-top: 1px solid #2a2a2a;
     min-height: 48px;
-    padding: 0 16px;
+    padding: 0.5rem 16px;
     gap: 0.6rem;
   }
   .search-fixed-bar__mobile-trigger {

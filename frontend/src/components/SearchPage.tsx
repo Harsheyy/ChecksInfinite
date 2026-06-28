@@ -1,5 +1,5 @@
 // frontend/src/components/SearchPage.tsx
-import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect, memo } from 'react'
 import { useAccount } from 'wagmi'
 import { InfiniteGrid } from './InfiniteGrid'
 import { TraitMultiSelect } from './TraitMultiSelect'
@@ -23,6 +23,27 @@ import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
 
 type LikeSource = 'explore' | 'curated' | 'search'
+
+// Isolated so it never re-renders on keystroke — only when bgSvgs changes
+const SearchBackground = memo(function SearchBackground({ svgs }: { svgs: string[] }) {
+  if (!svgs.length) return null
+  const doubled = [...svgs, ...svgs]
+  return (
+    <div className="search-bg-canvas" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map(row => (
+        <div
+          key={row}
+          className={`search-bg-row search-bg-row--${row % 2 === 0 ? 'fwd' : 'rev'}`}
+          style={{ animationDuration: `${28 + row * 7}s`, animationDelay: `${-row * 3}s` }}
+        >
+          {doubled.map((svg, i) => (
+            <div key={i} className="search-bg-panel" dangerouslySetInnerHTML={{ __html: svg }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+})
 
 // Multi-select pill group for the mobile filter panel
 function PanelMultiOpts({ label, options, values, onChange }: {
@@ -322,26 +343,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   return (
     <>
     <div className={`searchpage${showEmptyForm ? ' searchpage--landing' : ''}`}>
-      {showEmptyForm && bgSvgs.length > 0 && (
-        <div className="search-bg-canvas" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map(row => (
-            <div
-              key={row}
-              className={`search-bg-row search-bg-row--${row % 2 === 0 ? 'fwd' : 'rev'}`}
-              style={{ animationDuration: `${28 + row * 7}s`, animationDelay: `${-row * 3}s` }}
-            >
-              {/* duplicate once for seamless loop */}
-              {[...bgSvgs, ...bgSvgs].map((svg, i) => (
-                <div
-                  key={i}
-                  className="search-bg-panel"
-                  dangerouslySetInnerHTML={{ __html: svg }}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+      {showEmptyForm && <SearchBackground svgs={bgSvgs} />}
 
       {showEmptyForm ? (
         <div className="searchpage__form">
@@ -379,6 +381,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       ) : (
         <div className="search-fixed-bar" ref={fixedBarRef}>
           {/* LEFT: trait + price filters (desktop only) */}
+          {/* LEFT: trait + price filters laid out horizontally (desktop only) */}
           <div className="search-fixed-bar__filters">
             {filterControls}
             {hasActiveSearchFilters(filters) && (
