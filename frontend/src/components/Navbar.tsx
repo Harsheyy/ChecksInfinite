@@ -1,7 +1,13 @@
-import { type FormEvent } from 'react'
+import { type FormEvent, useState, useRef, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
 
 type ViewMode = 'explore' | 'search' | 'curated'
+
+const VIEW_LABELS: Record<ViewMode, string> = {
+  explore: 'Explore',
+  search:  'Search',
+  curated: 'Curated',
+}
 
 interface NavbarProps {
   ids: string
@@ -18,6 +24,24 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
   const { connect, connectors }  = useConnect()
   const { disconnect }           = useDisconnect()
   const { data: ensName }        = useEnsName({ address })
+
+  const [dropOpen, setDropOpen] = useState(false)
+  const dropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dropOpen) return
+    function handler(e: MouseEvent) {
+      if (!dropRef.current?.contains(e.target as Node)) setDropOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dropOpen])
+
+  const availableModes: ViewMode[] = [
+    'explore',
+    ...(isConnected ? ['search' as ViewMode] : []),
+    'curated',
+  ]
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -64,6 +88,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
       </div>
       {viewMode && onViewModeChange && (
         <div className="view-toggle-row">
+          {/* Desktop: button group */}
           <div className="view-toggle">
             <button
               className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
@@ -80,15 +105,36 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
               onClick={() => onViewModeChange('curated')}
             >Curated</button>
           </div>
-          <select
-            className="view-toggle-select"
-            value={viewMode}
-            onChange={e => onViewModeChange(e.target.value as ViewMode)}
-          >
-            <option value="explore">Explore</option>
-            {isConnected && <option value="search">Search</option>}
-            <option value="curated">Curated</option>
-          </select>
+
+          {/* Mobile: custom dropdown */}
+          <div className="view-toggle-custom" ref={dropRef}>
+            <button
+              type="button"
+              className="view-toggle-custom-btn"
+              onClick={() => setDropOpen(o => !o)}
+              aria-haspopup="listbox"
+              aria-expanded={dropOpen}
+            >
+              {VIEW_LABELS[viewMode]} <span className="view-toggle-custom-caret">{dropOpen ? '▴' : '▾'}</span>
+            </button>
+            {dropOpen && (
+              <div className="view-toggle-custom-menu" role="listbox">
+                {availableModes.map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="option"
+                    aria-selected={viewMode === mode}
+                    className={`view-toggle-custom-option${viewMode === mode ? ' view-toggle-custom-option--active' : ''}`}
+                    onClick={() => { onViewModeChange(mode); setDropOpen(false) }}
+                  >
+                    <span className="view-toggle-custom-check">{viewMode === mode ? '✓' : ''}</span>
+                    {VIEW_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>

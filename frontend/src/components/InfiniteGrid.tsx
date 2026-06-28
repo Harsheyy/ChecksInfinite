@@ -21,9 +21,10 @@ interface Props {
   filtersTall?: boolean
   getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
   tokenPriceMap?: Map<string, bigint>
+  topPx?: number  // override grid-viewport top (pixels from viewport top)
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -110,6 +111,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
       <>
         <div
           className={viewportClass}
+          style={topPx !== undefined ? { top: topPx } : undefined}
           ref={containerRef}
           onClick={handleBackdropClick}
         >
@@ -143,7 +145,8 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
   // instead of the 22 500 that full DOM rendering would require.
   const vpW = containerRef.current?.clientWidth  || window.innerWidth
   const errorOffset = hasError ? 32 : 0
-  const vpH = containerRef.current?.clientHeight || window.innerHeight - (hasFilters ? (filtersTall ? 120 : 88) : 48) - errorOffset
+  const defaultTop = topPx ?? (hasFilters ? (filtersTall ? 120 : 88) : 48)
+  const vpH = containerRef.current?.clientHeight || window.innerHeight - defaultTop - errorOffset
 
   const cards: React.ReactNode[] = []
   for (let tx = 0; tx < 3; tx++) {
@@ -190,6 +193,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
     <>
       <div
         className={viewportClass}
+        style={topPx !== undefined ? { top: topPx } : undefined}
         ref={containerRef}
         onScroll={handleScroll}
         onClick={handleBackdropClick}

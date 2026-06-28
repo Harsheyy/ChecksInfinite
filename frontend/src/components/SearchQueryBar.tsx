@@ -8,6 +8,7 @@ interface SearchQueryBarProps {
   filters: SearchFilters
   onClearInput: () => void
   onClearTrait: (trait: keyof SearchFilters) => void
+  onClearPrice: () => void
   onEdit: () => void                     // re-opens the homepage form
   totalMatches: number
   capped: boolean
@@ -16,17 +17,17 @@ interface SearchQueryBarProps {
   shuffleDisabled?: boolean
 }
 
-const TRAIT_LABELS: Record<keyof SearchFilters, string> = {
+const TRAIT_LABELS = {
   checks:    'Checks',
   colorBand: 'Color Band',
   gradient:  'Gradient',
   speed:     'Speed',
   shift:     'Shift',
-}
+} as const
 
 export function SearchQueryBar({
   inputMode, inputSummary, filters,
-  onClearInput, onClearTrait, onEdit,
+  onClearInput, onClearTrait, onClearPrice, onEdit,
   totalMatches, capped, globalTotal,
   onShuffle, shuffleDisabled,
 }: SearchQueryBarProps) {
@@ -36,8 +37,16 @@ export function SearchQueryBar({
     inputMode === 'wallet' ? `Wallet · ${inputSummary}` :
                               null
 
-  const traitEntries = (Object.keys(filters) as (keyof SearchFilters)[])
+  const traitKeys = (Object.keys(TRAIT_LABELS) as (keyof typeof TRAIT_LABELS)[])
     .filter(k => filters[k].length > 0)
+
+  const priceChipLabel = filters.priceMin && filters.priceMax
+    ? `Price · ${filters.priceMin}–${filters.priceMax} ETH`
+    : filters.priceMin
+      ? `Price · ≥${filters.priceMin} ETH`
+      : filters.priceMax
+        ? `Price · ≤${filters.priceMax} ETH`
+        : null
 
   return (
     <div className="search-querybar">
@@ -48,12 +57,18 @@ export function SearchQueryBar({
             <button type="button" aria-label="Remove input" onClick={onClearInput}>×</button>
           </span>
         )}
-        {traitEntries.map(k => (
+        {traitKeys.map(k => (
           <span key={k} className="search-querybar__chip">
             {TRAIT_LABELS[k]} · {filters[k].join(', ')}
             <button type="button" aria-label={`Remove ${TRAIT_LABELS[k]}`} onClick={() => onClearTrait(k)}>×</button>
           </span>
         ))}
+        {priceChipLabel && (
+          <span className="search-querybar__chip">
+            {priceChipLabel}
+            <button type="button" aria-label="Remove price filter" onClick={onClearPrice}>×</button>
+          </span>
+        )}
         <button type="button" className="search-querybar__edit" onClick={onEdit}>Edit</button>
       </div>
       <div className="search-querybar__meta">

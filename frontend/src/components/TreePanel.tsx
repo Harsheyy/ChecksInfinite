@@ -234,6 +234,31 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
             )}
           </div>
         )}
+
+        {isOpenSea && (
+          <div className="tree-panel__opensea">
+            <span className="tree-panel__opensea-label">Buy on OpenSea</span>
+            <div className="tree-panel__opensea-links">
+              {([
+                [id0, 'Keeper 1'],
+                [id1, 'Burn 1'],
+                [id2, 'Keeper 2'],
+                [id3, 'Burn 2'],
+              ] as [string, string][]).map(([id, role]) => (
+                <a
+                  key={id}
+                  className="tree-panel__opensea-link"
+                  href={`https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span className="tree-panel__opensea-role">{role}</span>
+                  #{id} ↗
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

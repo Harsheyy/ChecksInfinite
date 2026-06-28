@@ -29,6 +29,8 @@ function applyTraitFilters(query: any, filters: SearchFilters): any {
   if (filters.gradient.length > 0)  q = q.in('abcd_gradient', filters.gradient)
   if (filters.speed.length > 0)     q = q.in('abcd_speed', filters.speed)
   if (filters.shift.length > 0)     q = q.in('abcd_shift', filters.shift)
+  if (filters.priceMin)             q = q.gte('total_cost', parseFloat(filters.priceMin))
+  if (filters.priceMax)             q = q.lte('total_cost', parseFloat(filters.priceMax))
   return q
 }
 
@@ -42,24 +44,24 @@ export function useGlobalTraitSearch() {
     setState(prev => ({ ...prev, loading: true, error: '' }))
 
     try {
-      // Exact count for the cap notice
-      const countQ = applyTraitFilters(
+      // Count first — needed for the cap notice and to pick a random offset for shuffle
+      const { count, error: countErr } = await applyTraitFilters(
         supabase.from('permutations').select('*', { count: 'exact', head: true }),
         filters
       )
-      const { count, error: countErr } = await countQ
       if (countErr) throw countErr
       const total = count ?? 0
 
-      // Capped page
-      const dataQ = applyTraitFilters(
+      // Random offset so repeated calls (shuffle) return different pages
+      const offset = total > GLOBAL_TRAIT_LIMIT ? Math.floor(Math.random() * (total - GLOBAL_TRAIT_LIMIT)) : 0
+
+      const { data, error } = await applyTraitFilters(
         supabase.from('permutations').select(
           'keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost'
         ),
         filters
-      ).order('rand_key').limit(GLOBAL_TRAIT_LIMIT)
+      ).order('rand_key').range(offset, offset + GLOBAL_TRAIT_LIMIT - 1)
 
-      const { data, error } = await dataQ
       if (error) throw error
 
       const basicRows = (data ?? []) as unknown as PermRowBasic[]

@@ -1,5 +1,5 @@
 // frontend/src/useMyCheckPermutations.ts
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap,
 } from './checksArtJS'
@@ -44,13 +44,14 @@ export function sampleTuples(
   const totalPossible = n * (n - 1) * (n - 2) * (n - 3)
 
   if (totalPossible <= max) {
-    // Exhaustive: all ordered 4-tuples
+    // Exhaustive: all ordered 4-tuples, shuffled so repeated calls produce different grid order
+    const shuffled = shuffleArr(ids)
     const result: [string, string, string, string][] = []
     for (let a = 0; a < n; a++)
       for (let b = 0; b < n; b++) { if (b === a) continue
         for (let c = 0; c < n; c++) { if (c === a || c === b) continue
           for (let d = 0; d < n; d++) { if (d === a || d === b || d === c) continue
-            result.push([ids[a], ids[b], ids[c], ids[d]])
+            result.push([shuffled[a], shuffled[b], shuffled[c], shuffled[d]])
           }}}
     return result
   }
@@ -141,10 +142,14 @@ function buildPermutation(
   }
 }
 
+const CHUNK = 80  // permutations computed per frame
+
 export function useMyCheckPermutations(checks: Record<string, CheckStruct>) {
   const [permutations, setPermutations] = useState<PermutationResult[]>([])
+  const genId = useRef(0)  // cancels stale concurrent generations
 
-  const generate = useCallback(() => {
+  const generate = useCallback(async () => {
+    const id = ++genId.current
     const groups = groupByChecksCount(checks)
     const results: PermutationResult[] = []
 
@@ -153,16 +158,22 @@ export function useMyCheckPermutations(checks: Record<string, CheckStruct>) {
       const remaining = MAX_PERMS - results.length
       if (remaining <= 0) break
       const tuples = sampleTuples(ids, remaining)
-      for (const [id0, id1, id2, id3] of tuples) {
-        results.push(buildPermutation(id0, id1, id2, id3, checks))
+
+      for (let i = 0; i < tuples.length; i += CHUNK) {
+        for (const [id0, id1, id2, id3] of tuples.slice(i, i + CHUNK)) {
+          results.push(buildPermutation(id0, id1, id2, id3, checks))
+        }
+        if (genId.current !== id) return  // newer generation started; abort
+        setPermutations([...results])
+        await new Promise<void>(r => setTimeout(r, 0))  // yield to browser
       }
     }
 
-    setPermutations(results)
+    if (genId.current === id) setPermutations([...results])
   }, [checks])
 
-  const shuffle = useCallback(() => generate(), [generate])
-  const reset = useCallback(() => setPermutations([]), [])
+  const shuffle = useCallback(() => { void generate() }, [generate])
+  const reset = useCallback(() => { genId.current++; setPermutations([]) }, [])
 
   return { permutations, generate, shuffle, reset }
 }

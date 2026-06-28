@@ -28,3 +28,4 @@ supabase/.temp/
 docs/plans/
 Source/
 .worktrees/
+.superpowers/

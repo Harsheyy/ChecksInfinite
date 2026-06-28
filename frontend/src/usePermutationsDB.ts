@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import { simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap } from './checksArtJS'
 import { mapCheckAttributes, type CheckStruct } from './utils'
@@ -295,31 +295,3 @@ export function usePermutationsDB() {
   return { state, loadRandom, shuffle }
 }
 
-export function usePriceBounds(enabled: boolean) {
-  const [bounds, setBounds] = useState<{ min: number; max: number } | null>(null)
-
-  useEffect(() => {
-    if (!enabled || !supabase) return
-    Promise.all([
-      supabase
-        .from('all_checks')
-        .select('eth_price')
-        .not('eth_price', 'is', null)
-        .order('eth_price', { ascending: true })
-        .limit(1),
-      supabase
-        .from('all_checks')
-        .select('eth_price')
-        .not('eth_price', 'is', null)
-        .order('eth_price', { ascending: false })
-        .limit(1),
-    ]).then(([minRes, maxRes]) => {
-      const minPrice = (minRes.data?.[0] as { eth_price: number } | undefined)?.eth_price ?? 0
-      const maxPrice = (maxRes.data?.[0] as { eth_price: number } | undefined)?.eth_price ?? 0
-      // Slider bounds = 4 × cheapest individual to 4 × most expensive
-      setBounds({ min: minPrice * 4, max: maxPrice * 4 })
-    })
-  }, [enabled])
-
-  return bounds
-}

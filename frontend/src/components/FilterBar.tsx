@@ -56,6 +56,30 @@ interface FilterSelectProps {
   counts?: Map<string, number>
 }
 
+// Inline option pills for the mobile filter panel (replaces native <select>)
+function PanelOptions({ options, value, onChange, counts }: Omit<FilterSelectProps, 'label'>) {
+  const visible = counts ? options.filter(o => (counts.get(o) ?? 0) > 0) : options
+  return (
+    <div className="filter-panel-options">
+      <button
+        type="button"
+        className={`filter-panel-option${!value ? ' filter-panel-option--active' : ''}`}
+        onClick={() => onChange('')}
+      >All</button>
+      {visible.map(opt => (
+        <button
+          key={opt}
+          type="button"
+          className={`filter-panel-option${value === opt ? ' filter-panel-option--active' : ''}`}
+          onClick={() => onChange(opt)}
+        >
+          {opt}{counts ? ` (${counts.get(opt) ?? 0})` : ''}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function FilterSelect({ label, options, value, onChange, counts }: FilterSelectProps) {
   const visibleOptions = counts
     ? options.filter(opt => (counts.get(opt) ?? 0) > 0)
@@ -477,20 +501,6 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
 
         {/* ── Mobile: trigger bar ── */}
         <div className="filter-mobile-bar">
-          {feedSource && onFeedSourceChange && (
-            <div className="filter-curated-toggle filter-curated-toggle--bar">
-              <button
-                type="button"
-                className={`filter-mode-btn${feedSource === 'token-works' ? ' filter-mode-btn--active' : ''}`}
-                onClick={() => onFeedSourceChange('token-works')}
-              >Token Works</button>
-              <button
-                type="button"
-                className={`filter-mode-btn${feedSource === 'opensea' ? ' filter-mode-btn--active' : ''}`}
-                onClick={() => onFeedSourceChange('opensea')}
-              >OpenSea</button>
-            </div>
-          )}
           <button
             type="button"
             className={`filter-mobile-trigger${isActive ? ' filter-mobile-trigger--active' : ''}`}
@@ -529,6 +539,23 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
             </div>
 
             <div className="filter-panel-body">
+              {feedSource && onFeedSourceChange && (
+                <div className="filter-panel-group">
+                  <span className="filter-select-name">Feed</span>
+                  <div className="filter-mode-toggle">
+                    <button
+                      type="button"
+                      className={`filter-mode-btn${feedSource === 'token-works' ? ' filter-mode-btn--active' : ''}`}
+                      onClick={() => onFeedSourceChange('token-works')}
+                    >Token Works</button>
+                    <button
+                      type="button"
+                      className={`filter-mode-btn${feedSource === 'opensea' ? ' filter-mode-btn--active' : ''}`}
+                      onClick={() => onFeedSourceChange('opensea')}
+                    >OpenSea</button>
+                  </div>
+                </div>
+              )}
               {curatedMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">View</span>
@@ -577,84 +604,52 @@ export function FilterBar({ filters, onChange, visible, onShuffle, permutations,
               {!exploreMode && (
                 <div className="filter-panel-group">
                   <span className="filter-select-name">Checks</span>
-                  <select className="filter-select filter-select--full" value={filters.checks} onChange={e => update('checks', e.target.value)}>
-                    <option value="">All</option>
-                    {CHECKS_OPTIONS
-                      .filter(o => !attributeCounts || (attributeCounts.checks.get(o) ?? 0) > 0)
-                      .map(o => (
-                        <option key={o} value={o}>
-                          {attributeCounts ? `${o} (${attributeCounts.checks.get(o) ?? 0})` : o}
-                        </option>
-                      ))}
-                  </select>
+                  <PanelOptions options={CHECKS_OPTIONS} value={filters.checks} onChange={v => update('checks', v)} counts={attributeCounts?.checks} />
                 </div>
               )}
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Color Band</span>
-                <select data-testid="mobile-colorband-select" className="filter-select filter-select--full" value={filters.colorBand} onChange={e => update('colorBand', e.target.value)}>
-                  <option value="">All</option>
-                  {COLOR_BAND_OPTIONS
-                    .filter(o => !attributeCounts || (attributeCounts.colorBand.get(o) ?? 0) > 0)
-                    .map(o => (
-                      <option key={o} value={o}>
-                        {attributeCounts ? `${o} (${attributeCounts.colorBand.get(o) ?? 0})` : o}
-                      </option>
-                    ))}
-                </select>
+                <PanelOptions options={COLOR_BAND_OPTIONS} value={filters.colorBand} onChange={v => update('colorBand', v)} counts={attributeCounts?.colorBand} />
               </div>
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Gradient</span>
-                <select className="filter-select filter-select--full" value={filters.gradient} onChange={e => update('gradient', e.target.value)}>
-                  <option value="">All</option>
-                  {GRADIENT_OPTIONS
-                    .filter(o => !attributeCounts || (attributeCounts.gradient.get(o) ?? 0) > 0)
-                    .map(o => (
-                      <option key={o} value={o}>
-                        {attributeCounts ? `${o} (${attributeCounts.gradient.get(o) ?? 0})` : o}
-                      </option>
-                    ))}
-                </select>
+                <PanelOptions options={GRADIENT_OPTIONS} value={filters.gradient} onChange={v => update('gradient', v)} counts={attributeCounts?.gradient} />
               </div>
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Speed</span>
-                <select className="filter-select filter-select--full" value={filters.speed} onChange={e => update('speed', e.target.value)}>
-                  <option value="">All</option>
-                  {SPEED_OPTIONS
-                    .filter(o => !attributeCounts || (attributeCounts.speed.get(o) ?? 0) > 0)
-                    .map(o => (
-                      <option key={o} value={o}>
-                        {attributeCounts ? `${o} (${attributeCounts.speed.get(o) ?? 0})` : o}
-                      </option>
-                    ))}
-                </select>
+                <PanelOptions options={SPEED_OPTIONS} value={filters.speed} onChange={v => update('speed', v)} counts={attributeCounts?.speed} />
               </div>
 
               <div className="filter-panel-group">
                 <span className="filter-select-name">Shift</span>
-                <select className="filter-select filter-select--full" value={filters.shift} onChange={e => update('shift', e.target.value)}>
-                  <option value="">All</option>
-                  {SHIFT_OPTIONS
-                    .filter(o => !attributeCounts || (attributeCounts.shift.get(o) ?? 0) > 0)
-                    .map(o => (
-                      <option key={o} value={o}>
-                        {attributeCounts ? `${o} (${attributeCounts.shift.get(o) ?? 0})` : o}
-                      </option>
-                    ))}
-                </select>
+                <PanelOptions options={SHIFT_OPTIONS} value={filters.shift} onChange={v => update('shift', v)} counts={attributeCounts?.shift} />
               </div>
 
               {priceRange && (
-                <div className="filter-panel-group filter-panel-group--price">
+                <div className="filter-panel-group">
                   <span className="filter-select-name">Price (Ξ)</span>
                   <div className="filter-panel-price-row">
-                    <PriceRangeFilter
-                      priceMin={filters.priceMin}
-                      priceMax={filters.priceMax}
-                      priceRange={priceRange}
-                      onChange={(min, max) => onChange({ ...filters, priceMin: min, priceMax: max })}
+                    <input
+                      className="filter-panel-price-input"
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      placeholder={fmtEth(priceRange.min)}
+                      value={filters.priceMin}
+                      onChange={e => onChange({ ...filters, priceMin: e.target.value })}
+                    />
+                    <span className="filter-panel-price-sep">–</span>
+                    <input
+                      className="filter-panel-price-input"
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      placeholder={fmtEth(priceRange.max)}
+                      value={filters.priceMax}
+                      onChange={e => onChange({ ...filters, priceMax: e.target.value })}
                     />
                   </div>
                 </div>

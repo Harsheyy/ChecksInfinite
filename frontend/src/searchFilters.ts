@@ -7,10 +7,12 @@ export interface SearchFilters {
   gradient: string[]
   speed: string[]
   shift: string[]
+  priceMin: string
+  priceMax: string
 }
 
 export function emptySearchFilters(): SearchFilters {
-  return { checks: [], colorBand: [], gradient: [], speed: [], shift: [] }
+  return { checks: [], colorBand: [], gradient: [], speed: [], shift: [], priceMin: '', priceMax: '' }
 }
 
 export function hasActiveSearchFilters(f: SearchFilters): boolean {
@@ -19,6 +21,8 @@ export function hasActiveSearchFilters(f: SearchFilters): boolean {
       || f.gradient.length > 0
       || f.speed.length > 0
       || f.shift.length > 0
+      || !!f.priceMin
+      || !!f.priceMax
 }
 
 export function countActiveSearchFilters(f: SearchFilters): number {
@@ -28,6 +32,7 @@ export function countActiveSearchFilters(f: SearchFilters): number {
   if (f.gradient.length > 0) n++
   if (f.speed.length > 0) n++
   if (f.shift.length > 0) n++
+  if (f.priceMin || f.priceMax) n++
   return n
 }
 
