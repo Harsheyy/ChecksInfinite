@@ -41,10 +41,11 @@ Deno.serve(async (_req: Request) => {
     const onChainSet  = new Set(onChainIds)
     console.log(`On-chain: ${onChainIds.length} tokens in TokenStrategy wallet`)
 
-    // ── 2. DB state ──────────────────────────────────────────────────────────
+    // ── 2. DB state (tokenstr tokens only) ──────────────────────────────────
     const { data: dbRows, error: dbErr } = await supabase
       .from('all_checks')
       .select('token_id')
+      .eq('is_tokenstr', true)
     if (dbErr) throw dbErr
 
     const dbIds  = (dbRows ?? []).map((r: { token_id: number }) => r.token_id)
