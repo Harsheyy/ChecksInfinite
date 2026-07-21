@@ -77,15 +77,21 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
       } else if (from === TOKENSTR_WALLET) {
         // Token left our wallet — delete and clean up permutations
         console.log(`Token ${tokenId} left TokenStrategy wallet — deleting.`)
+        // all_permutations has FK constraints on all_checks — clean up first
         await supabase
-          .from('all_checks')
+          .from('all_permutations')
           .delete()
-          .eq('token_id', tokenId)
+          .or(`keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
 
         await supabase
           .from('permutations')
           .delete()
           .or(`keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
+
+        await supabase
+          .from('all_checks')
+          .delete()
+          .eq('token_id', tokenId)
 
         processed++
       }
@@ -112,7 +118,9 @@ async function fetchEthPrice(tokenId: number, alchemyKey: string): Promise<numbe
   const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
   const result = await ethCall(rpcUrl, TOKEN_STRATEGY_ADDRESS, nftForSaleCalldata(tokenId))
   if (!result) return null
-  return decodeUint256Wei(result)
+  const price = decodeUint256Wei(result)
+  // nftForSale returns 0 for tokens that aren't listed — treat as null
+  return price === 0 ? null : price
 }
 
 async function refetchAndUpsert(
@@ -144,6 +152,9 @@ async function refetchAndUpsert(
     token_id:      tokenId,
     owner,
     is_burned:     isBurned,
+    is_tokenstr:   true,
+    price_source:  ethPrice !== null ? 'contract' : null,
+    is_listed:     ethPrice !== null,
     checks_count:  Number(attrs['Checks'] ?? 0),
     color_band:    attrs['Color Band'] ?? null,
     gradient:      attrs['Gradient'] ?? null,

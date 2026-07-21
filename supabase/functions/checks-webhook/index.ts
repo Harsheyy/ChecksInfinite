@@ -66,17 +66,22 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
       const tokenId = Number(BigInt(log.topics[3]))
 
       if (to.toLowerCase() === ZERO_ADDRESS) {
-        // Burn: mark token as burned
+        // Burn: mark token as burned and clean up permutations
+        // all_permutations has FK constraints — clean it up before the checks row changes
         await supabase
-          .from('all_checks')
-          .update({ is_burned: true, owner: ZERO_ADDRESS, last_synced_at: new Date().toISOString() })
-          .eq('token_id', tokenId)
+          .from('all_permutations')
+          .delete()
+          .or(`keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
 
-        // Clean up permutations where this token was a burner (now invalid)
         await supabase
           .from('permutations')
           .delete()
           .or(`burner_1_id.eq.${tokenId},burner_2_id.eq.${tokenId}`)
+
+        await supabase
+          .from('all_checks')
+          .update({ is_burned: true, owner: ZERO_ADDRESS, is_listed: false, eth_price: null, last_synced_at: new Date().toISOString() })
+          .eq('token_id', tokenId)
 
         console.log(`Token ${tokenId} burned — marked and permutations cleaned.`)
       } else {

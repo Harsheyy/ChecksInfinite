@@ -1,0 +1,17 @@
+# Supabase project config
+# https://supabase.com/docs/guides/cli/config
+
+# ── Edge function settings ────────────────────────────────────────────────────
+# The two cron-invoked functions are called by pg_net from inside the database.
+# pg_net sends a plain HTTP POST with no Authorization header, so we disable
+# JWT verification for these functions only. They are safe to open: both use
+# the service-role key internally and only write to our own tables.
+
+[functions.sync-tokenstr]
+verify_jwt = false
+
+[functions.sync-market-prices]
+verify_jwt = false
+
+# checks-webhook and tokenstr-webhook are called externally by Alchemy and use
+# their own HMAC signature verification — leave JWT enabled for those.

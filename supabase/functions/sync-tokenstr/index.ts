@@ -22,8 +22,8 @@ const CHECKS_CONTRACT = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
 const TOKENSTR_WALLET = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
 const TOKEN_STRATEGY  = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
 
-const PRICE_BATCH     = 50   // parallel nftForSale calls per round
-const NEW_TOKEN_LIMIT = 20   // max new tokens to full-upsert per run (SVG fetch is expensive)
+const PRICE_BATCH     = 20   // parallel nftForSale calls per round (lower = fewer concurrent fetches)
+const NEW_TOKEN_LIMIT = 5    // max new tokens to full-upsert per run (SVG fetch is expensive)
 
 Deno.serve(async (_req: Request) => {
   const supabase = createClient(
@@ -60,30 +60,34 @@ Deno.serve(async (_req: Request) => {
     // ── 4. Remove tokens no longer in wallet ─────────────────────────────────
     for (const tokenId of toDelete) {
       console.log(`Deleting token ${tokenId} (no longer in wallet)`)
-      await supabase.from('all_checks').delete().eq('token_id', tokenId)
+      // all_permutations has FK constraints on all_checks — clean up first
+      await supabase.from('all_permutations').delete().or(
+        `keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`
+      )
       await supabase.from('permutations').delete().or(
         `keeper_1_id.eq.${tokenId},burner_1_id.eq.${tokenId},keeper_2_id.eq.${tokenId},burner_2_id.eq.${tokenId}`
       )
+      await supabase.from('all_checks').delete().eq('token_id', tokenId)
     }
 
     // ── 5. Refresh eth_price for all on-chain tokens ─────────────────────────
+    // Fetch prices in parallel batches, then write each batch in a single bulk
+    // RPC call to avoid N separate PostgREST round-trips.
     let priceUpdates = 0
     for (let i = 0; i < toRefresh.length; i += PRICE_BATCH) {
-      const batch   = toRefresh.slice(i, i + PRICE_BATCH)
-      const prices  = await Promise.all(batch.map(id => fetchEthPrice(id, rpcUrl)))
+      const batch  = toRefresh.slice(i, i + PRICE_BATCH)
+      const prices = await Promise.all(batch.map(id => fetchEthPrice(id, rpcUrl)))
 
-      const updates = batch
-        .map((tokenId, j) => ({ tokenId, ethPrice: prices[j] }))
-        .filter(u => u.ethPrice !== null)
+      const updates = batch.map((tokenId, j) => ({
+        token_id:  tokenId,
+        eth_price: prices[j] ?? null,
+        is_listed: prices[j] !== null,
+      }))
 
-      await Promise.allSettled(
-        updates.map(u =>
-          supabase.from('all_checks')
-            .update({ eth_price: u.ethPrice, last_synced_at: new Date().toISOString() })
-            .eq('token_id', u.tokenId)
-        )
-      )
-      priceUpdates += updates.length
+      const { error } = await supabase.rpc('bulk_update_check_prices', { p_updates: updates })
+      if (error) console.warn(`Bulk price update error (batch ${i}):`, error.message)
+
+      priceUpdates += prices.filter(p => p !== null).length
     }
     console.log(`Updated ${priceUpdates} prices`)
 
@@ -96,12 +100,6 @@ Deno.serve(async (_req: Request) => {
       )
     }
 
-    // ── 7. Recalculate permutation costs ─────────────────────────────────────
-    if (priceUpdates > 0 || toDelete.length > 0 || newToProcess.length > 0) {
-      await supabase.rpc('backfill_permutation_costs')
-      console.log('Permutation costs recalculated')
-    }
-
     const summary = {
       onChain:      onChainIds.length,
       deleted:      toDelete.length,
@@ -111,6 +109,17 @@ Deno.serve(async (_req: Request) => {
     }
 
     await finishLog(supabase, logId, 'done', onChainIds.length)
+
+    // ── 7. Recalculate permutation costs (background, structural changes only) ─
+    // Only needed when tokens are added or removed — price-only changes are
+    // handled per-token by update_permutation_costs inside refetchAndUpsert.
+    // Fire after the response so the HTTP caller never waits on this.
+    if (toDelete.length > 0 || newToProcess.length > 0) {
+      supabase.rpc('backfill_permutation_costs')
+        .then(() => console.log('Permutation costs recalculated'))
+        .catch(e => console.error('Backfill error:', e))
+    }
+
     return new Response(JSON.stringify({ ok: true, ...summary }), {
       headers: { 'Content-Type': 'application/json' },
     })
@@ -181,6 +190,9 @@ async function refetchAndUpsert(
     token_id:       tokenId,
     owner,
     is_burned:      isBurned,
+    is_tokenstr:    true,
+    price_source:   ethPrice !== null ? 'contract' : null,
+    is_listed:      ethPrice !== null,
     checks_count:   Number(attrs['Checks'] ?? 0),
     color_band:     attrs['Color Band'] ?? null,
     gradient:       attrs['Gradient']   ?? null,
@@ -201,7 +213,9 @@ async function refetchAndUpsert(
 async function fetchEthPrice(tokenId: number, rpcUrl: string): Promise<number | null> {
   const result = await ethCall(rpcUrl, TOKEN_STRATEGY, nftForSaleCalldata(tokenId))
   if (!result) return null
-  return decodeUint256Wei(result)
+  const price = decodeUint256Wei(result)
+  // nftForSale returns 0 for tokens that aren't listed — treat as null
+  return price === 0 ? null : price
 }
 
 async function ethCall(rpcUrl: string, to: string, data: string): Promise<string | null> {
