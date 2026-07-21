@@ -311,7 +311,7 @@ export default function App() {
   const showFilters = isCuratedMode
     ? curatedState.outputs.length > 0 || curatedState.loading
     : isExploreMode
-      ? feedPermutations.length > 0 || isLoading
+      ? feedPermutations.length > 0 || isLoading || feedSource === 'opensea'
       : permutations.length > 0
 
   const navbarError = dbMode
@@ -361,6 +361,11 @@ export default function App() {
           {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (
             <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
               {walletOnly ? "You haven't liked any outputs yet." : 'No curated outputs yet. Be the first to like one!'}
+            </div>
+          )}
+          {isExploreMode && feedSource === 'opensea' && !allChecksState.loading && allChecksState.permutations.length === 0 && !allChecksState.error && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
+              No fully purchasable combos right now — prices refresh hourly as listings change on OpenSea.
             </div>
           )}
           <InfiniteGrid
