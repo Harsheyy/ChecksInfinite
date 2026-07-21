@@ -49,6 +49,7 @@ export function useAllChecksPermutations() {
       const { count } = await supabase
         .from('all_permutations')
         .select('*', { count: 'exact', head: true })
+        .eq('is_all_listed', true)
 
       const total  = count ?? 0
       const offset = total > PAGE_SIZE ? Math.floor(Math.random() * (total - PAGE_SIZE)) : 0
@@ -56,6 +57,7 @@ export function useAllChecksPermutations() {
       const { data, error } = await supabase
         .from('all_permutations')
         .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
+        .eq('is_all_listed', true)
         .order('rand_key')
         .range(offset, offset + PAGE_SIZE - 1)
 
