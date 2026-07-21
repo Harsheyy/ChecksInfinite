@@ -26,6 +26,9 @@ supabase/.temp/
 # Ignored directories
 .claude/
 docs/plans/
+docs/superpowers/
 Source/
 .worktrees/
 .superpowers/
+contracts/lib/forge-std/
+contracts/cache/
