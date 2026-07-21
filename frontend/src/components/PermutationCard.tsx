@@ -38,8 +38,6 @@ export function PermutationCard({ result, visible, onClick, likeInfo }: Permutat
   }
 
   const svgReady = !nodeAbcd.loading && !nodeAbcd.error && inView && !!nodeAbcd.svg
-  const isOpenSea = result.fromTokenWorks === false
-  const keeperTokenId = result.def.tokenIds?.[0]
 
   function handleHeartClick(e: React.MouseEvent) {
     e.stopPropagation()  // don't open TreePanel
@@ -52,16 +50,6 @@ export function PermutationCard({ result, visible, onClick, likeInfo }: Permutat
       {nodeAbcd.error && <div className="perm-card-error">✕</div>}
       {svgReady && (
         <div className="perm-card-svg" dangerouslySetInnerHTML={{ __html: nodeAbcd.svg }} />
-      )}
-      {isOpenSea && keeperTokenId && (
-        <a
-          className="perm-card-opensea"
-          href={`https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${keeperTokenId}`}
-          target="_blank"
-          rel="noreferrer"
-          onClick={e => e.stopPropagation()}
-          aria-label="View on OpenSea"
-        >↗</a>
       )}
       {likeInfo && (
         <div
