@@ -13,16 +13,20 @@ interface CheckCardProps {
   compact?: boolean
   hideAttrs?: boolean
   tooltip?: boolean
+  href?: string
 }
 
-export function CheckCard({ name, svg, attributes, loading, error, label, sublabel, compact, hideAttrs, tooltip }: CheckCardProps) {
+export function CheckCard({ name, svg, attributes, loading, error, label, sublabel, compact, hideAttrs, tooltip, href }: CheckCardProps) {
   const displayAttrs = attributes.filter(a => a.trait_type !== 'Day')
   const visibleAttrs = compact
     ? displayAttrs.filter(a => COMPACT_ATTRS.includes(a.trait_type))
     : displayAttrs
 
+  const Tag = href ? 'a' : 'div'
+  const linkProps = href ? { href, target: '_blank', rel: 'noreferrer' } : {}
+
   return (
-    <div className={`check-card${tooltip ? ' check-card--has-tooltip' : ''}`}>
+    <Tag className={`check-card${tooltip ? ' check-card--has-tooltip' : ''}${href ? ' check-card--link' : ''}`} {...linkProps}>
       {(label || sublabel) && (
         <div className="check-card-label-row">
           {label && <span className="check-card-label">{label}</span>}
@@ -61,6 +65,6 @@ export function CheckCard({ name, svg, attributes, loading, error, label, sublab
           )}
         </>
       )}
-    </div>
+    </Tag>
   )
 }

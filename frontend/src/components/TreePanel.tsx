@@ -99,6 +99,11 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
     return s.slice(dot + 1).length <= 3 ? s : s.slice(0, dot + 4)
   }
 
+  function osHref(tokenId: string) {
+    if (!isOpenSea) return undefined
+    return `https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${tokenId}`
+  }
+
   function priceLabel(tokenId: string, idx: number) {
     if (isOpenSea) {
       const ethPrice = result.tokenPrices?.[tokenId]
@@ -200,8 +205,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
           <div className="tree-row-leaves">
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id0, 0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id1, 1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id0, 0)} href={osHref(id0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id1, 1)} href={osHref(id1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1a)} />
@@ -209,8 +214,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
             </div>
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id2, 2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id3, 3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id2, 2)} href={osHref(id2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id3, 3)} href={osHref(id3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1b)} />
@@ -240,35 +245,6 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
           </div>
         )}
 
-        {isOpenSea && (
-          <div className="tree-panel__opensea">
-            <span className="tree-panel__opensea-label">Buy on OpenSea</span>
-            <div className="tree-panel__opensea-links">
-              {([
-                [id0, 'Keeper 1', 0],
-                [id1, 'Burn 1',   1],
-                [id2, 'Keeper 2', 2],
-                [id3, 'Burn 2',   3],
-              ] as [string, string, number][]).map(([id, role, idx]) => {
-                const label = priceLabel(id, idx)
-                return (
-                  <a
-                    key={id}
-                    className="tree-panel__opensea-link"
-                    href={`https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span className="tree-panel__opensea-role">{role}</span>
-                    #{id}
-                    {label && <span className="tree-panel__opensea-price">{label}</span>}
-                    <span className="tree-panel__opensea-arrow">↗</span>
-                  </a>
-                )
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -1202,6 +1202,8 @@ body {
   width: 100%;
 }
 
+.check-card--link { text-decoration: none; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.check-card--link:hover { border-color: #4d9fff; background: #111a26; }
 .check-card-label-row { display: flex; align-items: baseline; gap: 0.35rem; }
 .check-card-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
 .check-card-sublabel { font-size: 0.62rem; color: #aaa; margin-left: auto; }
