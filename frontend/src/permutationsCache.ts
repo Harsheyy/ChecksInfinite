@@ -3,7 +3,7 @@ import type { PermRow } from './usePermutationsDB'
 
 const KEYS = {
   tokenWorks: 'checks-infinite-perms-v3',
-  opensea:    'checks-infinite-perms-opensea-v1',
+  opensea:    'checks-infinite-perms-opensea-v2',
 } as const
 
 const TTL_MS = 10 * 60 * 1000 // 10 minutes
