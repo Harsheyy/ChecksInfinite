@@ -177,7 +177,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
           )}
           {isOpenSea && result.total_cost != null && result.total_cost > 0 && (
             <span className="tree-panel__cost-badge">
-              {result.total_cost.toFixed(3)} ETH
+              Recipe cost: {result.total_cost.toFixed(3)} ETH
             </span>
           )}
           {likeInfo && (
