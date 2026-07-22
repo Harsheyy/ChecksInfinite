@@ -19,7 +19,7 @@ export function initAppKit(): AppKitModal {
     metadata: {
       name: 'Checks Infinite',
       description: 'Checks VV permutation browser',
-      url: 'https://checksinfinite.vercel.app',
+      url: 'https://checks.wiki',
       icons: [],
     },
     themeMode: 'dark',
