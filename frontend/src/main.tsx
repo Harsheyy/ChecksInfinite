@@ -17,3 +17,14 @@ createRoot(document.getElementById('root')!).render(
     </WagmiProvider>
   </StrictMode>,
 )
+
+// Prefetch + init the AppKit modal off the critical path: wallet session
+// auto-reconnect needs createAppKit to have run, but the ~1.6 MB UI chunk
+// must not block first paint. Safari has no requestIdleCallback.
+const idle: (cb: () => void) => void =
+  'requestIdleCallback' in window
+    ? cb => requestIdleCallback(cb)
+    : cb => setTimeout(cb, 1500)
+idle(() => {
+  import('./appkit').then(m => m.initAppKit())
+})

@@ -1,6 +1,5 @@
 import { type FormEvent, useState, useRef, useEffect } from 'react'
 import { useAccount, useEnsName } from 'wagmi'
-import { useAppKit } from '@reown/appkit/react'
 
 type ViewMode = 'explore' | 'search' | 'curated'
 
@@ -22,7 +21,6 @@ interface NavbarProps {
 
 export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
-  const { open }                 = useAppKit()
   const { data: ensName }        = useEnsName({ address })
 
   const [dropOpen, setDropOpen] = useState(false)
@@ -48,12 +46,11 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
     onPreview()
   }
 
-  function handleWallet() {
-    if (isConnected) {
-      open({ view: 'Account' })  // account modal: disconnect, copy address
-    } else {
-      open({ view: 'Connect' })
-    }
+  async function handleWallet() {
+    // Dynamic import keeps the AppKit chunk lazy; if the idle prefetch
+    // already ran this resolves instantly.
+    const { openWalletModal } = await import('../appkit')
+    await openWalletModal(isConnected ? 'Account' : 'Connect')
   }
 
   return (
