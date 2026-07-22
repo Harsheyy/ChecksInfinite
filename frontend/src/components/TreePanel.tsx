@@ -143,7 +143,17 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
     return 'Mint Recipe'
   })()
 
-  const buttonDisabled = !isConnected || quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed || insufficientBalance
+  // Disconnected stays clickable — the button becomes a connect prompt
+  const buttonDisabled = isConnected && (quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed || insufficientBalance)
+
+  async function handleMintOrConnect() {
+    if (!isConnected) {
+      const { openWalletModal } = await import('../appkit')
+      await openWalletModal('Connect')
+      return
+    }
+    handleMint()
+  }
 
   return (
     <div className="tree-panel">
@@ -164,7 +174,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
               <button
                 className="tree-panel__mint-button"
                 disabled={buttonDisabled}
-                onClick={handleMint}
+                onClick={handleMintOrConnect}
               >
                 {buttonLabel}
               </button>

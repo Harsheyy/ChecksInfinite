@@ -22,9 +22,13 @@ interface Props {
   getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
   tokenPriceMap?: Map<string, bigint>
   topPx?: number  // override grid-viewport top (pixels from viewport top)
+  // Deep link: open the permutation with these 4 token IDs once the feed is in
+  initialSelectedIds?: string[] | null
+  // Reports the open panel's token IDs (null when closed) for URL mirroring
+  onSelectedChange?: (tokenIds: string[] | null) => void
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -36,6 +40,26 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
     [permutations, showFlags]
   )
   const N = visible.length
+
+  // ── Deep-link bridge: token-ID selection ⇄ index-based selection ─────────
+  // Apply the initial ?recipe= selection exactly once, after the feed arrives.
+  const appliedInitial = useRef(!initialSelectedIds)
+  useEffect(() => {
+    if (appliedInitial.current || !initialSelectedIds || N === 0) return
+    appliedInitial.current = true
+    const idx = visible.findIndex(p =>
+      p.def.tokenIds && p.def.tokenIds.join(',') === initialSelectedIds.join(',')
+    )
+    if (idx >= 0) setSelected(idx)
+    else onSelectedChange?.(null)  // recipe gone from feed — drop the param
+  }, [visible, N, initialSelectedIds, onSelectedChange])
+
+  // Mirror open/close up for URL sync (skip while a deep link is still pending)
+  const selectedPermForSync = selected !== null ? visible[selected] ?? null : null
+  useEffect(() => {
+    if (!onSelectedChange || !appliedInitial.current) return
+    onSelectedChange(selectedPermForSync?.def.tokenIds ?? null)
+  }, [selectedPermForSync, onSelectedChange])
 
   // Fixed-width grid capped at MAX_COLS — gives a ~50×50 layout for 2500 items
   const cols = N > 0 ? Math.min(MAX_COLS, Math.ceil(Math.sqrt(N))) : 1

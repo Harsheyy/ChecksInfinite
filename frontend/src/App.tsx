@@ -1,5 +1,6 @@
 // frontend/src/App.tsx
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useAccount, useReadContracts } from 'wagmi'
 import { formatEther } from 'viem'
 import { Navbar } from './components/Navbar'
@@ -26,21 +27,31 @@ export default function App() {
   const { address, isConnected } = useAccount()
   useWalletTracking(address, isConnected)
 
-  // ── View mode ────────────────────────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<'explore' | 'search' | 'curated'>('explore')
+  // ── View mode — derived from the URL path ───────────────────────────────────
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const viewMode: 'explore' | 'search' | 'curated' =
+    pathname === '/curated' ? 'curated' : pathname === '/search' ? 'search' : 'explore'
+  const feedSource: FeedSource = pathname === '/opensea' ? 'opensea' : 'token-works'
   const [walletOnly, setWalletOnly] = useState(false)
 
-  // Source filter for the Explore tab: token-works | opensea
-  const [feedSource, setFeedSource] = useState<FeedSource>('token-works')
-
-  // On disconnect: reset view; feedSource stays what it was until explicitly changed
+  // Clicking "Explore" returns to whichever source the user last browsed
+  const lastExploreSource = useRef<FeedSource>(feedSource)
   useEffect(() => {
-    if (!isConnected) {
-      setViewMode('explore')
-      setWalletOnly(false)
-      setFeedSource('token-works')
-    }
-  }, [isConnected])  // eslint-disable-line react-hooks/exhaustive-deps
+    if (viewMode === 'explore') lastExploreSource.current = feedSource
+  }, [viewMode, feedSource])
+
+  const handleViewModeChange = useCallback((mode: 'explore' | 'search' | 'curated') => {
+    navigate(mode === 'explore'
+      ? (lastExploreSource.current === 'opensea' ? '/opensea' : '/tokenworks')
+      : `/${mode}`)
+  }, [navigate])
+
+  const handleFeedSourceChange = useCallback((v: FeedSource) => {
+    navigate(v === 'opensea' ? '/opensea' : '/tokenworks')
+  }, [navigate])
 
   // ── Chain mode state ──────────────────────────────────────────────────────
   const [idsRaw, setIdsRaw] = useState('')
@@ -49,6 +60,63 @@ export default function App() {
 
   // ── Shared filter state ───────────────────────────────────────────────────
   const [filters, setFilters] = useState<Filters>(emptyFilters())
+
+  // ── URL ⇄ state sync ──────────────────────────────────────────────────────
+  // Read once on first render: URL is the source of truth for a shared link.
+  const didInitFromUrl = useRef(false)
+  useEffect(() => {
+    if (didInitFromUrl.current) return
+    didInitFromUrl.current = true
+    const f = emptyFilters()
+    f.checks    = searchParams.get('checks')   ?? ''
+    f.colorBand = searchParams.get('band')     ?? ''
+    f.gradient  = searchParams.get('gradient') ?? ''
+    f.speed     = searchParams.get('speed')    ?? ''
+    f.shift     = searchParams.get('shift')    ?? ''
+    f.priceMin  = searchParams.get('pmin')     ?? ''
+    f.priceMax  = searchParams.get('pmax')     ?? ''
+    const idsParam = searchParams.get('ids')
+    if (idsParam) f.selectedIds = idsParam.split(',').filter(s => /^\d+$/.test(s))
+    setFilters(f)
+    if (searchParams.get('mine') === '1') setWalletOnly(true)
+  }, [searchParams])
+
+  // Write back on change (replace — filter tweaks shouldn't pile up history).
+  // Only touches its own keys, so `recipe` survives untouched.
+  useEffect(() => {
+    if (!didInitFromUrl.current) return
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      const setOrDel = (k: string, v: string) => { if (v) next.set(k, v); else next.delete(k) }
+      setOrDel('checks',   filters.checks)
+      setOrDel('band',     filters.colorBand)
+      setOrDel('gradient', filters.gradient)
+      setOrDel('speed',    filters.speed)
+      setOrDel('shift',    filters.shift)
+      setOrDel('ids',      filters.selectedIds.join(','))
+      setOrDel('pmin',     filters.priceMin)
+      setOrDel('pmax',     filters.priceMax)
+      setOrDel('mine',     walletOnly ? '1' : '')
+      return next.toString() === prev.toString() ? prev : next
+    }, { replace: true })
+  }, [filters, walletOnly, setSearchParams])
+
+  // Recipe deep link: ?recipe=k1,b1,k2,b2 opens that output's tree panel
+  const recipeParam = searchParams.get('recipe')
+  const initialRecipeIds = useMemo(() => {
+    if (!recipeParam) return null
+    const parts = recipeParam.split(',')
+    return parts.length === 4 && parts.every(p => /^\d+$/.test(p)) ? parts : null
+  }, [recipeParam])
+
+  const handleSelectedRecipeChange = useCallback((tokenIds: string[] | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (tokenIds) next.set('recipe', tokenIds.join(','))
+      else next.delete('recipe')
+      return next.toString() === prev.toString() ? prev : next
+    }, { replace: true })
+  }, [setSearchParams])
 
   // ── DB / Token Works feed ─────────────────────────────────────────────────
   const { state: dbState, loadRandom, shuffle: shuffleDB } = usePermutationsDB()
@@ -327,12 +395,33 @@ export default function App() {
         onPreview={dbMode ? () => {} : handlePreview}
         dbMode={dbMode}
         viewMode={dbMode ? viewMode : undefined}
-        onViewModeChange={dbMode ? setViewMode : undefined}
+        onViewModeChange={dbMode ? handleViewModeChange : undefined}
       />
       {isSearchMode ? (
-        <SearchPage
-          getLikeInfo={dbMode ? (r, source) => getLikeInfo(r, source) : undefined}
-        />
+        isConnected ? (
+          <SearchPage
+            getLikeInfo={dbMode ? (r, source) => getLikeInfo(r, source) : undefined}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '6rem 1.5rem', color: '#888' }}>
+            <div style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#ccc' }}>
+              Search is wallet-powered
+            </div>
+            <div style={{ fontSize: '0.85rem', marginBottom: '1.5rem', maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto' }}>
+              Connect your wallet to search permutations built from your own Checks.
+            </div>
+            <button
+              type="button"
+              className="nav-wallet"
+              onClick={async () => {
+                const { openWalletModal } = await import('./appkit')
+                await openWalletModal('Connect')
+              }}
+            >
+              Connect Wallet
+            </button>
+          </div>
+        )
       ) : (
         <>
           {navbarError && (
@@ -354,8 +443,8 @@ export default function App() {
               isConnected={isConnected}
               hideIdFilter={isCuratedMode}
               priceRange={feedSource === 'opensea' ? openSeaPriceRange : priceRange}
-              feedSource={isExploreMode && isConnected ? feedSource : undefined}
-              onFeedSourceChange={isExploreMode && isConnected ? setFeedSource : undefined}
+              feedSource={isExploreMode ? feedSource : undefined}
+              onFeedSourceChange={isExploreMode ? handleFeedSourceChange : undefined}
             />
           )}
           {isCuratedMode && !curatedState.loading && curatedState.outputs.length === 0 && (
@@ -379,6 +468,8 @@ export default function App() {
             filtersTall={false}
             getLikeInfo={dbMode ? getLikeInfo : undefined}
             tokenPriceMap={tokenPriceMap}
+            initialSelectedIds={dbMode ? initialRecipeIds : null}
+            onSelectedChange={dbMode ? handleSelectedRecipeChange : undefined}
           />
           {(dbMode && isLoading) && (
             <div style={{

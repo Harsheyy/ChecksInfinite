@@ -35,11 +35,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
     return () => document.removeEventListener('mousedown', handler)
   }, [dropOpen])
 
-  const availableModes: ViewMode[] = [
-    'explore',
-    ...(isConnected ? ['search' as ViewMode] : []),
-    'curated',
-  ]
+  const availableModes: ViewMode[] = ['explore', 'search', 'curated']
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -90,12 +86,10 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
               className={`view-toggle-btn${viewMode === 'explore' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('explore')}
             >Explore</button>
-            {isConnected && (
-              <button
-                className={`view-toggle-btn${viewMode === 'search' ? ' view-toggle-btn--active' : ''}`}
-                onClick={() => onViewModeChange('search')}
-              >Search</button>
-            )}
+            <button
+              className={`view-toggle-btn${viewMode === 'search' ? ' view-toggle-btn--active' : ''}`}
+              onClick={() => onViewModeChange('search')}
+            >Search</button>
             <button
               className={`view-toggle-btn${viewMode === 'curated' ? ' view-toggle-btn--active' : ''}`}
               onClick={() => onViewModeChange('curated')}
