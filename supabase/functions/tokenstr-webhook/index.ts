@@ -29,19 +29,21 @@ const TOKEN_STRATEGY_ADDRESS = '0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 
 Deno.serve(async (req: Request) => {
+  // Fail closed: without the signing key we cannot authenticate payloads,
+  // so refuse everything rather than accepting unsigned requests.
   const signingKey = Deno.env.get('TOKENSTR_WEBHOOK_SIGNING_KEY')
-  if (signingKey) {
-    const signature = req.headers.get('x-alchemy-signature')
-    const body      = await req.text()
-    const valid     = await verifyAlchemySignature(body, signature ?? '', signingKey)
-    if (!valid) {
-      return new Response('Unauthorized', { status: 401 })
-    }
-    return handlePayload(JSON.parse(body))
+  if (!signingKey) {
+    console.error('TOKENSTR_WEBHOOK_SIGNING_KEY not set — rejecting request')
+    return new Response('Webhook signing key not configured', { status: 500 })
   }
 
-  const payload = await req.json()
-  return handlePayload(payload)
+  const signature = req.headers.get('x-alchemy-signature')
+  const body      = await req.text()
+  const valid     = await verifyAlchemySignature(body, signature ?? '', signingKey)
+  if (!valid) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+  return handlePayload(JSON.parse(body))
 })
 
 async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> {
@@ -272,10 +274,20 @@ async function verifyAlchemySignature(
     const computed = Array.from(new Uint8Array(sig))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
-    return computed === signature
+    return timingSafeEqual(computed, signature)
   } catch {
     return false
   }
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const ab  = enc.encode(a)
+  const bb  = enc.encode(b)
+  if (ab.length !== bb.length) return false
+  let diff = 0
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
+  return diff === 0
 }
 
 // ─── sync_log helpers ─────────────────────────────────────────────────────────

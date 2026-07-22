@@ -8,11 +8,11 @@
  *   4. Call sync_all_listed_permutations() to refresh is_all_listed on all_permutations
  *
  * Deploy:   supabase functions deploy sync-market-prices
- * Schedule: supabase/migrations/018_market_prices_cron.sql (pg_cron, hourly at :15)
- * Manual:   POST /functions/v1/sync-market-prices
+ * Schedule: supabase/migrations/025_cron_auth.sql (pg_cron, hourly at :15)
+ * Manual:   POST /functions/v1/sync-market-prices with header x-cron-secret: <CRON_SECRET>
  *
  * Required secrets (set in Supabase dashboard → Edge Functions → Secrets):
- *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENSEA_API_KEY
+ *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENSEA_API_KEY, CRON_SECRET
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -21,7 +21,18 @@ const COLLECTION_SLUG  = 'vv-checks-originals'
 const CHECKS_CONTRACT  = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
 const DB_BATCH         = 500
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  // This function is deployed with JWT verification off (pg_net can't sign
+  // JWTs), so gate it with a shared secret instead. Fail closed if unset.
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  if (!cronSecret) {
+    console.error('CRON_SECRET not set — rejecting request')
+    return new Response('CRON_SECRET not configured', { status: 500 })
+  }
+  if (!timingSafeEqual(req.headers.get('x-cron-secret') ?? '', cronSecret)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -179,4 +190,16 @@ async function finishLog(
       finished_at:      new Date().toISOString(),
     })
     .eq('id', id)
+}
+
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const ab  = enc.encode(a)
+  const bb  = enc.encode(b)
+  if (ab.length !== bb.length) return false
+  let diff = 0
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
+  return diff === 0
 }
