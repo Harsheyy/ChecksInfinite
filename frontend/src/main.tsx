@@ -15,11 +15,13 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
-            <Route path="/tokenworks" element={<App />} />
+            <Route path="/" element={<App />} />
             <Route path="/opensea" element={<App />} />
             <Route path="/curated" element={<App />} />
             <Route path="/search" element={<App />} />
-            <Route path="*" element={<Navigate to="/tokenworks" replace />} />
+            {/* legacy path from the first release of shareable URLs */}
+            <Route path="/tokenworks" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>

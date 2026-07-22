@@ -45,12 +45,12 @@ export default function App() {
 
   const handleViewModeChange = useCallback((mode: 'explore' | 'search' | 'curated') => {
     navigate(mode === 'explore'
-      ? (lastExploreSource.current === 'opensea' ? '/opensea' : '/tokenworks')
+      ? (lastExploreSource.current === 'opensea' ? '/opensea' : '/')
       : `/${mode}`)
   }, [navigate])
 
   const handleFeedSourceChange = useCallback((v: FeedSource) => {
-    navigate(v === 'opensea' ? '/opensea' : '/tokenworks')
+    navigate(v === 'opensea' ? '/opensea' : '/')
   }, [navigate])
 
   // ── Chain mode state ──────────────────────────────────────────────────────
@@ -405,10 +405,10 @@ export default function App() {
         ) : (
           <div style={{ textAlign: 'center', padding: '6rem 1.5rem', color: '#888' }}>
             <div style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#ccc' }}>
-              Search is wallet-powered
+              Connect your wallet
             </div>
             <div style={{ fontSize: '0.85rem', marginBottom: '1.5rem', maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto' }}>
-              Connect your wallet to search permutations built from your own Checks.
+              You need to connect your wallet to use Search.
             </div>
             <button
               type="button"
