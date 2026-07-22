@@ -106,8 +106,8 @@ async function handlePayload(payload: AlchemyWebhookPayload): Promise<Response> 
     })
   } catch (err) {
     console.error('Webhook error:', err)
-    await finishLog(supabase, logId, 'error', 0, String(err))
-    return new Response(JSON.stringify({ error: String(err) }), {
+    await finishLog(supabase, logId, 'error', 0, errMsg(err))
+    return new Response(JSON.stringify({ error: errMsg(err) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -299,6 +299,12 @@ async function startLog(supabase: ReturnType<typeof createClient>): Promise<numb
     .select('id')
     .single()
   return data?.id ?? 0
+}
+
+// Postgrest errors are plain objects, not Errors — String() would log "[object Object]"
+function errMsg(err: unknown): string {
+  if (err instanceof Error) return err.message
+  try { return JSON.stringify(err) } catch { return String(err) }
 }
 
 async function finishLog(

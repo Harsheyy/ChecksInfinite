@@ -137,8 +137,8 @@ Deno.serve(async (req: Request) => {
     })
   } catch (err) {
     console.error('Sync error:', err)
-    await finishLog(supabase, logId, 'error', 0, String(err))
-    return new Response(JSON.stringify({ error: String(err) }), {
+    await finishLog(supabase, logId, 'error', 0, errMsg(err))
+    return new Response(JSON.stringify({ error: errMsg(err) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -300,6 +300,12 @@ function hexToUtf8(hex: string): string {
 }
 
 // ─── sync_log helpers ─────────────────────────────────────────────────────────
+
+// Postgrest errors are plain objects, not Errors — String() would log "[object Object]"
+function errMsg(err: unknown): string {
+  if (err instanceof Error) return err.message
+  try { return JSON.stringify(err) } catch { return String(err) }
+}
 
 async function startLog(supabase: ReturnType<typeof createClient>): Promise<number> {
   const { data } = await supabase
