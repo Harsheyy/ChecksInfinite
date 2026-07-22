@@ -1,5 +1,6 @@
 import { type FormEvent, useState, useRef, useEffect } from 'react'
-import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi'
+import { useAccount, useEnsName } from 'wagmi'
+import { useAppKit } from '@reown/appkit/react'
 
 type ViewMode = 'explore' | 'search' | 'curated'
 
@@ -21,8 +22,7 @@ interface NavbarProps {
 
 export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
-  const { connect, connectors }  = useConnect()
-  const { disconnect }           = useDisconnect()
+  const { open }                 = useAppKit()
   const { data: ensName }        = useEnsName({ address })
 
   const [dropOpen, setDropOpen] = useState(false)
@@ -50,10 +50,9 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
 
   function handleWallet() {
     if (isConnected) {
-      disconnect()
+      open({ view: 'Account' })  // account modal: disconnect, copy address
     } else {
-      const connector = connectors.find(c => c.id === 'injected') ?? connectors[0]
-      if (connector) connect({ connector })
+      open({ view: 'Connect' })
     }
   }
 
