@@ -141,20 +141,6 @@ async function main() {
   const structCache = new Map<number, CheckStruct>()
   const colorBandCache = new Map<number, string | null>()
 
-  async function getStruct(id: number): Promise<CheckStruct | null> {
-    const cached = structCache.get(id)
-    if (cached) return cached
-    const { data, error } = await supabase
-      .from('all_checks')
-      .select('check_struct')
-      .eq('token_id', id)
-      .single()
-    if (error || !data) return null
-    const s = checkStructFromJSON(data.check_struct as CheckStructJSON)
-    structCache.set(id, s)
-    return s
-  }
-
   let scanned = 0
   let offset = 0
 
