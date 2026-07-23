@@ -147,6 +147,17 @@ export interface CuratedState {
   error: string
 }
 
+// Different token combos can render the exact same composite (this is
+// common now that many liked outputs come from the Patterns tab, where a
+// single visual pattern often has many possible recipes) — dedupe by the
+// actual rendered colors, not by token IDs, so the grid never shows the
+// same-looking output twice. Same fill-extraction approach as
+// usePatternCatalog.ts's accent-color derivation.
+const HEX_FILL_RE = /fill="(#[0-9A-Fa-f]{6})"/g
+function visualSignature(svg: string): string {
+  return [...svg.matchAll(HEX_FILL_RE)].map(m => m[1]).join(',')
+}
+
 export function useCuratedOutputs() {
   const [state, setState] = useState<CuratedState>({
     outputs: [],
@@ -199,7 +210,19 @@ export function useCuratedOutputs() {
         fromTokenWorks: o.def.tokenIds!.every(id => tokenWorksSet.has(Number(id))),
       }))
 
-      setState({ outputs: outputsTagged, loading: false, error: '' })
+      // Results are already ordered like_count DESC, first_liked_at DESC —
+      // keeping the first occurrence of each signature keeps the
+      // more-liked/earlier one when two combos render identically.
+      const seenSignatures = new Set<string>()
+      const deduped = outputsTagged.filter(o => {
+        const sig = visualSignature(o.nodeAbcd.svg)
+        if (!sig) return true  // empty/failed render — don't dedupe on a blank signature
+        if (seenSignatures.has(sig)) return false
+        seenSignatures.add(sig)
+        return true
+      })
+
+      setState({ outputs: deduped, loading: false, error: '' })
     } catch (e) {
       setState({ outputs: [], loading: false, error: String(e) })
     }
