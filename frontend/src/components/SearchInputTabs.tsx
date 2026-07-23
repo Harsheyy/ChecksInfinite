@@ -1,7 +1,7 @@
 // frontend/src/components/SearchInputTabs.tsx
 import { isValidAddress } from '../utils'
 
-export type SearchInputMode = 'ids' | 'wallet'
+export type SearchInputMode = 'ids' | 'wallet' | 'patterns'
 
 interface SearchInputTabsProps {
   mode: SearchInputMode
@@ -63,6 +63,13 @@ export function SearchInputTabs({
           className={`search-tabs__tab${mode === 'wallet' ? ' search-tabs__tab--on' : ''}`}
           onClick={() => onModeChange('wallet')}
         >Wallet</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'patterns'}
+          className={`search-tabs__tab${mode === 'patterns' ? ' search-tabs__tab--on' : ''}`}
+          onClick={() => onModeChange('patterns')}
+        >Patterns</button>
       </div>
 
       {mode === 'ids' && (

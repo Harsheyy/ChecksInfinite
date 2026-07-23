@@ -4,6 +4,7 @@ import { useAccount } from 'wagmi'
 import { InfiniteGrid } from './InfiniteGrid'
 import { TraitMultiSelect } from './TraitMultiSelect'
 import { SearchInputTabs, parseIds, type SearchInputMode } from './SearchInputTabs'
+import { PatternsBrowse } from './PatternsBrowse'
 import {
   emptySearchFilters,
   hasActiveSearchFilters,
@@ -339,6 +340,27 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       </div>
     </>
   )
+
+  if (mode === 'patterns') {
+    return (
+      <div className="searchpage">
+        <div className="searchpage__form" style={{ marginBottom: 0 }}>
+          <SearchInputTabs
+            mode={mode}
+            onModeChange={setMode}
+            idsRaw={idsRaw}
+            onIdsRawChange={setIdsRaw}
+            walletRaw={walletRaw}
+            onWalletRawChange={setWalletRaw}
+            walletConnectedAddress={isConnected ? address : undefined}
+            onUseMyWallet={handleUseMyWallet}
+            loading={false}
+          />
+        </div>
+        <PatternsBrowse />
+      </div>
+    )
+  }
 
   return (
     <>
