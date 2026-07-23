@@ -28,7 +28,7 @@ import {
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
 const PAGE_SIZE            = 1000
-const MAX_SCANNED          = 100_000  // safety cap on all_permutations rows scanned
+const MAX_SCANNED          = 300_000  // safety cap on all_permutations rows scanned
 const MAX_RECIPES_PER_PATTERN = 20
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -139,6 +139,7 @@ async function main() {
 
   const patterns = new Map<string, { entry: PatternCatalogEntry }>()
   const structCache = new Map<number, CheckStruct>()
+  const colorBandCache = new Map<number, string | null>()
 
   async function getStruct(id: number): Promise<CheckStruct | null> {
     const cached = structCache.get(id)
@@ -177,11 +178,12 @@ async function main() {
     if (idsNeeded.length > 0) {
       const { data: structRows, error: structErr } = await supabase
         .from('all_checks')
-        .select('token_id, check_struct')
+        .select('token_id, check_struct, color_band')
         .in('token_id', idsNeeded)
       if (structErr) throw structErr
-      for (const row of (structRows ?? []) as { token_id: number; check_struct: CheckStructJSON }[]) {
+      for (const row of (structRows ?? []) as { token_id: number; check_struct: CheckStructJSON; color_band: string | null }[]) {
         structCache.set(row.token_id, checkStructFromJSON(row.check_struct))
+        colorBandCache.set(row.token_id, row.color_band)
       }
     }
 
@@ -192,6 +194,13 @@ async function main() {
       const s2 = structCache.get(row.keeper_2_id)
       const s3 = structCache.get(row.burner_2_id)
       if (!s0 || !s1 || !s2 || !s3) continue
+
+      const lowBandCount = [row.keeper_1_id, row.burner_1_id, row.keeper_2_id, row.burner_2_id]
+        .filter(id => {
+          const band = colorBandCache.get(id)
+          return band === 'One' || band === 'Five' || band === 'Ten'
+        }).length
+      if (lowBandCount < 3) continue
 
       let classification: Classification | null
       try {
