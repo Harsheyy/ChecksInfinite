@@ -1,13 +1,22 @@
 /**
  * build-pattern-catalog.ts
  *
- * Scans all_permutations for 20-check composites whose rendered pattern
- * uses <=3 unique hex colors with a 3-6 cell minority cluster, groups
- * matches by visual pattern signature, and uploads patterns.json to the
- * public `pattern-catalog` Storage bucket.
+ * Randomly samples 20-check composites built from a targeted band mix (2-3
+ * One-band input tokens + the remaining slots from Eighty/Twenty-band —
+ * the combination the July-21 research session found actually produces
+ * low-color-count composites), classifies each for <=3 unique hex colors
+ * with a 3-6 cell minority cluster, groups matches by visual pattern
+ * signature, and uploads patterns.json to the public `pattern-catalog`
+ * Storage bucket.
  *
- * Not automated — all_permutations itself has no nightly refresh (see
- * README.md); re-run this manually after each `npm run populate-market`.
+ * Earlier version scanned the existing (general-population) all_permutations
+ * table — that sample is dominated by common Eighty-band composites and
+ * essentially never lands on <=3 colors. Sampling directly from band-filtered
+ * all_checks pools, restricted to checks_count=80 (where One/Twenty/Eighty
+ * bands all coexist — see live counts checked 2026-07-23: One=115,
+ * Twenty=280, Eighty=963 tokens at checks_count=80), finds real patterns.
+ *
+ * Not automated — re-run manually; live supply changes as tokens burn.
  *
  * Usage: npm run build-pattern-catalog
  */
@@ -19,17 +28,18 @@ import {
   computeL2,
   buildL2RenderMap,
   colorIndexes,
-  EIGHTY_COLORS,
   mapCheckAttributes,
+  EIGHTY_COLORS,
   type CheckStruct,
   type CheckStructJSON,
 } from '../lib/engine.js'
 
 const SUPABASE_URL         = process.env.SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!
-const PAGE_SIZE            = 1000
-const MAX_SCANNED          = 300_000  // safety cap on all_permutations rows scanned
-const MAX_RECIPES_PER_PATTERN = 20
+const SAMPLE_TARGET        = 200_000  // candidate 4-token combos to try
+const MAX_RECIPES_PER_PATTERN = 10
+const MAX_PATTERNS_IN_CATALOG = 500   // keep only the rarest — a browse list, not a dump
+const POOL_CHECKS_COUNT    = 80       // generation where One/Twenty/Eighty bands overlap
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Missing env vars. Set SUPABASE_URL, SUPABASE_SERVICE_KEY in backend/.env')
@@ -38,17 +48,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-interface PermRow {
-  keeper_1_id: number
-  burner_1_id: number
-  keeper_2_id: number
-  burner_2_id: number
-  abcd_checks: number | null
-  abcd_color_band: string | null
-  abcd_gradient: string | null
-  abcd_speed: string | null
-  abcd_shift: string | null
-  total_cost: number | null
+interface PoolToken {
+  id: number
+  struct: CheckStruct
+  price: number | null
 }
 
 interface PatternRecipe {
@@ -80,6 +83,10 @@ interface Classification {
   minoritySize: number
   nColors: 2 | 3
   colors: string[]
+  abcdColorBand: string | null
+  abcdGradient: string | null
+  abcdSpeed: string | null
+  abcdShift: string | null
 }
 
 function classify(
@@ -93,7 +100,8 @@ function classify(
   const virtualMap = buildL2RenderMap(l1aStruct, l1bStruct, s1, s3)
 
   const abcdAttrs = mapCheckAttributes(abcdStruct)
-  const checksCount = Number(abcdAttrs.find(a => a.trait_type === 'Checks')?.value ?? 0)
+  const getAttr = (name: string) => abcdAttrs.find(a => a.trait_type === name)?.value ?? null
+  const checksCount = Number(getAttr('Checks') ?? 0)
   if (checksCount !== 20) return null
 
   let colorIdxs: number[]
@@ -129,130 +137,169 @@ function classify(
     minoritySize: minorityCells.length,
     nColors: sorted.length as 2 | 3,
     colors: thirdHex ? [majorityHex, minorityHex, thirdHex] : [majorityHex, minorityHex],
+    abcdColorBand: getAttr('Color Band'),
+    abcdGradient:  getAttr('Gradient'),
+    abcdSpeed:     getAttr('Speed'),
+    abcdShift:     getAttr('Shift'),
   }
+}
+
+// ─── Band-targeted candidate pools ────────────────────────────────────────────
+
+async function loadPool(bands: string[]): Promise<PoolToken[]> {
+  const { data, error } = await supabase
+    .from('all_checks')
+    .select('token_id, check_struct, eth_price')
+    .in('color_band', bands)
+    .eq('checks_count', POOL_CHECKS_COUNT)
+    .eq('is_burned', false)
+  if (error) throw error
+  return (data ?? []).map(r => ({
+    id:     r.token_id as number,
+    struct: checkStructFromJSON(r.check_struct as CheckStructJSON),
+    price:  (r.eth_price as number | null) ?? null,
+  }))
+}
+
+function randomInt(max: number): number {
+  return Math.floor(Math.random() * max)
+}
+
+// Pick `count` distinct tokens from a pool via partial Fisher-Yates on a
+// scratch index array — avoids rejection-sampling collisions on small pools.
+function pickDistinct(pool: PoolToken[], count: number): PoolToken[] {
+  const idx = pool.map((_, i) => i)
+  for (let i = 0; i < count; i++) {
+    const j = i + randomInt(idx.length - i)
+    ;[idx[i], idx[j]] = [idx[j], idx[i]]
+  }
+  return idx.slice(0, count).map(i => pool[i])
+}
+
+function fisherYates<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// One random 4-token candidate: 2 or 3 from onePool, the rest from restPool,
+// shuffled into the 4 (keeper1, burner1, keeper2, burner2) roles.
+function sampleCandidate(onePool: PoolToken[], restPool: PoolToken[]): PoolToken[] | null {
+  const oneCount = 2 + randomInt(2)  // 2 or 3
+  const restCount = 4 - oneCount
+  if (onePool.length < oneCount || restPool.length < restCount) return null
+  const chosen = [...pickDistinct(onePool, oneCount), ...pickDistinct(restPool, restCount)]
+  return fisherYates(chosen)
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('Loading candidate all_permutations rows (abcd_checks = 20)…')
-
-  const patterns = new Map<string, { entry: PatternCatalogEntry }>()
-  const structCache = new Map<number, CheckStruct>()
-  const colorBandCache = new Map<number, string | null>()
-
-  let scanned = 0
-  let offset = 0
-
-  while (scanned < MAX_SCANNED) {
-    const { data, error } = await supabase
-      .from('all_permutations')
-      .select('keeper_1_id, burner_1_id, keeper_2_id, burner_2_id, abcd_checks, abcd_color_band, abcd_gradient, abcd_speed, abcd_shift, total_cost')
-      .eq('abcd_checks', 20)
-      .range(offset, offset + PAGE_SIZE - 1)
-
-    if (error) throw error
-    if (!data || data.length === 0) break
-
-    const rows = data as PermRow[]
-
-    // Batch-fetch structs for every token in this page not already cached
-    const idsNeeded = [...new Set(
-      rows.flatMap(r => [r.keeper_1_id, r.burner_1_id, r.keeper_2_id, r.burner_2_id])
-        .filter(id => !structCache.has(id))
-    )]
-    if (idsNeeded.length > 0) {
-      const { data: structRows, error: structErr } = await supabase
-        .from('all_checks')
-        .select('token_id, check_struct, color_band')
-        .in('token_id', idsNeeded)
-      if (structErr) throw structErr
-      for (const row of (structRows ?? []) as { token_id: number; check_struct: CheckStructJSON; color_band: string | null }[]) {
-        structCache.set(row.token_id, checkStructFromJSON(row.check_struct))
-        colorBandCache.set(row.token_id, row.color_band)
-      }
-    }
-
-    for (const row of rows) {
-      scanned++
-      const s0 = structCache.get(row.keeper_1_id)
-      const s1 = structCache.get(row.burner_1_id)
-      const s2 = structCache.get(row.keeper_2_id)
-      const s3 = structCache.get(row.burner_2_id)
-      if (!s0 || !s1 || !s2 || !s3) continue
-
-      const lowBandCount = [row.keeper_1_id, row.burner_1_id, row.keeper_2_id, row.burner_2_id]
-        .filter(id => {
-          const band = colorBandCache.get(id)
-          return band === 'One' || band === 'Five' || band === 'Ten'
-        }).length
-      if (lowBandCount < 3) continue
-
-      let classification: Classification | null
-      try {
-        classification = classify(s0, row.burner_1_id, s2, row.burner_2_id, s1, s3)
-      } catch {
-        continue
-      }
-      if (!classification) continue
-
-      const recipe: PatternRecipe = {
-        keeper_1_id: row.keeper_1_id,
-        burner_1_id: row.burner_1_id,
-        keeper_2_id: row.keeper_2_id,
-        burner_2_id: row.burner_2_id,
-        abcd_checks: 20,
-        abcd_color_band: row.abcd_color_band,
-        abcd_gradient: row.abcd_gradient,
-        abcd_speed: row.abcd_speed,
-        abcd_shift: row.abcd_shift,
-        total_cost: row.total_cost,
-      }
-
-      const existing = patterns.get(classification.patternKey)
-      if (existing) {
-        if (existing.entry.recipes.length < MAX_RECIPES_PER_PATTERN) {
-          existing.entry.recipes.push(recipe)
-          existing.entry.recipeCount++
-        } else {
-          existing.entry.recipeCount++
-        }
-      } else {
-        patterns.set(classification.patternKey, {
-          entry: {
-            patternKey: classification.patternKey,
-            minoritySize: classification.minoritySize,
-            nColors: classification.nColors,
-            colors: classification.colors,
-            recipeCount: 1,
-            recipes: [recipe],
-          },
-        })
-      }
-    }
-
-    console.log(`Scanned ${scanned} rows, ${patterns.size} distinct patterns so far…`)
-    offset += PAGE_SIZE
-    if (rows.length < PAGE_SIZE) break
+  console.log(`Loading band pools at checks_count=${POOL_CHECKS_COUNT}…`)
+  const onePool  = await loadPool(['One'])
+  const restPool = await loadPool(['Eighty', 'Twenty'])
+  console.log(`One-band pool: ${onePool.length} tokens. Eighty/Twenty pool: ${restPool.length} tokens.`)
+  if (onePool.length < 2 || restPool.length < 1) {
+    console.error('Pools too small to sample a valid 2-3 One-band combo.')
+    process.exit(1)
   }
 
-  // Sort each pattern's recipes cheapest-first; sort patterns rarest-first
-  const entries = [...patterns.values()]
+  const patterns = new Map<string, { entry: PatternCatalogEntry }>()
+  const seen = new Set<string>()
+  let sampled = 0
+  let skippedDuplicate = 0
+
+  while (sampled < SAMPLE_TARGET) {
+    const candidate = sampleCandidate(onePool, restPool)
+    if (!candidate) break
+    const [t0, t1, t2, t3] = candidate  // keeper1, burner1, keeper2, burner2
+
+    const dedupeKey = [t0.id, t1.id, t2.id, t3.id].join(',')
+    if (seen.has(dedupeKey)) { skippedDuplicate++; continue }
+    seen.add(dedupeKey)
+
+    sampled++
+
+    let classification: Classification | null
+    try {
+      classification = classify(t0.struct, t1.id, t2.struct, t3.id, t1.struct, t3.struct)
+    } catch {
+      continue
+    }
+    if (!classification) continue
+
+    const allListed = t0.price !== null && t1.price !== null && t2.price !== null && t3.price !== null
+    const totalCost = allListed ? t0.price! + t1.price! + t2.price! + t3.price! : null
+
+    const recipe: PatternRecipe = {
+      keeper_1_id: t0.id,
+      burner_1_id: t1.id,
+      keeper_2_id: t2.id,
+      burner_2_id: t3.id,
+      abcd_checks: 20,
+      abcd_color_band: classification.abcdColorBand,
+      abcd_gradient:   classification.abcdGradient,
+      abcd_speed:      classification.abcdSpeed,
+      abcd_shift:      classification.abcdShift,
+      total_cost:      totalCost,
+    }
+
+    const existing = patterns.get(classification.patternKey)
+    if (existing) {
+      if (existing.entry.recipes.length < MAX_RECIPES_PER_PATTERN) {
+        existing.entry.recipes.push(recipe)
+      }
+      existing.entry.recipeCount++
+    } else {
+      patterns.set(classification.patternKey, {
+        entry: {
+          patternKey: classification.patternKey,
+          minoritySize: classification.minoritySize,
+          nColors: classification.nColors,
+          colors: classification.colors,
+          recipeCount: 1,
+          recipes: [recipe],
+        },
+      })
+    }
+
+    if (sampled % 10_000 === 0) {
+      console.log(`Sampled ${sampled}/${SAMPLE_TARGET}, ${patterns.size} distinct patterns so far…`)
+    }
+  }
+
+  // Sort each pattern's recipes cheapest-first; sort patterns rarest-first;
+  // keep only the rarest MAX_PATTERNS_IN_CATALOG — this is a curated browse
+  // list, and an uncapped catalog here hit ~18K patterns (200K-sample run),
+  // which produced a JSON payload too large for a reliable single upload.
+  const allEntries = [...patterns.values()]
     .map(({ entry }) => {
       entry.recipes.sort((a, b) => (a.total_cost ?? Infinity) - (b.total_cost ?? Infinity))
       return entry
     })
     .sort((a, b) => a.recipeCount - b.recipeCount)
+  const entries = allEntries.slice(0, MAX_PATTERNS_IN_CATALOG)
 
-  console.log(`\nDone. ${entries.length} distinct patterns from ${scanned} scanned rows.`)
+  console.log(`\nDone. ${allEntries.length} distinct patterns from ${sampled} sampled combos (${skippedDuplicate} duplicate combos skipped).`)
+  console.log(`Uploading rarest ${entries.length} (of ${allEntries.length}) patterns…`)
 
   const json = JSON.stringify(entries)
-  const { error: uploadErr } = await supabase.storage
-    .from('pattern-catalog')
-    .upload('patterns.json', new Blob([json], { type: 'application/json' }), {
-      upsert: true,
-      contentType: 'application/json',
-    })
+  const blob = new Blob([json], { type: 'application/json' })
+  console.log(`Payload size: ${(blob.size / 1024).toFixed(1)} KB`)
+
+  let uploadErr: unknown = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.storage
+      .from('pattern-catalog')
+      .upload('patterns.json', blob, { upsert: true, contentType: 'application/json' })
+    if (!error) { uploadErr = null; break }
+    uploadErr = error
+    console.warn(`Upload attempt ${attempt} failed: ${(error as Error).message ?? error}`)
+    if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt))
+  }
   if (uploadErr) throw uploadErr
 
   console.log('Uploaded patterns.json to Storage bucket pattern-catalog.')
