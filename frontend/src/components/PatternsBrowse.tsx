@@ -12,16 +12,15 @@ import type { PermutationResult } from '../useAllPermutations'
 const GRID_COLS = 4
 const GRID_CELLS = 20
 
-function PatternSilhouette({ accentCells }: { accentCells: number[] }) {
-  const accent = new Set(accentCells)
+function PatternSilhouette({ thirdCells, minorityCells }: { thirdCells: number[]; minorityCells: number[] }) {
+  const third    = new Set(thirdCells)
+  const minority = new Set(minorityCells)
   return (
     <div className="pattern-silhouette" style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}>
-      {Array.from({ length: GRID_CELLS }, (_, i) => (
-        <span
-          key={i}
-          className={`pattern-silhouette-dot${accent.has(i) ? ' pattern-silhouette-dot--minority' : ''}`}
-        />
-      ))}
+      {Array.from({ length: GRID_CELLS }, (_, i) => {
+        const role = minority.has(i) ? 'minority' : third.has(i) ? 'third' : 'majority'
+        return <span key={i} className={`pattern-silhouette-dot pattern-silhouette-dot--${role}`} />
+      })}
     </div>
   )
 }
@@ -29,7 +28,7 @@ function PatternSilhouette({ accentCells }: { accentCells: number[] }) {
 function PatternRow({ pattern, onClick }: { pattern: BrowsePattern; onClick: () => void }) {
   return (
     <div className="pattern-row" onClick={onClick} role="button" tabIndex={0}>
-      <PatternSilhouette accentCells={pattern.accentCells} />
+      <PatternSilhouette thirdCells={pattern.thirdCells} minorityCells={pattern.minorityCells} />
       <div className="pattern-row-info">
         <span className="pattern-row-title">{pattern.nColors} colors</span>
         <span className="pattern-row-sub">{pattern.minoritySize}-check minority</span>

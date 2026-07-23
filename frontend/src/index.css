@@ -2045,9 +2045,10 @@ body {
 }
 .pattern-silhouette-dot {
   border-radius: 50%;
-  background: #3a3a3a;
+  background: #3a3a3a;         /* majority — darkest */
 }
-.pattern-silhouette-dot--minority { background: #f2f2f2; }
+.pattern-silhouette-dot--third    { background: #808080; }  /* mid gray */
+.pattern-silhouette-dot--minority { background: #f2f2f2; }  /* brightest — the labeled minority */
 
 .pattern-row-info {
   display: flex;

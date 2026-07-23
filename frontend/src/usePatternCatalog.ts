@@ -33,12 +33,14 @@ export interface BrowsePattern {
   colors: string[]
   recipeCount: number
   preview: PermutationResult
-  // All 20 cell indices whose color differs from the majority color —
-  // i.e. minority + third combined. This is what a human eye actually
-  // perceives as "the pattern" in the real render; patternKey only encodes
-  // the strict minority cluster, which for 3-color patterns can be a subtler,
-  // similarly-shaded accent than the more visually distinct third color.
-  accentCells: number[]
+  // Cell indices (0-19) for the "third" color — non-empty only for 3-color
+  // patterns. Rendered as a mid gray in the silhouette, distinct from both
+  // the majority (dark) and the true minority (white/brightest — "the
+  // pattern" the recipe count refers to).
+  thirdCells: number[]
+  // Cell indices for the minority color — the classifier's official
+  // "N-check minority", same definition as the pattern's own label text.
+  minorityCells: number[]
 }
 
 // generateSVGJS always emits background rects first (fill="black" / a 3-digit
@@ -46,13 +48,23 @@ export interface BrowsePattern {
 // so matching only 6-digit hex fills yields the 20 cell colors in position order.
 const HEX_FILL_RE = /fill="(#[0-9A-Fa-f]{6})"/g
 
-function accentCellsFromSvg(svg: string): number[] {
+function cellRolesFromSvg(svg: string): { thirdCells: number[]; minorityCells: number[] } {
   const hexes = [...svg.matchAll(HEX_FILL_RE)].map(m => m[1])
-  if (hexes.length !== 20) return []  // not a 20-check composite — no silhouette data
+  if (hexes.length !== 20) return { thirdCells: [], minorityCells: [] }  // not a 20-check composite
+
   const counts = new Map<string, number>()
   for (const h of hexes) counts.set(h, (counts.get(h) ?? 0) + 1)
-  const majorityHex = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
-  return hexes.reduce<number[]>((cells, h, i) => (h !== majorityHex ? [...cells, i] : cells), [])
+  // Same sort direction classify() uses server-side: descending by count,
+  // so the last entry is always the official minority (smallest count).
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  const minorityHex = sorted[sorted.length - 1][0]
+  const thirdHex = sorted.length === 3 ? sorted[1][0] : null
+
+  const cellsOf = (hex: string) => hexes.reduce<number[]>((cells, h, i) => (h === hex ? [...cells, i] : cells), [])
+  return {
+    thirdCells:    thirdHex ? cellsOf(thirdHex) : [],
+    minorityCells: cellsOf(minorityHex),
+  }
 }
 
 function recipeToRow(r: PatternRecipe): PermRowBasic {
@@ -112,6 +124,7 @@ export function usePatternCatalog() {
         for (const e of entries) {
           const preview = previewByKey.get(key(e.recipes[0]))
           if (!preview) continue  // preview recipe's tokens no longer resolvable — skip
+          const { thirdCells, minorityCells } = cellRolesFromSvg(preview.nodeAbcd.svg)
           built.push({
             patternKey:   e.patternKey,
             minoritySize: e.minoritySize,
@@ -119,7 +132,8 @@ export function usePatternCatalog() {
             colors:       e.colors,
             recipeCount:  e.recipeCount,
             preview,
-            accentCells:  accentCellsFromSvg(preview.nodeAbcd.svg),
+            thirdCells,
+            minorityCells,
           })
         }
         setPatterns(built)
