@@ -26,7 +26,8 @@ import type { LikeInfo } from './PermutationCard'
 type LikeSource = 'explore' | 'curated' | 'search'
 
 // Isolated so it never re-renders on keystroke — only when bgSvgs changes
-const SearchBackground = memo(function SearchBackground({ svgs }: { svgs: string[] }) {
+// Exported so PatternsBrowse can reuse the same landing-state background.
+export const SearchBackground = memo(function SearchBackground({ svgs }: { svgs: string[] }) {
   if (!svgs.length) return null
   const doubled = [...svgs, ...svgs]
   return (
@@ -343,8 +344,8 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
 
   if (mode === 'patterns') {
     return (
-      <div className="searchpage">
-        <div className="searchpage__form" style={{ marginBottom: 0 }}>
+      <PatternsBrowse
+        tabs={
           <SearchInputTabs
             mode={mode}
             onModeChange={setMode}
@@ -356,9 +357,8 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
             onUseMyWallet={handleUseMyWallet}
             loading={false}
           />
-        </div>
-        <PatternsBrowse />
-      </div>
+        }
+      />
     )
   }
 

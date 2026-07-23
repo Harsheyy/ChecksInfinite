@@ -33,6 +33,26 @@ export interface BrowsePattern {
   colors: string[]
   recipeCount: number
   preview: PermutationResult
+  // All 20 cell indices whose color differs from the majority color —
+  // i.e. minority + third combined. This is what a human eye actually
+  // perceives as "the pattern" in the real render; patternKey only encodes
+  // the strict minority cluster, which for 3-color patterns can be a subtler,
+  // similarly-shaded accent than the more visually distinct third color.
+  accentCells: number[]
+}
+
+// generateSVGJS always emits background rects first (fill="black" / a 3-digit
+// hex like "#111"), then exactly one fill="#RRGGBB" per cell in cell order —
+// so matching only 6-digit hex fills yields the 20 cell colors in position order.
+const HEX_FILL_RE = /fill="(#[0-9A-Fa-f]{6})"/g
+
+function accentCellsFromSvg(svg: string): number[] {
+  const hexes = [...svg.matchAll(HEX_FILL_RE)].map(m => m[1])
+  if (hexes.length !== 20) return []  // not a 20-check composite — no silhouette data
+  const counts = new Map<string, number>()
+  for (const h of hexes) counts.set(h, (counts.get(h) ?? 0) + 1)
+  const majorityHex = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+  return hexes.reduce<number[]>((cells, h, i) => (h !== majorityHex ? [...cells, i] : cells), [])
 }
 
 function recipeToRow(r: PatternRecipe): PermRowBasic {
@@ -99,6 +119,7 @@ export function usePatternCatalog() {
             colors:       e.colors,
             recipeCount:  e.recipeCount,
             preview,
+            accentCells:  accentCellsFromSvg(preview.nodeAbcd.svg),
           })
         }
         setPatterns(built)
