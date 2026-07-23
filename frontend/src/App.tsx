@@ -179,12 +179,12 @@ export default function App() {
     }
   }
 
-  async function handleToggleLike(result: PermutationResult, source: 'explore' | 'curated' | 'search') {
+  async function handleToggleLike(result: PermutationResult, source: 'explore' | 'curated' | 'search' | 'patterns') {
     if (!address || !supabase) return
     const [k1, b1, k2, b2] = result.def.tokenIds!
     const key = likedKey(k1, b1, k2, b2)
     const wallet = address.toLowerCase()
-    const rpcSource = source === 'search' ? 'search' : feedSource // 'token-works' or 'opensea' for explore and curated
+    const rpcSource = source === 'search' || source === 'patterns' ? source : feedSource // 'token-works' or 'opensea' for explore and curated
 
     const wasLiked  = likedKeys.has(key)
     const prevCount = likeCounts.get(key) ?? 0
@@ -248,7 +248,7 @@ export default function App() {
     }
   }
 
-  function getLikeInfo(result: PermutationResult, source: 'explore' | 'curated' | 'search' = viewMode as 'explore' | 'curated' | 'search'): LikeInfo | undefined {
+  function getLikeInfo(result: PermutationResult, source: 'explore' | 'curated' | 'search' | 'patterns' = viewMode as 'explore' | 'curated' | 'search'): LikeInfo | undefined {
     if (!dbMode) return undefined
     const isCurated = source === 'curated'
     const [k1, b1, k2, b2] = result.def.tokenIds ?? []

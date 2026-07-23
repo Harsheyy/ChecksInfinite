@@ -23,7 +23,7 @@ import { isValidAddress } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
 
-type LikeSource = 'explore' | 'curated' | 'search'
+type LikeSource = 'explore' | 'curated' | 'search' | 'patterns'
 
 // Isolated so it never re-renders on keystroke — only when bgSvgs changes
 // Exported so PatternsBrowse can reuse the same landing-state background.
@@ -358,6 +358,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
             loading={false}
           />
         }
+        getLikeInfo={getLikeInfo ? (r: PermutationResult) => getLikeInfo(r, 'patterns') : undefined}
       />
     )
   }

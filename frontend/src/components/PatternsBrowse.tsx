@@ -5,6 +5,7 @@ import { useBackgroundPermutations } from '../useBackgroundPermutations'
 import { InfiniteGrid } from './InfiniteGrid'
 import { SearchBackground } from './SearchPage'
 import type { PermutationResult } from '../useAllPermutations'
+import type { LikeInfo } from './PermutationCard'
 
 // The rendered composite is a 20-cell grid, 4 columns x 5 rows, row-major
 // (see checksArtJS.ts's perRow(20) === 4) — 20 dots in DOM order lay out
@@ -40,9 +41,10 @@ function PatternRow({ pattern, onClick }: { pattern: BrowsePattern; onClick: () 
 
 interface PatternsBrowseProps {
   tabs: ReactNode
+  getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
 }
 
-export function PatternsBrowse({ tabs }: PatternsBrowseProps) {
+export function PatternsBrowse({ tabs, getLikeInfo }: PatternsBrowseProps) {
   const { patterns, loading, error, loadPatternRecipes } = usePatternCatalog()
   const bgSvgs = useBackgroundPermutations()
   const [selected, setSelected]   = useState<BrowsePattern | null>(null)
@@ -89,6 +91,7 @@ export function PatternsBrowse({ tabs }: PatternsBrowseProps) {
             dbMode={true}
             hideBuy={true}
             topPx={gridTop}
+            getLikeInfo={getLikeInfo}
           />
         )}
       </>
