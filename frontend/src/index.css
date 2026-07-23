@@ -2047,8 +2047,8 @@ body {
   border-radius: 50%;
   background: #3a3a3a;         /* majority — darkest */
 }
-.pattern-silhouette-dot--third    { background: #808080; }  /* mid gray */
-.pattern-silhouette-dot--minority { background: #f2f2f2; }  /* brightest — the labeled minority */
+.pattern-silhouette-dot--dim    { background: #808080; }  /* mid gray — only when both accents are distinguishable */
+.pattern-silhouette-dot--bright { background: #f2f2f2; }  /* the most visually distinct non-majority color */
 
 .pattern-row-info {
   display: flex;

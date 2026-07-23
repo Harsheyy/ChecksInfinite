@@ -12,13 +12,13 @@ import type { PermutationResult } from '../useAllPermutations'
 const GRID_COLS = 4
 const GRID_CELLS = 20
 
-function PatternSilhouette({ thirdCells, minorityCells }: { thirdCells: number[]; minorityCells: number[] }) {
-  const third    = new Set(thirdCells)
-  const minority = new Set(minorityCells)
+function PatternSilhouette({ dimCells, brightCells }: { dimCells: number[]; brightCells: number[] }) {
+  const dim    = new Set(dimCells)
+  const bright = new Set(brightCells)
   return (
     <div className="pattern-silhouette" style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}>
       {Array.from({ length: GRID_CELLS }, (_, i) => {
-        const role = minority.has(i) ? 'minority' : third.has(i) ? 'third' : 'majority'
+        const role = bright.has(i) ? 'bright' : dim.has(i) ? 'dim' : 'majority'
         return <span key={i} className={`pattern-silhouette-dot pattern-silhouette-dot--${role}`} />
       })}
     </div>
@@ -28,7 +28,7 @@ function PatternSilhouette({ thirdCells, minorityCells }: { thirdCells: number[]
 function PatternRow({ pattern, onClick }: { pattern: BrowsePattern; onClick: () => void }) {
   return (
     <div className="pattern-row" onClick={onClick} role="button" tabIndex={0}>
-      <PatternSilhouette thirdCells={pattern.thirdCells} minorityCells={pattern.minorityCells} />
+      <PatternSilhouette dimCells={pattern.dimCells} brightCells={pattern.brightCells} />
       <div className="pattern-row-info">
         <span className="pattern-row-title">{pattern.nColors} colors</span>
         <span className="pattern-row-sub">{pattern.minoritySize}-check minority</span>
