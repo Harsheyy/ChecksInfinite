@@ -4,6 +4,7 @@ import { useAccount } from 'wagmi'
 import { InfiniteGrid } from './InfiniteGrid'
 import { TraitMultiSelect } from './TraitMultiSelect'
 import { SearchInputTabs, parseIds, type SearchInputMode } from './SearchInputTabs'
+import { PatternsBrowse } from './PatternsBrowse'
 import {
   emptySearchFilters,
   hasActiveSearchFilters,
@@ -22,10 +23,11 @@ import { isValidAddress } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
 
-type LikeSource = 'explore' | 'curated' | 'search'
+type LikeSource = 'explore' | 'curated' | 'search' | 'patterns'
 
 // Isolated so it never re-renders on keystroke — only when bgSvgs changes
-const SearchBackground = memo(function SearchBackground({ svgs }: { svgs: string[] }) {
+// Exported so PatternsBrowse can reuse the same landing-state background.
+export const SearchBackground = memo(function SearchBackground({ svgs }: { svgs: string[] }) {
   if (!svgs.length) return null
   const doubled = [...svgs, ...svgs]
   return (
@@ -339,6 +341,27 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       </div>
     </>
   )
+
+  if (mode === 'patterns') {
+    return (
+      <PatternsBrowse
+        tabs={
+          <SearchInputTabs
+            mode={mode}
+            onModeChange={setMode}
+            idsRaw={idsRaw}
+            onIdsRawChange={setIdsRaw}
+            walletRaw={walletRaw}
+            onWalletRawChange={setWalletRaw}
+            walletConnectedAddress={isConnected ? address : undefined}
+            onUseMyWallet={handleUseMyWallet}
+            loading={false}
+          />
+        }
+        getLikeInfo={getLikeInfo ? (r: PermutationResult) => getLikeInfo(r, 'patterns') : undefined}
+      />
+    )
+  }
 
   return (
     <>
