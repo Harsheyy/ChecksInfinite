@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
+import { Analytics } from '@vercel/analytics/react'
 import { wagmiConfig } from './wagmiConfig'
 import './index.css'
 import App from './App.tsx'
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        <Analytics />
       </QueryClientProvider>
     </WagmiProvider>
   </StrictMode>,
