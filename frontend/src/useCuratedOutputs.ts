@@ -207,6 +207,15 @@ export function useCuratedOutputs() {
         .map(r => buildCuratedResult(r))
         .filter((r): r is CuratedPermutationResult => r !== null)
 
+      // Recipe (checks count + color band + gradient + speed + shift) is
+      // the same grouping the Patterns tab treats as "one pattern" — two
+      // outputs sharing a recipe read as repeats even when their exact
+      // per-cell colors differ (different underlying tokens), so recipe
+      // is the dedupe key, not just exact rendered pixels.
+      const recipeKeyByOutputId = new Map<number, string>(
+        rows.map(r => [r.id, [r.abcd_checks, r.abcd_color_band, r.abcd_gradient, r.abcd_speed, r.abcd_shift].join('|')]),
+      )
+
       // Determine which outputs are from Token Works (all 4 tokens in all_checks)
       const allIds = [...new Set(outputs.flatMap(o => o.def.tokenIds!.map(Number)))]
       let tokenWorksSet = new Set<number>()
@@ -223,14 +232,21 @@ export function useCuratedOutputs() {
       }))
 
       // Results are already ordered like_count DESC, first_liked_at DESC —
-      // keeping the first occurrence of each signature keeps the
-      // more-liked/earlier one when two combos render identically.
+      // keeping the first occurrence of each key keeps the more-liked/
+      // earlier one when two combos render identically or share a recipe.
       const seenSignatures = new Set<string>()
+      const seenRecipes = new Set<string>()
       const deduped = outputsTagged.filter(o => {
         const sig = visualSignature(o.nodeAbcd.svg)
-        if (!sig) return true  // empty/failed render — don't dedupe on a blank signature
-        if (seenSignatures.has(sig)) return false
-        seenSignatures.add(sig)
+        if (sig) {
+          if (seenSignatures.has(sig)) return false
+          seenSignatures.add(sig)
+        }
+        const recipe = recipeKeyByOutputId.get(o.outputId)
+        if (recipe) {
+          if (seenRecipes.has(recipe)) return false
+          seenRecipes.add(recipe)
+        }
         return true
       })
 
