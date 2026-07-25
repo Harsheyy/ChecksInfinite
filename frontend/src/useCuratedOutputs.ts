@@ -174,22 +174,34 @@ export function useCuratedOutputs() {
     setState({ outputs: [], loading: true, error: '' })
 
     try {
-      const params: Record<string, unknown> = {
+      const PAGE_SIZE = 200
+      const baseParams: Record<string, unknown> = {
         p_wallet:      wallet ?? null,
         p_wallet_only: walletOnly,
-        p_limit:       200,
-        p_offset:      0,
+        p_limit:       PAGE_SIZE,
       }
-      if (filters.checks)    params.p_checks     = parseInt(filters.checks, 10)
-      if (filters.colorBand) params.p_color_band = filters.colorBand
-      if (filters.gradient)  params.p_gradient   = filters.gradient
-      if (filters.speed)     params.p_speed      = filters.speed
-      if (filters.shift)     params.p_shift      = filters.shift
+      if (filters.checks)    baseParams.p_checks     = parseInt(filters.checks, 10)
+      if (filters.colorBand) baseParams.p_color_band = filters.colorBand
+      if (filters.gradient)  baseParams.p_gradient   = filters.gradient
+      if (filters.speed)     baseParams.p_speed      = filters.speed
+      if (filters.shift)     baseParams.p_shift      = filters.shift
 
-      const { data, error } = await supabase.rpc('get_curated_outputs', params)
-      if (error) throw error
-
-      const rows = (data ?? []) as CuratedRow[]
+      // Curated outputs has no fixed page size in the UI — page through the
+      // RPC until a page comes back short, so growth past any one page size
+      // never silently truncates the grid.
+      const rows: CuratedRow[] = []
+      let offset = 0
+      for (;;) {
+        const { data, error } = await supabase.rpc('get_curated_outputs', {
+          ...baseParams,
+          p_offset: offset,
+        })
+        if (error) throw error
+        const page = (data ?? []) as CuratedRow[]
+        rows.push(...page)
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
 
       const outputs = rows
         .map(r => buildCuratedResult(r))
