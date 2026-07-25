@@ -470,6 +470,7 @@ export default function App() {
             tokenPriceMap={tokenPriceMap}
             initialSelectedIds={dbMode ? initialRecipeIds : null}
             onSelectedChange={dbMode ? handleSelectedRecipeChange : undefined}
+            disableLoop={isCuratedMode}
           />
           {(dbMode && isLoading) && (
             <div style={{

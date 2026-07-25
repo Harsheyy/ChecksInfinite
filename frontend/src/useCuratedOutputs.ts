@@ -147,17 +147,6 @@ export interface CuratedState {
   error: string
 }
 
-// Different token combos can render the exact same composite (this is
-// common now that many liked outputs come from the Patterns tab, where a
-// single visual pattern often has many possible recipes) — dedupe by the
-// actual rendered colors, not by token IDs, so the grid never shows the
-// same-looking output twice. Same fill-extraction approach as
-// usePatternCatalog.ts's accent-color derivation.
-const HEX_FILL_RE = /fill="(#[0-9A-Fa-f]{6})"/g
-function visualSignature(svg: string): string {
-  return [...svg.matchAll(HEX_FILL_RE)].map(m => m[1]).join(',')
-}
-
 export function useCuratedOutputs() {
   const [state, setState] = useState<CuratedState>({
     outputs: [],
@@ -207,15 +196,6 @@ export function useCuratedOutputs() {
         .map(r => buildCuratedResult(r))
         .filter((r): r is CuratedPermutationResult => r !== null)
 
-      // Recipe (checks count + color band + gradient + speed + shift) is
-      // the same grouping the Patterns tab treats as "one pattern" — two
-      // outputs sharing a recipe read as repeats even when their exact
-      // per-cell colors differ (different underlying tokens), so recipe
-      // is the dedupe key, not just exact rendered pixels.
-      const recipeKeyByOutputId = new Map<number, string>(
-        rows.map(r => [r.id, [r.abcd_checks, r.abcd_color_band, r.abcd_gradient, r.abcd_speed, r.abcd_shift].join('|')]),
-      )
-
       // Determine which outputs are from Token Works (all 4 tokens in all_checks)
       const allIds = [...new Set(outputs.flatMap(o => o.def.tokenIds!.map(Number)))]
       let tokenWorksSet = new Set<number>()
@@ -231,26 +211,10 @@ export function useCuratedOutputs() {
         fromTokenWorks: o.def.tokenIds!.every(id => tokenWorksSet.has(Number(id))),
       }))
 
-      // Results are already ordered like_count DESC, first_liked_at DESC —
-      // keeping the first occurrence of each key keeps the more-liked/
-      // earlier one when two combos render identically or share a recipe.
-      const seenSignatures = new Set<string>()
-      const seenRecipes = new Set<string>()
-      const deduped = outputsTagged.filter(o => {
-        const sig = visualSignature(o.nodeAbcd.svg)
-        if (sig) {
-          if (seenSignatures.has(sig)) return false
-          seenSignatures.add(sig)
-        }
-        const recipe = recipeKeyByOutputId.get(o.outputId)
-        if (recipe) {
-          if (seenRecipes.has(recipe)) return false
-          seenRecipes.add(recipe)
-        }
-        return true
-      })
-
-      setState({ outputs: deduped, loading: false, error: '' })
+      // Every curated_outputs row is a distinct curated pair — show all of
+      // them, no dedupe by rendered appearance (some pairs render similarly
+      // but are still separate curations someone chose to keep).
+      setState({ outputs: outputsTagged, loading: false, error: '' })
     } catch (e) {
       setState({ outputs: [], loading: false, error: String(e) })
     }

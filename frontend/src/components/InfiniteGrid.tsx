@@ -19,6 +19,9 @@ interface Props {
   dbMode?: boolean
   hideBuy?: boolean
   filtersTall?: boolean
+  // Bounded lists (e.g. Curated) should render once, not tile/loop like the
+  // effectively-infinite Explore permutation universe.
+  disableLoop?: boolean
   getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
   tokenPriceMap?: Map<string, bigint>
   topPx?: number  // override grid-viewport top (pixels from viewport top)
@@ -28,7 +31,7 @@ interface Props {
   onSelectedChange?: (tokenIds: string[] | null) => void
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange, disableLoop }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -70,7 +73,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
   const tileW = cols * STEP
   const tileH = rows * STEP
 
-  const shouldLoop = N >= 25
+  const shouldLoop = !disableLoop && N >= 25
 
   // On tile-dimension change, preserve the user's offset from center-tile origin.
   // First load (prevTile = {0,0}) just centers.
