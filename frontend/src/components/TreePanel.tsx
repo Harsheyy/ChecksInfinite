@@ -12,6 +12,8 @@ import type { PermutationResult } from '../useAllPermutations'
 import { generateSVGJS } from '../checksArtJS'
 import { fromJSON } from '../usePermutationsDB'
 
+const TOKEN_STRATEGY_URL = 'https://www.tokenstrategy.com/strategies/0x2090dc81f42f6ddd8deace0d3c3339017417b0dc'
+
 interface TreePanelProps {
   result: PermutationResult
   ids: string[]
@@ -70,7 +72,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
 
   // Fetch individual token prices directly — 4 targeted reads, reliable regardless of App-level batch state
   const pricesEnabled = !!dbMode && result.fromTokenWorks !== false
-  const { data: tokenPrices } = useReadContracts({
+  const { data: tokenPrices, isLoading: pricesLoading } = useReadContracts({
     contracts: [id0, id1, id2, id3].map(id => ({
       address: TOKEN_STRATEGY_ADDRESS,
       abi: tokenStrategyAbi,
@@ -99,8 +101,11 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
     return s.slice(dot + 1).length <= 3 ? s : s.slice(0, dot + 4)
   }
 
-  function osHref(tokenId: string) {
-    if (!isOpenSea) return undefined
+  function checkHref(tokenId: string, idx: number): string {
+    if (!isOpenSea) {
+      const p = tokenPriceMap?.get(tokenId) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
+      if (p !== undefined && p > 0n) return TOKEN_STRATEGY_URL
+    }
     return `https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${tokenId}`
   }
 
@@ -132,7 +137,46 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   const insufficientBalance = isConnected && !!balance && !!totalCost && balance.value < totalCost
   const ethShortfall = insufficientBalance && balance && totalCost ? totalCost - balance.value : undefined
 
+  // Minting is only ever possible for Token Works checks — everywhere else
+  // (Search, OpenSea/market feed, curated outputs mixing non-Token-Works
+  // tokens) we only ever show an informational listed-count/cost readout,
+  // no action.
+  const isMintable = !!dbMode && !hideBuy && result.fromTokenWorks !== false && !!CHECKS_RECIPE_MINTER_ADDRESS
+
+  // Quoting/minting (or showing a recipe cost) only makes sense once all 4
+  // leaf tokens are individually listed — otherwise show how many are.
+  // isOpenSea prices come pre-attached on `result`, not from the async
+  // on-chain reads below, so there's no loading state to guard there.
+  //
+  // The OpenSea/market feed's own query (useAllChecksPermutations) already
+  // filters to `is_all_listed = true` at read time, so every such row is
+  // guaranteed fully listed at snapshot time. Re-deriving "listed" per-leaf
+  // here instead uses `all_checks.eth_price`, which is refreshed on a
+  // separate schedule and can drift null (token sold/delisted) between
+  // snapshots — recomputing from it produced false "0/4" readings for
+  // rows the feed itself guarantees are fully listed. Trust the feed's own
+  // guarantee for isOpenSea instead of re-deriving a live count.
+  const pricesStillLoading = pricesEnabled && pricesLoading && !isOpenSea
+  const listedCount = isOpenSea
+    ? 4
+    : [id0, id1, id2, id3].reduce(
+        (count, tid, idx) => count + (priceLabel(tid, idx) ? 1 : 0), 0
+      )
+  const allListed = listedCount === 4
+
+  const nonMintCostDisplay = (() => {
+    if (!allListed) return undefined
+    if (isOpenSea) return result.total_cost != null ? result.total_cost.toFixed(3) : undefined
+    const prices = [id0, id1, id2, id3].map(
+      (tid, idx) => tokenPriceMap?.get(tid) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
+    )
+    if (prices.some(p => p === undefined || p <= 0n)) return undefined
+    return trimEth(prices.reduce((sum, p) => sum + (p as bigint), 0n))
+  })()
+
   const buttonLabel = (() => {
+    if (pricesStillLoading) return 'Loading…'
+    if (!allListed) return `${listedCount}/4 tokens listed`
     if (!isConnected) return 'Connect wallet to mint'
     if (quoteLoading) return 'Loading price…'
     if (tokensNotListed) return 'Tokens not available'
@@ -144,9 +188,10 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   })()
 
   // Disconnected stays clickable — the button becomes a connect prompt
-  const buttonDisabled = isConnected && (quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed || insufficientBalance)
+  const buttonDisabled = pricesStillLoading || !allListed || (isConnected && (quoteLoading || isSigning || isMining || isMined || !totalCost || tokensNotListed || insufficientBalance))
 
   async function handleMintOrConnect() {
+    if (!allListed) return
     if (!isConnected) {
       const { openWalletModal } = await import('../appkit')
       await openWalletModal('Connect')
@@ -169,7 +214,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
           </div>
         </div>
         <div className="tree-panel-header-actions">
-          {dbMode && !hideBuy && result.fromTokenWorks !== false && !!CHECKS_RECIPE_MINTER_ADDRESS && (
+          {isMintable ? (
             <span className="tree-panel__mint-btn-wrap">
               <button
                 className="tree-panel__mint-button"
@@ -184,10 +229,13 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
                   : 'All minting includes a flat 0.005 ETH fee'}
               </div>
             </span>
-          )}
-          {isOpenSea && result.total_cost != null && result.total_cost > 0 && (
+          ) : (
             <span className="tree-panel__cost-badge">
-              Recipe cost: {result.total_cost.toFixed(3)} ETH
+              {pricesStillLoading
+                ? 'Loading…'
+                : allListed
+                  ? (nonMintCostDisplay != null ? `Recipe cost: ${nonMintCostDisplay} ETH` : 'Recipe cost: —')
+                  : `${listedCount}/4 tokens listed`}
             </span>
           )}
           {likeInfo && (
@@ -215,8 +263,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
           <div className="tree-row-leaves">
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id0, 0)} href={osHref(id0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id1, 1)} href={osHref(id1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id0, 0)} href={checkHref(id0, 0)} {...cardProps(nodeA, liveSvgs[id0], liveAttrs[id0])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id1, 1)} href={checkHref(id1, 1)} {...cardProps(nodeB, liveSvgs[id1], liveAttrs[id1])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1a)} />
@@ -224,8 +272,8 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
             </div>
             <div className="tree-branch">
               <div className="tree-branch-pair">
-                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id2, 2)} href={osHref(id2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
-                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id3, 3)} href={osHref(id3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
+                <CheckCard compact hideAttrs tooltip label="Keeper" sublabel={priceLabel(id2, 2)} href={checkHref(id2, 2)} {...cardProps(nodeC, liveSvgs[id2], liveAttrs[id2])} />
+                <CheckCard compact hideAttrs tooltip label="Burn"   sublabel={priceLabel(id3, 3)} href={checkHref(id3, 3)} {...cardProps(nodeD, liveSvgs[id3], liveAttrs[id3])} />
               </div>
               <div className="tree-connector-v" />
               <CheckCard compact hideAttrs tooltip label="Composition" {...cardProps(nodeL1b)} />

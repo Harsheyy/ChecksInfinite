@@ -1494,6 +1494,16 @@ body {
   z-index: 1;
 }
 
+/* .searchpage's own stacking context (position:relative + z-index) traps any
+   fixed-position descendant's z-index inside it — TreePanel (z-index:100) is
+   rendered here, but without this the whole subtree still competes against
+   .navbar (z-index:10) at only z-index:1, so the navbar painted over the
+   panel's header. Lifting this above the navbar lets the panel's header
+   render on top as intended. */
+.searchpage:has(.tree-panel) {
+  z-index: 20;
+}
+
 /* Landing state: full-height centered overlay */
 .searchpage--landing {
   position: fixed;
