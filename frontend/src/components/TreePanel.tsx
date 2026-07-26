@@ -170,8 +170,9 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
     const prices = [id0, id1, id2, id3].map(
       (tid, idx) => tokenPriceMap?.get(tid) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
     )
-    if (prices.some(p => p === undefined || p <= 0n)) return undefined
-    return trimEth(prices.reduce((sum, p) => sum + (p as bigint), 0n))
+    const validPrices = prices.filter((p): p is bigint => p !== undefined && p > 0n)
+    if (validPrices.length !== 4) return undefined
+    return trimEth(validPrices.reduce((sum, p) => sum + p, 0n))
   })()
 
   const buttonLabel = (() => {
