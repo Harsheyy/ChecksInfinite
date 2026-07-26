@@ -70,8 +70,13 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   const { address, isConnected } = useAccount()
   const { data: balance } = useBalance({ address, query: { enabled: isConnected } })
 
-  // Fetch individual token prices directly — 4 targeted reads, reliable regardless of App-level batch state
-  const pricesEnabled = !!dbMode && result.fromTokenWorks !== false
+  // Fetch individual token prices directly — 4 targeted reads, reliable regardless of App-level batch state.
+  // Always enabled in dbMode: `fromTokenWorks === false` doesn't only mean
+  // "genuine OpenSea/market feed row with a real total_cost snapshot" — it's
+  // also how Curated marks any recipe that isn't fully on Token Works, and
+  // Curated never attaches total_cost/tokenPrices at all. Without a live
+  // fallback here, those rows had no price data source whatsoever.
+  const pricesEnabled = !!dbMode
   const { data: tokenPrices, isLoading: pricesLoading } = useReadContracts({
     contracts: [id0, id1, id2, id3].map(id => ({
       address: TOKEN_STRATEGY_ADDRESS,
@@ -102,18 +107,18 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
   }
 
   function checkHref(tokenId: string, idx: number): string {
-    if (!isOpenSea) {
-      const p = tokenPriceMap?.get(tokenId) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
-      if (p !== undefined && p > 0n) return TOKEN_STRATEGY_URL
-    }
+    const p = tokenPriceMap?.get(tokenId) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
+    if (p !== undefined && p > 0n) return TOKEN_STRATEGY_URL
     return `https://opensea.io/assets/ethereum/0x036721e5a769cc48b3189efbb9cce4471e8a48b1/${tokenId}`
   }
 
   function priceLabel(tokenId: string, idx: number) {
-    if (isOpenSea) {
-      const ethPrice = result.tokenPrices?.[tokenId]
-      return ethPrice != null ? `${parseFloat(ethPrice.toFixed(3))} ETH` : undefined
-    }
+    // Genuine OpenSea/market-feed rows (useAllChecksPermutations,
+    // usePatternCatalog) attach a real per-token snapshot price — prefer it
+    // when present. Curated rows never populate this, so they fall through
+    // to the always-live per-token read below.
+    const snapshotPrice = result.tokenPrices?.[tokenId]
+    if (snapshotPrice != null) return `${parseFloat(snapshotPrice.toFixed(3))} ETH`
     // tokenPriceMap from App.tsx is a fast-path (pre-fetched); local reads are the reliable fallback
     const p = tokenPriceMap?.get(tokenId) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
     return p !== undefined && p > 0n ? `${trimEth(p)} ETH` : undefined
@@ -145,19 +150,20 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
 
   // Quoting/minting (or showing a recipe cost) only makes sense once all 4
   // leaf tokens are individually listed — otherwise show how many are.
-  // isOpenSea prices come pre-attached on `result`, not from the async
-  // on-chain reads below, so there's no loading state to guard there.
   //
-  // The OpenSea/market feed's own query (useAllChecksPermutations) already
-  // filters to `is_all_listed = true` at read time, so every such row is
-  // guaranteed fully listed at snapshot time. Re-deriving "listed" per-leaf
-  // here instead uses `all_checks.eth_price`, which is refreshed on a
-  // separate schedule and can drift null (token sold/delisted) between
-  // snapshots — recomputing from it produced false "0/4" readings for
-  // rows the feed itself guarantees are fully listed. Trust the feed's own
-  // guarantee for isOpenSea instead of re-deriving a live count.
-  const pricesStillLoading = pricesEnabled && pricesLoading && !isOpenSea
-  const listedCount = isOpenSea
+  // The genuine OpenSea/market feed's own query (useAllChecksPermutations)
+  // already filters to `is_all_listed = true` at read time, so a row that
+  // actually carries `result.total_cost` is guaranteed fully listed at
+  // snapshot time — trust that instead of re-deriving a live count (which
+  // uses `all_checks.eth_price`, refreshed on a separate schedule and can
+  // drift null between snapshots). But `fromTokenWorks === false` alone
+  // isn't a reliable signal of that guarantee — Curated sets it on any
+  // recipe mixing non-Token-Works tokens too, and never attaches
+  // total_cost, so those rows must fall back to the same live per-leaf
+  // check as Search.
+  const hasMarketSnapshot = isOpenSea && result.total_cost != null
+  const pricesStillLoading = pricesEnabled && pricesLoading && !hasMarketSnapshot
+  const listedCount = hasMarketSnapshot
     ? 4
     : [id0, id1, id2, id3].reduce(
         (count, tid, idx) => count + (priceLabel(tid, idx) ? 1 : 0), 0
@@ -166,7 +172,7 @@ export function TreePanel({ result, ids, onClose, dbMode, hideBuy, likeInfo, tok
 
   const nonMintCostDisplay = (() => {
     if (!allListed) return undefined
-    if (isOpenSea) return result.total_cost != null ? result.total_cost.toFixed(3) : undefined
+    if (hasMarketSnapshot) return result.total_cost!.toFixed(3)
     const prices = [id0, id1, id2, id3].map(
       (tid, idx) => tokenPriceMap?.get(tid) ?? (tokenPrices?.[idx]?.result as bigint | undefined)
     )
