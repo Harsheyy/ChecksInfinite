@@ -70,8 +70,12 @@ export interface PermRow extends PermRowBasic {
 }
 
 
-// Module-level caches — check_structs are immutable on-chain; eth_price is
-// refreshed nightly but stable enough to cache for a page session.
+// Module-level caches. check_struct is immutable on-chain — safe to cache
+// forever. eth_price is NOT — it's kept in sync hourly by a DB cron
+// (see supabase/migrations/018_market_prices_cron.sql), so it must be
+// refetched on every call rather than frozen at first sight, or a token's
+// price/listed-state goes stale for the rest of the browser session
+// (delisted/sold tokens keep showing their old price, or vice versa).
 const _structCache = new Map<number, CheckStructJSON>()
 const _priceCache  = new Map<number, number | null>()
 
@@ -79,23 +83,35 @@ export function getTokenEthPrice(id: number): number | null {
   return _priceCache.get(id) ?? null
 }
 
-// Fetch check_struct + eth_price for a set of token IDs.
-// Hits the module cache first; only queries DB for unknowns.
+// Fetch check_struct (cached forever) + eth_price (always refetched) for a
+// set of token IDs.
 export async function fetchCheckStructMap(ids: number[]): Promise<Map<number, CheckStructJSON>> {
   if (!supabase || ids.length === 0) return new Map()
-  const uncached = ids.filter(id => !_structCache.has(id))
   const BATCH = 1000
-  for (let i = 0; i < uncached.length; i += BATCH) {
+
+  const uncachedStructIds = ids.filter(id => !_structCache.has(id))
+  for (let i = 0; i < uncachedStructIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from('all_checks')
-      .select('token_id, check_struct, eth_price')
-      .in('token_id', uncached.slice(i, i + BATCH))
+      .select('token_id, check_struct')
+      .in('token_id', uncachedStructIds.slice(i, i + BATCH))
     if (error) throw error
-    for (const row of (data ?? []) as { token_id: number; check_struct: CheckStructJSON; eth_price: number | null }[]) {
+    for (const row of (data ?? []) as { token_id: number; check_struct: CheckStructJSON }[]) {
       _structCache.set(row.token_id, row.check_struct)
+    }
+  }
+
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const { data, error } = await supabase
+      .from('all_checks')
+      .select('token_id, eth_price')
+      .in('token_id', ids.slice(i, i + BATCH))
+    if (error) throw error
+    for (const row of (data ?? []) as { token_id: number; eth_price: number | null }[]) {
       _priceCache.set(row.token_id, row.eth_price ?? null)
     }
   }
+
   const map = new Map<number, CheckStructJSON>()
   for (const id of ids) {
     const s = _structCache.get(id)
