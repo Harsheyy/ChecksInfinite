@@ -359,6 +359,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
           />
         }
         getLikeInfo={getLikeInfo ? (r: PermutationResult) => getLikeInfo(r, 'patterns') : undefined}
+        bgSvgs={bgSvgs}
       />
     )
   }

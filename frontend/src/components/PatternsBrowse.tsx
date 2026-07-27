@@ -1,53 +1,25 @@
 // frontend/src/components/PatternsBrowse.tsx
 import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { usePatternCatalog, type BrowsePattern } from '../usePatternCatalog'
-import { useBackgroundPermutations } from '../useBackgroundPermutations'
+import { loadLayoutRecipes, type PatternLayout } from '../usePatternLayouts'
 import { InfiniteGrid } from './InfiniteGrid'
 import { SearchBackground } from './SearchPage'
+import { PatternComposer } from './PatternComposer'
+import { PatternPaintGrid, MIN_CELLS_FOR_RESULTS } from './PatternPaintGrid'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
-
-// The rendered composite is a 20-cell grid, 4 columns x 5 rows, row-major
-// (see checksArtJS.ts's perRow(20) === 4) — 20 dots in DOM order lay out
-// correctly under a plain 4-column CSS grid with no manual row/col math.
-const GRID_COLS = 4
-const GRID_CELLS = 20
-
-function PatternSilhouette({ dimCells, brightCells }: { dimCells: number[]; brightCells: number[] }) {
-  const dim    = new Set(dimCells)
-  const bright = new Set(brightCells)
-  return (
-    <div className="pattern-silhouette" style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}>
-      {Array.from({ length: GRID_CELLS }, (_, i) => {
-        const role = bright.has(i) ? 'bright' : dim.has(i) ? 'dim' : 'majority'
-        return <span key={i} className={`pattern-silhouette-dot pattern-silhouette-dot--${role}`} />
-      })}
-    </div>
-  )
-}
-
-function PatternRow({ pattern, onClick }: { pattern: BrowsePattern; onClick: () => void }) {
-  return (
-    <div className="pattern-row" onClick={onClick} role="button" tabIndex={0}>
-      <PatternSilhouette dimCells={pattern.dimCells} brightCells={pattern.brightCells} />
-      <div className="pattern-row-info">
-        <span className="pattern-row-title">{pattern.nColors} colors</span>
-        <span className="pattern-row-sub">{pattern.minoritySize}-check minority</span>
-      </div>
-      <span className="pattern-row-count">×{pattern.recipeCount}</span>
-    </div>
-  )
-}
 
 interface PatternsBrowseProps {
   tabs: ReactNode
   getLikeInfo?: (result: PermutationResult) => LikeInfo | undefined
+  // Reuses SearchPage's own already-fetched background SVGs rather than
+  // fetching a second, separate copy — switching into Patterns then shows
+  // whatever's already loaded instantly instead of starting from blank.
+  bgSvgs: string[]
 }
 
-export function PatternsBrowse({ tabs, getLikeInfo }: PatternsBrowseProps) {
-  const { patterns, loading, error, loadPatternRecipes } = usePatternCatalog()
-  const bgSvgs = useBackgroundPermutations()
-  const [selected, setSelected]   = useState<BrowsePattern | null>(null)
+export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProps) {
+  const [cells, setCells]         = useState<number[]>([])
+  const [selected, setSelected]   = useState<PatternLayout | null>(null)
   const [recipes, setRecipes]     = useState<PermutationResult[]>([])
   const [recipesLoading, setRecipesLoading] = useState(false)
 
@@ -60,10 +32,14 @@ export function PatternsBrowse({ tabs, getLikeInfo }: PatternsBrowseProps) {
     setGridTop(Math.round(fixedBarRef.current.getBoundingClientRect().bottom))
   }, [selected])
 
-  async function openPattern(p: BrowsePattern) {
-    setSelected(p)
+  function toggleCell(i: number) {
+    setCells(prev => prev.includes(i) ? prev.filter(c => c !== i) : [...prev, i].sort((a, b) => a - b))
+  }
+
+  async function openLayout(layout: PatternLayout) {
+    setSelected(layout)
     setRecipesLoading(true)
-    const r = await loadPatternRecipes(p.patternKey)
+    const r = await loadLayoutRecipes(layout)
     setRecipes(r)
     setRecipesLoading(false)
   }
@@ -77,7 +53,7 @@ export function PatternsBrowse({ tabs, getLikeInfo }: PatternsBrowseProps) {
           <button type="button" className="search-fixed-bar__edit" onClick={() => setSelected(null)}>← Back</button>
           <div className="search-fixed-bar__spacer" />
           <span className="filter-count">
-            {selected.nColors} colors · {selected.minoritySize}-check minority · {selected.recipeCount} recipe{selected.recipeCount === 1 ? '' : 's'}
+            {selected.minoritySize}-check minority · {selected.variety === 1 ? '1 color pair' : `${selected.variety} color pairs`} · {selected.totalRecipes} recipe{selected.totalRecipes === 1 ? '' : 's'}
           </span>
         </div>
         {recipesLoading ? (
@@ -98,24 +74,26 @@ export function PatternsBrowse({ tabs, getLikeInfo }: PatternsBrowseProps) {
     )
   }
 
-  // ── Browse view: same landing-panel chrome (background canvas + centered
-  // card) the ids/wallet tabs use before a search is submitted ───────────
+  // ── Same centered card chrome (background canvas + searchpage__form) the
+  // ids/wallet tabs use — the paint grid replaces their input field. Once
+  // there are enough cells to search, results grow underneath instead of
+  // replacing the panel, so the canvas stays put while you keep adjusting
+  // your selection ────────────────────────────────────────────────────────
+  const hasResults = cells.length >= MIN_CELLS_FOR_RESULTS
   return (
-    <div className="searchpage searchpage--landing">
+    <div className="pattern-browse">
       <SearchBackground svgs={bgSvgs} />
-      <div className="searchpage__form">
-        {tabs}
-        <div className="pattern-list">
-          {loading && <div className="pattern-status">Loading patterns…</div>}
-          {error && <div className="pattern-status">{error}</div>}
-          {!loading && !error && patterns.length === 0 && (
-            <div className="pattern-status">No patterns catalogued yet.</div>
-          )}
-          {patterns.map(p => (
-            <PatternRow key={p.patternKey} pattern={p} onClick={() => openPattern(p)} />
-          ))}
+      <div className="pattern-browse-panel">
+        <div className="searchpage__form">
+          {tabs}
+          <PatternPaintGrid selected={cells} onToggle={toggleCell} onClear={() => setCells([])} />
         </div>
       </div>
+      {hasResults && (
+        <div className="pattern-browse-results-below">
+          <PatternComposer selected={cells} onSelectLayout={openLayout} />
+        </div>
+      )}
     </div>
   )
 }

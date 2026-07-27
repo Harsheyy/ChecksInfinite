@@ -2026,57 +2026,161 @@ body {
   .trait-multi__popover { left: 70px; }
 }
 
-/* ─── Patterns browse ──────────────────────────────────────────── */
-.pattern-list {
+/* ─── Patterns browse: paint-grid composer ────────────────────────── */
+/* Its own fixed, internally-scrolling region (matching .grid-viewport's
+   pattern) — body has overflow:hidden globally, so without this the page
+   isn't scrollable at all once results grow past one screen. */
+/* Fixed top padding always — never toggled based on whether results are
+   showing. Flex centering (justify-content:center) looked right for the
+   panel-only state but had two problems: it silently breaks scrolling
+   once content overflows the container (centered content pushes above
+   the reachable scroll start), and toggling it off the moment results
+   appear made the panel visibly snap from centered to top-aligned. A
+   single fixed offset never moves, at the cost of not being pixel-exact
+   "centered" for the empty state. */
+.pattern-browse {
+  position: fixed;
+  top: 48px; left: 0; right: 0; bottom: 0;
+  overflow-y: auto;
+  padding: 2.5rem 1rem 4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-.pattern-row {
-  display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.6rem 0.7rem;
+  gap: 2rem;
+}
+.pattern-browse-panel {
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
+}
+/* Its own solid ground, not the decorative background canvas — otherwise
+   result cards visually compete with the tiled check pattern behind them. */
+.pattern-browse-results-below {
+  width: 100%;
+  max-width: 900px;
+  position: relative;
+  z-index: 1;
+  background: #0a0a0a;
+  border: 1px solid #1c1c1c;
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.pattern-composer-paint {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.paint-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 4px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-width: 260px;
+  margin: 0 auto;
   background: rgba(255,255,255,0.02);
   border: 1px solid #2a2a2a;
   border-radius: 6px;
+  padding: 8px;
+}
+.paint-cell {
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
   cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3a3a3a;   /* inactive — matches the existing majority-dot convention */
+  transition: color 0.08s, border-color 0.08s, transform 0.06s;
 }
-.pattern-row:hover { border-color: #555; background: rgba(255,255,255,0.04); }
+.paint-cell-icon { width: 100%; height: 100%; display: block; }
+.paint-cell:hover { border-color: #e84; color: #5a5a5a; }
+.paint-cell:active { transform: scale(0.94); }
+.paint-cell--on { color: #f2f2f2; }   /* active — matches the existing bright-dot convention */
+.paint-cell--on:hover { color: #fff; }
+.paint-cell:focus-visible { outline: 2px solid #e84; outline-offset: 1px; }
 
-.pattern-silhouette {
+.pattern-clear-btn {
+  font-size: 0.8rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid #2a2a2a;
+  color: #999;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  align-self: center;
+}
+.pattern-clear-btn:hover { border-color: #555; color: #ddd; }
+
+.pattern-status { text-align: center; padding: 1rem; color: #666; font-size: 0.85rem; line-height: 1.5; }
+
+.pattern-composer-results { min-width: 0; }
+.pattern-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+.pattern-card-grid {
   display: grid;
-  gap: 2px;
-  width: 32px;
-  height: 40px;
-  flex-shrink: 0;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
 }
-.pattern-silhouette-dot {
-  border-radius: 50%;
-  background: #3a3a3a;         /* majority — darkest */
-}
-.pattern-silhouette-dot--dim    { background: #808080; }  /* mid gray — only when both accents are distinguishable */
-.pattern-silhouette-dot--bright { background: #f2f2f2; }  /* the most visually distinct non-majority color */
-
-.pattern-row-info {
+.pattern-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  flex: 1;
-  min-width: 0;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.08s;
 }
-.pattern-row-title { font-size: 0.82rem; color: #ddd; }
-.pattern-row-sub { font-size: 0.7rem; color: #888; }
-.pattern-row-count {
-  font-size: 0.85rem;
-  color: #999;
-  flex-shrink: 0;
-}
+.pattern-card:hover { border-color: #555; }
+.pattern-card:active { transform: scale(0.99); }
+.pattern-card--exact { border-color: #5fcd8c; }
 
-.pattern-status {
-  text-align: center;
-  padding: 2rem 1rem;
-  color: #666;
+.pattern-card-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5fcd8c;
+  background: rgba(95,205,140,0.14);
+  border: 1px solid #5fcd8c;
+  border-radius: 3px;
+  padding: 1px 5px;
+  align-self: flex-start;
+}
+.pattern-card-overlap { font-size: 0.65rem; color: #888; }
+
+.paint-swatch {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 2px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background: #000;
+  padding: 3px;
+  border-radius: 3px;
+}
+.paint-swatch-cell { border-radius: 1px; border: 1px solid #222; }
+.paint-swatch-cell--overlap { box-shadow: inset 0 0 0 2px #e84; }
+
+.pattern-card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
 }
