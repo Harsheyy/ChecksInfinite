@@ -67,21 +67,87 @@ function rgbDistance(a: string, b: string): number {
   return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2)
 }
 
+// Groups hexes into families by mutual RGB proximity (single-linkage —
+// same threshold as "reads as the same color", so e.g. 3 shades of blue
+// that are each within DISTINGUISHABLE_THRESHOLD of another blue in the
+// set all land in one family, chained transitively) rather than by exact
+// hex match. Without this, a composite whose majority is rendered across
+// several close-but-not-identical shades (common — the engine's gradient/
+// branch-inheritance logic rarely produces one single hex across 14+ cells)
+// got treated as multiple small color groups instead of one big majority,
+// which could wrongly promote a majority shade into looking like a second
+// accent color and make genuinely-identical patterns render with different
+// dot counts.
+function clusterHexes(hexes: string[]): Map<string, number> {
+  const unique = [...new Set(hexes)]
+  const clusters: string[][] = []
+  for (const hex of unique) {
+    let bestCluster = -1
+    let bestDist = Infinity
+    for (let i = 0; i < clusters.length; i++) {
+      for (const h of clusters[i]) {
+        const d = rgbDistance(h, hex)
+        if (d < bestDist) { bestDist = d; bestCluster = i }
+      }
+    }
+    if (bestCluster !== -1 && bestDist < DISTINGUISHABLE_THRESHOLD) clusters[bestCluster].push(hex)
+    else clusters.push([hex])
+  }
+  // Greedy single-pass order can leave clusters that are themselves close
+  // enough to merge — sweep until stable.
+  let merged = true
+  while (merged) {
+    merged = false
+    outer:
+    for (let i = 0; i < clusters.length; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        let minDist = Infinity
+        for (const a of clusters[i]) for (const b of clusters[j]) minDist = Math.min(minDist, rgbDistance(a, b))
+        if (minDist < DISTINGUISHABLE_THRESHOLD) {
+          clusters[i] = clusters[i].concat(clusters[j])
+          clusters.splice(j, 1)
+          merged = true
+          break outer
+        }
+      }
+    }
+  }
+  const hexToFamily = new Map<string, number>()
+  clusters.forEach((cluster, idx) => cluster.forEach(h => hexToFamily.set(h, idx)))
+  return hexToFamily
+}
+
 function cellRolesFromSvg(svg: string): { dimCells: number[]; brightCells: number[] } {
   const hexes = [...svg.matchAll(HEX_FILL_RE)].map(m => m[1])
   if (hexes.length !== 20) return { dimCells: [], brightCells: [] }  // not a 20-check composite
 
-  const counts = new Map<string, number>()
-  for (const h of hexes) counts.set(h, (counts.get(h) ?? 0) + 1)
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
-  const majorityHex = sorted[0][0]
-  const cellsOf = (hex: string) => hexes.reduce<number[]>((cells, h, i) => (h === hex ? [...cells, i] : cells), [])
+  const hexToFamily = clusterHexes(hexes)
+  const cellsByFamily = new Map<number, number[]>()
+  const hexesByFamily = new Map<number, Set<string>>()
+  hexes.forEach((hex, i) => {
+    const family = hexToFamily.get(hex)!
+    const cells = cellsByFamily.get(family) ?? []
+    cells.push(i)
+    cellsByFamily.set(family, cells)
+    const hexSet = hexesByFamily.get(family) ?? new Set<string>()
+    hexSet.add(hex)
+    hexesByFamily.set(family, hexSet)
+  })
 
-  // Every non-majority color, ranked by how visually distinct it is from
+  const sortedFamilies = [...cellsByFamily.entries()].sort((a, b) => b[1].length - a[1].length)
+  const majorityFamily = sortedFamilies[0][0]
+  const majorityHexes = hexesByFamily.get(majorityFamily)!
+
+  // Every non-majority family, ranked by how visually distinct it is from
   // majority — most distinct first, so a single accent tier always picks
-  // the one that actually reads as "the pattern".
-  const candidates = sorted.slice(1)
-    .map(([hex]) => ({ hex, distance: rgbDistance(hex, majorityHex) }))
+  // the one that actually reads as "the pattern". Distance between families
+  // is the closest pair across them (consistent with the clustering above).
+  const candidates = sortedFamilies.slice(1)
+    .map(([family, cells]) => {
+      let distance = Infinity
+      for (const h1 of hexesByFamily.get(family)!) for (const h2 of majorityHexes) distance = Math.min(distance, rgbDistance(h1, h2))
+      return { cells, distance }
+    })
     .sort((a, b) => b.distance - a.distance)
 
   const distinguishable = candidates.filter(c => c.distance >= DISTINGUISHABLE_THRESHOLD)
@@ -91,8 +157,8 @@ function cellRolesFromSvg(svg: string): { dimCells: number[]; brightCells: numbe
   const included = distinguishable.length > 0 ? distinguishable : candidates.slice(0, 1)
 
   return {
-    brightCells: included[0] ? cellsOf(included[0].hex) : [],
-    dimCells:    included[1] ? cellsOf(included[1].hex) : [],
+    brightCells: included[0] ? included[0].cells : [],
+    dimCells:    included[1] ? included[1].cells : [],
   }
 }
 
