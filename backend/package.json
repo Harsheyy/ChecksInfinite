@@ -11,7 +11,7 @@
     "backfill-market-incremental": "tsx --env-file=.env scripts/backfill-market-checks.ts --incremental",
     "backfill-market-prices": "tsx --env-file=.env scripts/backfill-market-prices.ts",
     "populate-market": "tsx --env-file=.env scripts/populate-market-permutations.ts",
-    "build-pattern-catalog": "tsx --env-file=.env scripts/build-pattern-catalog.ts"
+    "hunt-diversity": "tsx --env-file=.env scripts/hunt-diversity.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
