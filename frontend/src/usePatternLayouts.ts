@@ -37,8 +37,40 @@ export interface PatternLayout {
 // `enabled` defers the fetch (a multi-MB index) until it's actually
 // needed — landing on the Patterns tab shouldn't pull it down before the
 // user has even started drawing a query.
+// Module-level cache, not component state: PatternComposer mounts only
+// while hasResults is true, so toggling below MIN_CELLS_FOR_RESULTS and
+// back would otherwise unmount/remount the hook and re-fetch the whole
+// (multi-MB) index every time — this makes the fetch happen at most once
+// per page load.
+let cachedLayouts: PatternLayout[] | null = null
+let inflightFetch: Promise<PatternLayout[]> | null = null
+
+async function fetchLayouts(): Promise<PatternLayout[]> {
+  if (cachedLayouts) return cachedLayouts
+  if (inflightFetch) return inflightFetch
+  inflightFetch = (async () => {
+    const { data } = supabase!.storage.from('pattern-catalog').getPublicUrl('layouts.json')
+    const res = await fetch(data.publicUrl)
+    if (!res.ok) throw new Error(`layouts.json fetch failed: ${res.status}`)
+    const wire = await res.json() as WireLayout[]
+    cachedLayouts = wire.map(l => ({
+      cells: l.c,
+      minoritySize: l.m,
+      variety: l.nv,
+      totalRecipes: l.nr,
+      variations: l.v.map(v => ({ colors: v.c, recipeCount: v.n, recipes: v.r })),
+    }))
+    return cachedLayouts
+  })()
+  try {
+    return await inflightFetch
+  } finally {
+    inflightFetch = null
+  }
+}
+
 export function usePatternLayouts(enabled: boolean) {
-  const [layouts, setLayouts] = useState<PatternLayout[]>([])
+  const [layouts, setLayouts] = useState<PatternLayout[]>(cachedLayouts ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
@@ -48,26 +80,10 @@ export function usePatternLayouts(enabled: boolean) {
     setLoading(true)
     setError('')
 
-    ;(async () => {
-      try {
-        const { data } = supabase.storage.from('pattern-catalog').getPublicUrl('layouts.json')
-        const res = await fetch(data.publicUrl)
-        if (!res.ok) throw new Error(`layouts.json fetch failed: ${res.status}`)
-        const wire = await res.json() as WireLayout[]
-        if (cancelled) return
-        setLayouts(wire.map(l => ({
-          cells: l.c,
-          minoritySize: l.m,
-          variety: l.nv,
-          totalRecipes: l.nr,
-          variations: l.v.map(v => ({ colors: v.c, recipeCount: v.n, recipes: v.r })),
-        })))
-      } catch (e) {
-        if (!cancelled) setError((e as Error).message ?? String(e))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
+    fetchLayouts()
+      .then(l => { if (!cancelled) setLayouts(l) })
+      .catch(e => { if (!cancelled) setError((e as Error).message ?? String(e)) })
+      .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
   }, [enabled])

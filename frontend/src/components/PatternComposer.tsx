@@ -45,7 +45,13 @@ interface LayoutCardProps {
 function LayoutCard({ layout, selected, isExact, onClick }: LayoutCardProps) {
   const overlap = overlapCount(layout.cells, selected)
   return (
-    <div className={`pattern-card${isExact ? ' pattern-card--exact' : ''}`} onClick={onClick} role="button" tabIndex={0}>
+    <div
+      className={`pattern-card${isExact ? ' pattern-card--exact' : ''}`}
+      onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      role="button"
+      tabIndex={0}
+    >
       {isExact ? (
         <span className="pattern-card-badge">★ exact</span>
       ) : (
@@ -94,8 +100,11 @@ export function PatternComposer({ selected, onSelectLayout }: PatternComposerPro
   return (
     <div className="pattern-composer-results">
       <div className="pattern-results-head">
-        <span className="filter-count">{resultsTitle}</span>
+        <span className="filter-count pattern-recipe-count">{resultsTitle}</span>
       </div>
+      {list.length > 0 && (
+        <p className="pattern-disclaimer">Showing a small sample of what's possible — not every layout or recipe that exists.</p>
+      )}
       {!loading && list.length === 0 && !error && (
         <div className="pattern-status">Nothing found — try a different selection.</div>
       )}

@@ -531,6 +531,24 @@ body {
   white-space: nowrap;
 }
 
+/* Longer than other tabs' filter-count text — wraps instead of overflowing
+   its container on narrow viewports (used in both the fixed detail bar
+   and the results-head summary line). */
+.pattern-recipe-count {
+  white-space: normal;
+  min-width: 0;
+}
+.search-fixed-bar .pattern-recipe-count {
+  text-align: right;
+  flex: 1 1 auto;
+}
+@media (max-width: 640px) {
+  .search-fixed-bar .pattern-recipe-count {
+    text-align: left;
+    flex-basis: 100%;
+  }
+}
+
 .info-icon-wrapper {
   position: relative;
   display: inline-flex;
@@ -2038,15 +2056,32 @@ body {
    appear made the panel visibly snap from centered to top-aligned. A
    single fixed offset never moves, at the cost of not being pixel-exact
    "centered" for the empty state. */
-.pattern-browse {
+/* One scroll container (matches the body-overflow-hidden convention every
+   other full-page view uses), but the hero is a fixed-height spacer sized
+   to exactly one screen — so the panel centers within it the same way
+   .searchpage--landing centers its card, and that centering never depends
+   on whether results exist. Results are appended after the hero in normal
+   flow, i.e. below the fold: reaching them takes a scroll, but nothing
+   about the hero's height or the panel's position changes when they load. */
+.pattern-browse-scroll {
   position: fixed;
   top: 48px; left: 0; right: 0; bottom: 0;
   overflow-y: auto;
-  padding: 2.5rem 1rem 4rem;
+}
+.pattern-browse-hero {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  position: relative;
+  z-index: 1;
+}
+.pattern-browse-results-scroll {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2rem;
+  padding: 1rem 1rem 4rem;
 }
 .pattern-browse-panel {
   width: 100%;
@@ -2121,6 +2156,7 @@ body {
 .pattern-status { text-align: center; padding: 1rem; color: #666; font-size: 0.85rem; line-height: 1.5; }
 
 .pattern-composer-results { min-width: 0; }
+.pattern-disclaimer { margin: -0.4rem 0 0.9rem; color: #666; font-size: 0.72rem; line-height: 1.4; }
 .pattern-results-head {
   display: flex;
   align-items: center;

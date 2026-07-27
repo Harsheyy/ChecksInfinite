@@ -52,8 +52,8 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
         <div className="search-fixed-bar" ref={fixedBarRef}>
           <button type="button" className="search-fixed-bar__edit" onClick={() => setSelected(null)}>← Back</button>
           <div className="search-fixed-bar__spacer" />
-          <span className="filter-count">
-            {selected.minoritySize}-check minority · {selected.variety === 1 ? '1 color pair' : `${selected.variety} color pairs`} · {selected.totalRecipes} recipe{selected.totalRecipes === 1 ? '' : 's'}
+          <span className="filter-count pattern-recipe-count">
+            {selected.minoritySize}-check minority · {selected.variety === 1 ? '1 color pair' : `${selected.variety}+ color pairs`} · {recipes.length} of {selected.totalRecipes}+ known recipes shown
           </span>
         </div>
         {recipesLoading ? (
@@ -81,17 +81,21 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
   // your selection ────────────────────────────────────────────────────────
   const hasResults = cells.length >= MIN_CELLS_FOR_RESULTS
   return (
-    <div className="pattern-browse">
-      <SearchBackground svgs={bgSvgs} />
-      <div className="pattern-browse-panel">
-        <div className="searchpage__form">
-          {tabs}
-          <PatternPaintGrid selected={cells} onToggle={toggleCell} onClear={() => setCells([])} />
+    <div className="pattern-browse-scroll">
+      <div className="pattern-browse-hero">
+        <SearchBackground svgs={bgSvgs} />
+        <div className="pattern-browse-panel">
+          <div className="searchpage__form">
+            {tabs}
+            <PatternPaintGrid selected={cells} onToggle={toggleCell} onClear={() => setCells([])} />
+          </div>
         </div>
       </div>
       {hasResults && (
-        <div className="pattern-browse-results-below">
-          <PatternComposer selected={cells} onSelectLayout={openLayout} />
+        <div className="pattern-browse-results-scroll">
+          <div className="pattern-browse-results-below">
+            <PatternComposer selected={cells} onSelectLayout={openLayout} />
+          </div>
         </div>
       )}
     </div>
