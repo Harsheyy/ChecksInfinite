@@ -35,8 +35,20 @@ interface Props {
   onBeforeSelect?: (perm: PermutationResult) => Promise<boolean>
 }
 
+// Stable identity for a permutation, independent of its position in
+// `visible`. Used for selection state so an in-flight onBeforeSelect await
+// (a wallet signature + charge, potentially many seconds) can't have its
+// result attributed to the wrong card if `visible` gets recomputed (e.g.
+// a filter change) while the gate is pending — see Fix 4 in the
+// final-review-fix-report. tokenIds (db mode) is the precise key; def.label
+// already uniquely encodes the index/token composition as a fallback for
+// chain mode where tokenIds may be absent.
+function permKey(p: PermutationResult): string {
+  return p.def.tokenIds ? p.def.tokenIds.join(',') : p.def.label
+}
+
 export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange, disableLoop, onBeforeSelect }: Props) {
-  const [selected, setSelected]   = useState<number | null>(null)
+  const [selected, setSelected]   = useState<string | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
   const rafRef                     = useRef(0)
@@ -48,21 +60,21 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
   )
   const N = visible.length
 
-  // ── Deep-link bridge: token-ID selection ⇄ index-based selection ─────────
+  // ── Deep-link bridge: token-ID selection ⇄ key-based selection ───────────
   // Apply the initial ?recipe= selection exactly once, after the feed arrives.
   const appliedInitial = useRef(!initialSelectedIds)
   useEffect(() => {
     if (appliedInitial.current || !initialSelectedIds || N === 0) return
     appliedInitial.current = true
-    const idx = visible.findIndex(p =>
+    const match = visible.find(p =>
       p.def.tokenIds && p.def.tokenIds.join(',') === initialSelectedIds.join(',')
     )
-    if (idx >= 0) setSelected(idx)
+    if (match) setSelected(permKey(match))
     else onSelectedChange?.(null)  // recipe gone from feed — drop the param
   }, [visible, N, initialSelectedIds, onSelectedChange])
 
   // Mirror open/close up for URL sync (skip while a deep link is still pending)
-  const selectedPermForSync = selected !== null ? visible[selected] ?? null : null
+  const selectedPermForSync = selected !== null ? visible.find(p => permKey(p) === selected) ?? null : null
   useEffect(() => {
     if (!onSelectedChange || !appliedInitial.current) return
     onSelectedChange(selectedPermForSync?.def.tokenIds ?? null)
@@ -126,7 +138,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
 
   if (N === 0) return null
 
-  const selectedPerm = selected !== null ? visible[selected] ?? null : null
+  const selectedPerm = selected !== null ? visible.find(p => permKey(p) === selected) ?? null : null
 
   const viewportClass = `grid-viewport${
     hasFilters
@@ -158,11 +170,16 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
                 result={perm}
                 visible={true}
                 onClick={async () => {
+                  // Capture the clicked permutation's identity now — `visible`
+                  // may be recomputed while onBeforeSelect's charge/signature
+                  // prompt is pending, so index `i` could point elsewhere by
+                  // the time this resolves. permKey(perm) stays correct.
+                  const clicked = perm
                   if (onBeforeSelect) {
-                    const proceed = await onBeforeSelect(visible[i])
+                    const proceed = await onBeforeSelect(clicked)
                     if (!proceed) return
                   }
-                  setSelected(i)
+                  setSelected(permKey(clicked))
                 }}
                 likeInfo={getLikeInfo?.(perm)}
               />
@@ -202,6 +219,7 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
         for (let row = r0; row <= r1; row++) {
           const i = row * cols + col
           if (i >= N) continue
+          const perm = visible[i]
           cards.push(
             <div
               key={`${i}-${tx}-${ty}`}
@@ -214,16 +232,19 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
               }}
             >
               <PermutationCard
-                result={visible[i]}
+                result={perm}
                 visible={true}
                 onClick={async () => {
+                  // Same identity-capture as the small-grid branch above —
+                  // `visible` can shift during onBeforeSelect's await.
+                  const clicked = perm
                   if (onBeforeSelect) {
-                    const proceed = await onBeforeSelect(visible[i])
+                    const proceed = await onBeforeSelect(clicked)
                     if (!proceed) return
                   }
-                  setSelected(i)
+                  setSelected(permKey(clicked))
                 }}
-                likeInfo={getLikeInfo?.(visible[i])}
+                likeInfo={getLikeInfo?.(perm)}
               />
             </div>
           )
