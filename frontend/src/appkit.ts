@@ -6,6 +6,7 @@
 import { createAppKit } from '@reown/appkit/react'
 import { mainnet } from '@reown/appkit/networks'
 import { wagmiAdapter, projectId } from './wagmiConfig'
+import { siweConfig } from './siweConfig'
 
 type AppKitModal = ReturnType<typeof createAppKit>
 
@@ -16,6 +17,7 @@ export function initAppKit(): AppKitModal {
     adapters: [wagmiAdapter],
     networks: [mainnet],
     projectId: projectId ?? 'MISSING_PROJECT_ID',
+    siweConfig,
     metadata: {
       name: 'Checks Infinite',
       description: 'Checks VV permutation browser',
