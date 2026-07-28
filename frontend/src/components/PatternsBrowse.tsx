@@ -71,7 +71,11 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
         setChargeError('Sign the wallet prompt to continue.')
         return
       }
-      const charge = await chargeCredits(address, sessionToken, 'recipe_view')
+      // One idempotency key per invocation of openLayout (see chargeCredits.ts)
+      // — dedups against a lost response for THIS attempt; a fresh manual
+      // re-click is a new invocation and correctly gets a new key.
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
       if (!charge.success) {
         if (charge.message === 'insufficient_balance') {
           setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })

@@ -21,6 +21,7 @@ import { SearchPage } from './components/SearchPage'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
 import { useSiweSession } from './useSiweSession'
 import { chargeCredits } from './chargeCredits'
+import { useCreditBalance } from './useCreditBalance'
 import { usePricing } from './usePricing'
 import { FundingPrompt } from './components/FundingPrompt'
 
@@ -31,6 +32,7 @@ export default function App() {
   const { address, isConnected } = useAccount()
   useWalletTracking(address, isConnected)
   const siwe = useSiweSession()
+  const credits = useCreditBalance(isConnected ? address : undefined)
   const { prices } = usePricing()
   const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceWei: bigint } | null>(null)
   const [recipeGateError, setRecipeGateError] = useState<string>('')
@@ -296,7 +298,12 @@ export default function App() {
         setRecipeGateError('Sign the wallet prompt to continue.')
         return false
       }
-      const charge = await chargeCredits(address, sessionToken, 'recipe_view')
+      // One idempotency key per invocation of this gate (see chargeCredits.ts) —
+      // dedups against a lost response for THIS attempt without needing any
+      // client-side retry logic (there is none here beyond the user re-clicking,
+      // which is a new invocation and correctly gets a new key).
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
       if (!charge.success) {
         if (charge.message === 'insufficient_balance') {
           setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
@@ -305,6 +312,7 @@ export default function App() {
         }
         return false
       }
+      credits.refresh()
       return true
     } finally {
       chargingRef.current = false
