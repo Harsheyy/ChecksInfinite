@@ -22,10 +22,15 @@ export function FundingPrompt({ actionType, priceWei, receivingAddress, onClose 
   const [copied, setCopied] = useState(false)
   const priceEth = (Number(priceWei) / 1e18).toFixed(4)
 
-  function handleCopy() {
-    navigator.clipboard.writeText(receivingAddress)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(receivingAddress)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (err) {
+      // Silent failure — user can manually select and copy the address
+      console.error('Failed to copy address to clipboard:', err)
+    }
   }
 
   return (
