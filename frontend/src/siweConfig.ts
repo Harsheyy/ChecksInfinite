@@ -19,6 +19,23 @@ export function getCurrentSession(): { sessionToken: string; walletAddress: stri
     : null
 }
 
+// Minimal pub/sub so React consumers (useSiweSession) can re-render when the
+// module-level session state changes — e.g. after AppKit's automatic
+// on-connect SIWE flow completes verifyMessage, or after signOut clears it.
+// Deliberately not a state-management library: just enough to avoid stale
+// "signed in" UI until an unrelated re-render happens to occur.
+type SessionListener = () => void
+const sessionListeners = new Set<SessionListener>()
+
+export function subscribeToSiweSession(listener: SessionListener): () => void {
+  sessionListeners.add(listener)
+  return () => sessionListeners.delete(listener)
+}
+
+function notifySiweSessionListeners(): void {
+  for (const listener of sessionListeners) listener()
+}
+
 export const siweConfig = createSIWEConfig({
   getMessageParams: async () => ({
     domain: window.location.host,
@@ -41,6 +58,7 @@ export const siweConfig = createSIWEConfig({
     if (error || !data || 'error' in data) return false
     currentSessionToken = data.sessionToken
     currentWalletAddress = data.walletAddress
+    notifySiweSessionListeners()
     return true
   },
   getSession: async () => {
@@ -50,6 +68,7 @@ export const siweConfig = createSIWEConfig({
   signOut: async () => {
     currentSessionToken = null
     currentWalletAddress = null
+    notifySiweSessionListeners()
     return true
   },
 })

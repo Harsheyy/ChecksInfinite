@@ -1,25 +1,37 @@
 // frontend/src/useSiweSession.ts
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
-import { getCurrentSession } from './siweConfig'
+import { getCurrentSession, siweConfig, subscribeToSiweSession } from './siweConfig'
 
 export function useSiweSession() {
   const { isConnected } = useAccount()
   const [, forceRerender] = useState(0)
+  const refresh = useCallback(() => forceRerender(n => n + 1), [])
 
-  // ensureSignedIn opens AppKit's SIWE prompt (via its own modal flow,
-  // triggered automatically by AppKit once siweConfig is wired in and a
-  // wallet connects) if no session exists yet, and returns the resulting
-  // token. AppKit handles the actual signature UI; this just surfaces the
-  // outcome to callers like chargeCredits.
+  // Re-render whenever siweConfig's verifyMessage/signOut mutate the
+  // module-level session state (e.g. AppKit's automatic on-connect SIWE
+  // flow completing in the background), so sessionToken/walletAddress below
+  // don't go stale until some unrelated re-render happens to occur.
+  useEffect(() => subscribeToSiweSession(refresh), [refresh])
+
+  // ensureSignedIn returns the current valid session token if one exists;
+  // otherwise it actively triggers AppKit's SIWE signature prompt via
+  // siweConfig.signIn() (AppKitSIWEClient.signIn -> SIWXUtil.requestSignMessage,
+  // which opens the wallet-signature modal, requests the signature, and — on
+  // success — runs our verifyMessage above, populating the module session
+  // state) and returns the resulting token, or null if the user rejects or
+  // the flow fails.
   const ensureSignedIn = useCallback(async (): Promise<string | null> => {
     if (!isConnected) return null
     const existing = getCurrentSession()
     if (existing) return existing.sessionToken
-    // AppKit prompts for signature automatically on connect when siweConfig
-    // is present; if we get here with no session, the user hasn't completed
-    // it yet (declined, or connect flow still in progress) — reflect that.
-    return null
+
+    try {
+      await siweConfig.signIn()
+    } catch {
+      return null
+    }
+    return getCurrentSession()?.sessionToken ?? null
   }, [isConnected])
 
   const session = getCurrentSession()
@@ -27,6 +39,6 @@ export function useSiweSession() {
     sessionToken: session?.sessionToken ?? null,
     walletAddress: session?.walletAddress ?? null,
     ensureSignedIn,
-    refresh: () => forceRerender(n => n + 1),
+    refresh,
   }
 }
