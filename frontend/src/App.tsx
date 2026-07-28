@@ -274,27 +274,41 @@ export default function App() {
   // Charges recipe_view credits before a Curated card's TreePanel is allowed
   // to open. Passed as InfiniteGrid's onBeforeSelect only for curated mode —
   // Explore/Search never pass this prop, so their reveal stays free/instant.
+  // chargingRef is a synchronous re-entrancy guard (same pattern as
+  // SearchPage.tsx's submittingRef): a rapid double-click on a curated card
+  // fires two concurrent onBeforeSelect calls before either awaited call
+  // resolves, and since both ultimately land on the same card index the
+  // user would only ever see one TreePanel open — masking a double charge.
+  // A ref (not state) is required since it must block the second call
+  // synchronously, within the same tick, before any await yields.
+  const chargingRef = useRef(false)
   async function chargeForRecipeView(): Promise<boolean> {
-    setRecipeGateError('')
-    if (!isConnected || !address) {
-      setRecipeGateError('Connect a wallet to view this recipe.')
-      return false
-    }
-    const sessionToken = await siwe.ensureSignedIn()
-    if (!sessionToken) {
-      setRecipeGateError('Sign the wallet prompt to continue.')
-      return false
-    }
-    const charge = await chargeCredits(address, sessionToken, 'recipe_view')
-    if (!charge.success) {
-      if (charge.message === 'insufficient_balance') {
-        setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
-      } else {
-        setRecipeGateError(`Couldn't charge for this recipe view (${charge.message}).`)
+    if (chargingRef.current) return false
+    chargingRef.current = true
+    try {
+      setRecipeGateError('')
+      if (!isConnected || !address) {
+        setRecipeGateError('Connect a wallet to view this recipe.')
+        return false
       }
-      return false
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setRecipeGateError('Sign the wallet prompt to continue.')
+        return false
+      }
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view')
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
+        } else {
+          setRecipeGateError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return false
+      }
+      return true
+    } finally {
+      chargingRef.current = false
     }
-    return true
   }
 
   // ── Derive display values ─────────────────────────────────────────────────
