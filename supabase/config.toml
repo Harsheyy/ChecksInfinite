@@ -13,5 +13,13 @@ verify_jwt = false
 [functions.sync-market-prices]
 verify_jwt = false
 
-# checks-webhook and tokenstr-webhook are called externally by Alchemy and use
-# their own HMAC signature verification — leave JWT enabled for those.
+# checks-webhook and tokenstr-webhook are called externally by Alchemy, which
+# sends only an x-alchemy-signature header (no Supabase JWT). The platform's
+# verify_jwt gate rejects those requests with 401 before our own HMAC check
+# ever runs, so it must be disabled here — the HMAC check in the function
+# code is what actually authenticates the request.
+[functions.checks-webhook]
+verify_jwt = false
+
+[functions.tokenstr-webhook]
+verify_jwt = false
