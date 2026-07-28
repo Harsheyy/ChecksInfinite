@@ -137,6 +137,49 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const submitEnabled = canSubmit || canSubmitGlobal
 
   // ── Submit ─────────────────────────────────────────────────────────────
+  // Shared credit-charge gate for search_query actions — used by both the
+  // initial handleSubmit below and the debounced live-refine effect further
+  // down (Fix 3), so the wallet/session/charge/insufficient-balance plumbing
+  // isn't duplicated across the two call sites. Each call generates its own
+  // idempotency key, scoped to that one logical charge attempt: if THIS
+  // invocation's chargeCredits response is lost (network drop, timeout) and
+  // the SAME invocation somehow retried, it would replay instead of
+  // double-charging (see migration 038 / chargeCredits.ts). A separate
+  // manual re-click/re-refine is a new logical attempt and correctly gets a
+  // new key — that's intentional, not a gap.
+  const chargeForSearchQuery = useCallback(async (): Promise<boolean> => {
+    if (!isConnected || !address) {
+      setSubmitError('Connect a wallet to search.')
+      return false
+    }
+    const sessionToken = await siwe.ensureSignedIn()
+    if (!sessionToken) {
+      setSubmitError('Sign the wallet prompt to continue.')
+      return false
+    }
+    const idempotencyKey = crypto.randomUUID()
+    const charge = await chargeCredits(address, sessionToken, 'search_query', idempotencyKey)
+    if (!charge.success) {
+      if (charge.message === 'insufficient_balance') {
+        setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
+      } else {
+        setSubmitError(`Couldn't charge for this search (${charge.message}).`)
+      }
+      return false
+    }
+    credits.refresh()
+    return true
+  }, [isConnected, address, siwe, credits, prices])
+
+  // Filters that were charged for and searched most recently, via either
+  // handleSubmit's initial charge or the debounced refine effect below.
+  // Lets that effect tell "filters actually changed since the last charge"
+  // apart from "this effect re-ran because submitted/activeMode flipped for
+  // an unrelated reason" (e.g. the initial submit itself entering global
+  // mode) — without this, submitting a global-trait search would charge
+  // once in handleSubmit and then immediately again in the refine effect.
+  const chargedFiltersRef = useRef<SearchFilters | null>(null)
+
   // submittingRef is a synchronous re-entrancy guard: isLoading (and thus the
   // submit button's disabled state) doesn't flip true until a branch below
   // calls setActiveMode(...), which only happens after the awaited
@@ -157,58 +200,76 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
         setSubmitError('Connect a wallet to search.')
         return
       }
-      const sessionToken = await siwe.ensureSignedIn()
-      if (!sessionToken) {
-        setSubmitError('Sign the wallet prompt to continue.')
-        return
-      }
-      const charge = await chargeCredits(address, sessionToken, 'search_query')
-      if (!charge.success) {
-        if (charge.message === 'insufficient_balance') {
-          setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
+
+      // Pre-flight for wallet-mode ENS names: resolve BEFORE charging.
+      // Resolution is a cheap, read-only check that can fail — if it does,
+      // the search never runs, so we must not have already charged for it
+      // (Fix 2). ids-mode and global-trait-mode have no equivalent
+      // pre-flight step, so they keep charging immediately below.
+      let walletTarget: string | undefined
+      let walletLabel = ''
+      if (mode === 'wallet' && walletValid) {
+        if (isEnsName(walletTrim)) {
+          const resolved = await ensResolver.resolve(walletTrim)
+          if (!resolved) {
+            setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
+            return
+          }
+          walletTarget = resolved
+          walletLabel = walletTrim
         } else {
-          setSubmitError(`Couldn't charge for this search (${charge.message}).`)
+          walletTarget = walletTrim.toLowerCase()
+          walletLabel = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
         }
-        return
       }
-      credits.refresh()
+
+      if (!(await chargeForSearchQuery())) return
 
       setSubmitted(true)
       if (mode === 'ids' && canSubmit) {
         setActiveMode('ids')
         idSearch.search(idsParsed)
-      } else if (mode === 'wallet' && walletValid) {
+      } else if (mode === 'wallet' && walletValid && walletTarget) {
         setActiveMode('wallet')
-        // Resolve ENS if needed
-        let target = walletTrim.toLowerCase()
-        let label = walletTrim
-        if (isEnsName(walletTrim)) {
-          const resolved = await ensResolver.resolve(walletTrim)
-          if (!resolved) {
-            setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
-            setSubmitted(false)
-            setActiveMode(null)
-            return
-          }
-          target = resolved
-        } else {
-          label = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
-        }
-        setResolvedWalletLabel(label)
-        setResolvedWallet(target)
+        setResolvedWalletLabel(walletLabel)
+        setResolvedWallet(walletTarget)
       } else if (canSubmitGlobal) {
         setActiveMode(null)
+        chargedFiltersRef.current = filters
         global.run(filters)
       }
     } finally {
       submittingRef.current = false
     }
-  }, [isConnected, address, siwe, credits, prices, mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
+  }, [isConnected, address, chargeForSearchQuery, mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
 
-  // Re-run global query when filters change after first submit (live updates)
+  // Re-run + re-charge the global query when filters change after first
+  // submit (live refine). Debounced ~1.5s after the last filter change so
+  // rapid toggling doesn't charge per keystroke/toggle — this still charges
+  // once per "settled" refinement rather than being a free, uncapped bypass
+  // of search_query pricing (Fix 3). The chargedFiltersRef check skips the
+  // charge when this effect re-fires only because submitted/activeMode
+  // changed (e.g. the initial submit itself), not because filters changed.
+  const refineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (submitted && activeMode === null && hasActiveSearchFilters(filters)) {
-      global.run(filters)
+    if (!(submitted && activeMode === null && hasActiveSearchFilters(filters))) return
+    if (filters === chargedFiltersRef.current) return
+
+    if (refineTimerRef.current) clearTimeout(refineTimerRef.current)
+    refineTimerRef.current = setTimeout(() => {
+      refineTimerRef.current = null
+      chargeForSearchQuery().then(ok => {
+        if (!ok) return
+        chargedFiltersRef.current = filters
+        global.run(filters)
+      })
+    }, 1500)
+
+    return () => {
+      if (refineTimerRef.current) {
+        clearTimeout(refineTimerRef.current)
+        refineTimerRef.current = null
+      }
     }
   }, [filters, submitted, activeMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
