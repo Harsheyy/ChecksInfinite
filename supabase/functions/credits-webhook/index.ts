@@ -54,10 +54,13 @@ Deno.serve(async (req: Request) => {
     const weiAmount = BigInt(weiHex)
     if (weiAmount <= 0n) continue
 
+    if (!activity.hash) continue
+
     const fromAddress = activity.fromAddress.toLowerCase()
-    const { error } = await supabase.rpc('credit_wallet', {
+    const { error } = await supabase.rpc('credit_wallet_from_transfer', {
       p_wallet_address: fromAddress,
       p_amount_wei: weiAmount.toString(),
+      p_tx_hash: activity.hash,
     })
     if (error) {
       console.error(`credit_wallet failed for ${fromAddress}:`, error)
@@ -116,5 +119,6 @@ interface AlchemyActivity {
   category: string
   fromAddress: string
   toAddress?: string
+  hash: string
   rawContract?: { value?: string; decimals?: number }
 }
