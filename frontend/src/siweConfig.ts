@@ -11,8 +11,54 @@ import { mainnet } from '@reown/appkit/networks'
 import { networks } from './wagmiConfig'
 import { supabase } from './supabaseClient'
 
-let currentSessionToken: string | null = null
-let currentWalletAddress: string | null = null
+// Persisted to localStorage (not just kept in memory) so a page refresh or
+// tab reopen doesn't force a fresh signature — the session is still only
+// ever trusted until its server-recorded expiry (24h, see siwe-verify),
+// checked below before rehydrating.
+const STORAGE_KEY = 'checks-wiki-siwe-session'
+
+interface StoredSession {
+  sessionToken: string
+  walletAddress: string
+  expiresAt: string
+}
+
+function loadStoredSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as StoredSession
+    if (new Date(parsed.expiresAt).getTime() <= Date.now()) {
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function saveStoredSession(session: StoredSession): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
+  } catch {
+    // Storage unavailable (private browsing, quota, etc.) — session still
+    // works for this page load via the in-memory copy, just won't survive
+    // a refresh. Not worth surfacing to the user.
+  }
+}
+
+function clearStoredSession(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // No-op — see saveStoredSession.
+  }
+}
+
+const initial = loadStoredSession()
+let currentSessionToken: string | null = initial?.sessionToken ?? null
+let currentWalletAddress: string | null = initial?.walletAddress ?? null
 
 export function getCurrentSession(): { sessionToken: string; walletAddress: string } | null {
   return currentSessionToken && currentWalletAddress
@@ -42,7 +88,7 @@ export const siweConfig = createSIWEConfig({
     domain: window.location.host,
     uri: window.location.origin,
     chains: networks.map(n => n.id) as number[],
-    statement: 'Sign in to Checks Infinite to fund and spend your search/recipe-view credit balance.',
+    statement: 'Verify wallet ownership to use your Checks Infinite credits.',
   }),
   createMessage: ({ address, ...args }: SIWECreateMessageArgs) => formatMessage(args, address),
   getNonce: async () => {
@@ -54,11 +100,12 @@ export const siweConfig = createSIWEConfig({
   verifyMessage: async ({ message, signature }: SIWEVerifyMessageArgs) => {
     if (!supabase) return false
     const { data, error } = await supabase.functions.invoke<
-      { sessionToken: string; walletAddress: string } | { error: string }
+      { sessionToken: string; walletAddress: string; expiresAt: string } | { error: string }
     >('siwe-verify', { body: { message, signature } })
     if (error || !data || 'error' in data) return false
     currentSessionToken = data.sessionToken
     currentWalletAddress = data.walletAddress
+    saveStoredSession(data)
     notifySiweSessionListeners()
     return true
   },
@@ -69,6 +116,7 @@ export const siweConfig = createSIWEConfig({
   signOut: async () => {
     currentSessionToken = null
     currentWalletAddress = null
+    clearStoredSession()
     notifySiweSessionListeners()
     return true
   },
