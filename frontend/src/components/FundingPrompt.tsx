@@ -1,15 +1,14 @@
 // frontend/src/components/FundingPrompt.tsx
 //
-// Shown when charge_credits returns insufficient_balance. Credits are sold
-// in three fixed USD packages ($10/$25/$50 -> 10/25/50 credits). Primary
-// flow: pick a package, sign a plain ETH transfer to the receiving address
-// from the already-connected wallet (wagmi's useSendTransaction) — no
-// manual copy/paste needed. Credits land via the existing credits-webhook
-// path (same on-chain transfer either way, whether sent from this button
-// or from an external wallet), typically within a block or two, so this
-// polls the balance for a short window after the transaction confirms and
-// reflects the update reactively (useCreditBalance's shared cache means
-// Navbar's chip picks it up too).
+// Shown when charge_credits returns insufficient_balance, or proactively
+// from the navbar's credit-balance link. Credits are sold in three fixed
+// USD packages ($10/$25/$50 -> 10/25/50 credits) — buying is the only
+// supported path: pick a package, sign a plain ETH transfer to the
+// receiving address from the already-connected wallet (wagmi's
+// useSendTransaction). Credits land via credits-webhook, typically within
+// a few seconds of the transaction confirming, so this polls the balance
+// for a short window afterward and reflects the update reactively
+// (useCreditBalance's shared cache means Navbar's chip picks it up too).
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther } from 'viem'
@@ -44,7 +43,6 @@ const CREDIT_POLL_WINDOW_MS = 90_000
 const CREDIT_POLL_INTERVAL_MS = 4_000
 
 export function FundingPrompt({ actionType, priceCredits, receivingAddress, onClose }: FundingPromptProps) {
-  const [copied, setCopied] = useState(false)
   const [buyingUsd, setBuyingUsd] = useState<number | null>(null)
   const [buyError, setBuyError] = useState('')
   const [awaitingCredit, setAwaitingCredit] = useState(false)
@@ -93,17 +91,6 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
     }
   }
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(receivingAddress)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch (err) {
-      // Silent failure — user can manually select and copy the address
-      console.error('Failed to copy address to clipboard:', err)
-    }
-  }
-
   return (
     <div className="funding-prompt-overlay" onClick={onClose}>
       <div className="funding-prompt" onClick={e => e.stopPropagation()}>
@@ -147,16 +134,6 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
         )}
 
         {buyError && <p className="funding-prompt-error">{buyError}</p>}
-
-        {!awaitingCredit && (
-          <>
-            <p className="funding-prompt-manual-label">Or send manually to:</p>
-            <div className="funding-prompt-address" onClick={handleCopy}>
-              {receivingAddress}
-              <span className="funding-prompt-copy">{copied ? 'Copied!' : 'Copy'}</span>
-            </div>
-          </>
-        )}
 
         <button type="button" className="funding-prompt-close" onClick={onClose}>Close</button>
       </div>
