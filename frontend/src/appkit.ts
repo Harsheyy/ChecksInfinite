@@ -18,7 +18,7 @@ export function initAppKit(): AppKitModal {
     projectId: projectId ?? 'MISSING_PROJECT_ID',
     siweConfig,
     metadata: {
-      name: 'Checks Infinite',
+      name: 'Checks Wiki',
       description: 'Checks VV permutation browser',
       url: 'https://checks.wiki',
       icons: [],

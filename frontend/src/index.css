@@ -8,6 +8,30 @@ body {
   overflow: hidden;
 }
 
+/* ─── Footer ─────────────────────────────────────────────── */
+.site-footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: rgba(17,17,17,0.9);
+  backdrop-filter: blur(4px);
+  border-top: 1px solid #222;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 0.68rem;
+  color: #666;
+  z-index: 10;
+  pointer-events: none;
+}
+.site-footer a {
+  color: #666;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.site-footer a:hover { color: #ccc; text-decoration: underline; }
+
 /* ─── Navbar ─────────────────────────────────────────────── */
 .navbar {
   position: fixed;

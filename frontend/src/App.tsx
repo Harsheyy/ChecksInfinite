@@ -24,6 +24,7 @@ import { chargeCredits } from './chargeCredits'
 import { useCreditBalance } from './useCreditBalance'
 import { usePricing } from './usePricing'
 import { FundingPrompt } from './components/FundingPrompt'
+import { Footer } from './components/Footer'
 
 type FeedSource = 'token-works' | 'opensea'
 
@@ -554,6 +555,7 @@ export default function App() {
           )}
         </>
       )}
+      <Footer />
     </>
   )
 }

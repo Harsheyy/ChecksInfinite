@@ -88,7 +88,7 @@ export const siweConfig = createSIWEConfig({
     domain: window.location.host,
     uri: window.location.origin,
     chains: networks.map(n => n.id) as number[],
-    statement: 'Verify wallet ownership to use your Checks Infinite credits.',
+    statement: 'Verify wallet ownership to use your Checks Wiki credits.',
   }),
   createMessage: ({ address, ...args }: SIWECreateMessageArgs) => formatMessage(args, address),
   getNonce: async () => {
