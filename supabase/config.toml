@@ -13,5 +13,17 @@ verify_jwt = false
 [functions.sync-market-prices]
 verify_jwt = false
 
+# credits-webhook is called externally by Alchemy, which sends no Supabase
+# Authorization header at all — Supabase's own JWT gate would 401 every
+# delivery before the function's own HMAC signature check ever runs, so
+# it must be disabled here too. (The comment below previously assumed
+# checks-webhook/tokenstr-webhook didn't need this because "they use their
+# own HMAC verification" — that reasoning doesn't hold: the platform-level
+# JWT check runs BEFORE any function code, HMAC or not. Worth checking
+# whether those two have actually been receiving live Alchemy deliveries
+# successfully, or have the same gap.)
+[functions.credits-webhook]
+verify_jwt = false
+
 # checks-webhook and tokenstr-webhook are called externally by Alchemy and use
 # their own HMAC signature verification — leave JWT enabled for those.
