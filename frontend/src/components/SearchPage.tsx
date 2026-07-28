@@ -20,6 +20,11 @@ import { useEnsResolver, isEnsName } from '../useEnsResolver'
 import { useGlobalTraitSearch } from '../useGlobalTraitSearch'
 import { useBackgroundPermutations } from '../useBackgroundPermutations'
 import { isValidAddress } from '../utils'
+import { useSiweSession } from '../useSiweSession'
+import { chargeCredits } from '../chargeCredits'
+import { useCreditBalance } from '../useCreditBalance'
+import { usePricing } from '../usePricing'
+import { FundingPrompt } from './FundingPrompt'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
 
@@ -84,6 +89,10 @@ interface SearchPageProps {
 
 export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const { address, isConnected } = useAccount()
+  const siwe = useSiweSession()
+  const credits = useCreditBalance(isConnected ? address : undefined)
+  const { prices } = usePricing()
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceWei: bigint } | null>(null)
 
   // ── Form state ──────────────────────────────────────────────────────────
   const [mode, setMode] = useState<SearchInputMode>('ids')
@@ -130,6 +139,27 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   // ── Submit ─────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     setSubmitError('')
+
+    if (!isConnected || !address) {
+      setSubmitError('Connect a wallet to search.')
+      return
+    }
+    const sessionToken = await siwe.ensureSignedIn()
+    if (!sessionToken) {
+      setSubmitError('Sign the wallet prompt to continue.')
+      return
+    }
+    const charge = await chargeCredits(address, sessionToken, 'search_query')
+    if (!charge.success) {
+      if (charge.message === 'insufficient_balance') {
+        setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
+      } else {
+        setSubmitError(`Couldn't charge for this search (${charge.message}).`)
+      }
+      return
+    }
+    credits.refresh()
+
     setSubmitted(true)
     if (mode === 'ids' && canSubmit) {
       setActiveMode('ids')
@@ -157,7 +187,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       setActiveMode(null)
       global.run(filters)
     }
-  }, [mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
+  }, [isConnected, address, siwe, credits, prices, mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
 
   // Re-run global query when filters change after first submit (live updates)
   useEffect(() => {
@@ -367,6 +397,14 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   return (
     <>
     <div className={`searchpage${showEmptyForm ? ' searchpage--landing' : ''}`}>
+      {fundingPrompt && (
+        <FundingPrompt
+          actionType={fundingPrompt.actionType}
+          priceWei={fundingPrompt.priceWei}
+          receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+          onClose={() => setFundingPrompt(null)}
+        />
+      )}
       {showEmptyForm && <SearchBackground svgs={bgSvgs} />}
 
       {showEmptyForm ? (
