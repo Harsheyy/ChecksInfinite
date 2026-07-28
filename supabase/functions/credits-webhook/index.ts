@@ -73,11 +73,6 @@ Deno.serve(async (req: Request) => {
   }
 
   const payload = JSON.parse(body) as AlchemyWebhookPayload
-
-  // TEMPORARY debug logging while diagnosing why real Alchemy deliveries
-  // aren't crediting — remove once the real payload shape is confirmed.
-  await supabase.from('webhook_debug_log').insert({ payload })
-
   const isSepolia = (payload.event?.network ?? '').toUpperCase().includes('SEPOLIA')
   const rpcUrl = isSepolia
     ? `https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}`
@@ -100,7 +95,7 @@ Deno.serve(async (req: Request) => {
     if (activity.category !== 'external') continue
     if (activity.toAddress?.toLowerCase() !== receivingAddress) continue
 
-    const weiHex = activity.rawContract?.value
+    const weiHex = activity.rawContract?.rawValue
     if (!weiHex) continue
     const weiAmount = BigInt(weiHex)
     if (weiAmount <= 0n) continue
@@ -220,5 +215,5 @@ interface AlchemyActivity {
   fromAddress: string
   toAddress?: string
   hash: string
-  rawContract?: { value?: string; decimals?: number }
+  rawContract?: { rawValue?: string; decimals?: number }
 }
