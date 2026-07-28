@@ -16,14 +16,18 @@ import { parseEther } from 'viem'
 import { useEthUsdPrice } from '../useEthUsdPrice'
 import { useCreditBalance } from '../useCreditBalance'
 
+type ActionType = 'search_query' | 'recipe_view'
+
 interface FundingPromptProps {
-  actionType: 'search_query' | 'recipe_view'
-  priceCredits: number
+  // Omitted when opened proactively (e.g. clicking the navbar balance to
+  // top up anytime) rather than in response to a specific blocked action.
+  actionType?: ActionType
+  priceCredits?: number
   receivingAddress: string
   onClose: () => void
 }
 
-const ACTION_LABELS: Record<FundingPromptProps['actionType'], string> = {
+const ACTION_LABELS: Record<ActionType, string> = {
   search_query: 'a search',
   recipe_view: 'viewing a recipe',
 }
@@ -103,17 +107,19 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
   return (
     <div className="funding-prompt-overlay" onClick={onClose}>
       <div className="funding-prompt" onClick={e => e.stopPropagation()}>
-        <h3>{creditReceived ? 'Credits added' : awaitingCredit ? 'Payment approved' : 'Not enough credits'}</h3>
+        <h3>{creditReceived ? 'Credits added' : awaitingCredit ? 'Payment approved' : actionType ? 'Not enough credits' : 'Add credits'}</h3>
 
         {creditReceived ? (
-          <p className="funding-prompt-success">✓ You're all set — go ahead and try again.</p>
+          <p className="funding-prompt-success">✓ You're all set{actionType ? ' — go ahead and try again' : ''}.</p>
         ) : awaitingCredit ? (
           <p className="funding-prompt-status">Adding your credits now, just a few seconds…</p>
         ) : (
           <>
           <p>
-            {ACTION_LABELS[actionType]} costs {priceCredits} credit{priceCredits === 1 ? '' : 's'}. Pick a package
-            below to pay directly from your connected wallet.
+            {actionType && priceCredits !== undefined
+              ? <>{ACTION_LABELS[actionType]} costs {priceCredits} credit{priceCredits === 1 ? '' : 's'}. Pick a package
+                below to pay directly from your connected wallet.</>
+              : 'Pick a package below to top up your balance, paid directly from your connected wallet.'}
           </p>
           <div className="funding-prompt-packages">
             {PACKAGES.map(pkg => {

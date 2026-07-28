@@ -1,6 +1,7 @@
 import { type FormEvent, useState, useRef, useEffect } from 'react'
 import { useAccount, useEnsName } from 'wagmi'
 import { useCreditBalance } from '../useCreditBalance'
+import { FundingPrompt } from './FundingPrompt'
 
 type ViewMode = 'explore' | 'search' | 'curated'
 
@@ -24,6 +25,7 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
   const { address, isConnected } = useAccount()
   const { data: ensName }        = useEnsName({ address })
   const { balance } = useCreditBalance(isConnected ? address : undefined)
+  const [showFundingPrompt, setShowFundingPrompt] = useState(false)
 
   const [dropOpen, setDropOpen] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -130,13 +132,24 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
         </div>
       )}
       {isConnected && balance !== null && (
-        <span className="nav-credit-balance" title="Search/recipe-view credit balance">
+        <button
+          type="button"
+          className="nav-credit-balance"
+          title="Add more credits"
+          onClick={() => setShowFundingPrompt(true)}
+        >
           {balance} credit{balance === 1 ? '' : 's'}
-        </span>
+        </button>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>
         {isConnected ? (ensName ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`) : 'Connect Wallet'}
       </button>
+      {showFundingPrompt && (
+        <FundingPrompt
+          receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+          onClose={() => setShowFundingPrompt(false)}
+        />
+      )}
     </nav>
   )
 }
