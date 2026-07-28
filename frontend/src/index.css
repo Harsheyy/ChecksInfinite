@@ -103,7 +103,7 @@ body {
 .nav-wallet-menu-item {
   display: block;
   width: 100%;
-  text-align: left;
+  text-align: right;
   background: transparent;
   border: none;
   border-bottom: 1px solid #2a2a2a;
