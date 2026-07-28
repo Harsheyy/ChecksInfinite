@@ -1,5 +1,6 @@
 import { type FormEvent, useState, useRef, useEffect } from 'react'
 import { useAccount, useEnsName } from 'wagmi'
+import { useCreditBalance } from '../useCreditBalance'
 
 type ViewMode = 'explore' | 'search' | 'curated'
 
@@ -22,6 +23,7 @@ interface NavbarProps {
 export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { data: ensName }        = useEnsName({ address })
+  const { balanceWei } = useCreditBalance(isConnected ? address : undefined)
 
   const [dropOpen, setDropOpen] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -126,6 +128,11 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
             )}
           </div>
         </div>
+      )}
+      {isConnected && balanceWei !== null && (
+        <span className="nav-credit-balance" title="Search/recipe-view credit balance">
+          {(Number(balanceWei) / 1e18).toFixed(4)} ETH
+        </span>
       )}
       <button type="button" className="nav-wallet" onClick={handleWallet}>
         {isConnected ? (ensName ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`) : 'Connect Wallet'}

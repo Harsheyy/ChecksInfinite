@@ -89,6 +89,13 @@ body {
 }
 .nav-wallet:hover { border-color: #555; color: #999; }
 
+.nav-credit-balance {
+  font-size: 0.72rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5rem;
+}
+
 /* ─── View mode toggle ─────────────────────────────────────── */
 .view-toggle {
   display: flex;
