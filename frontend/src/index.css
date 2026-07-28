@@ -75,6 +75,7 @@ body {
 .nav-preview-btn:hover:not(:disabled) { background: #fff; }
 
 
+.nav-wallet-wrap { position: relative; flex-shrink: 0; }
 .nav-wallet {
   background: transparent;
   border: 1px solid #333;
@@ -85,9 +86,56 @@ body {
   padding: 0.3rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 .nav-wallet:hover { border-color: #555; color: #999; }
+.nav-wallet-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  z-index: 300;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.nav-wallet-menu-item {
+  display: block;
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #2a2a2a;
+  color: #bbb;
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+}
+.nav-wallet-menu-item:last-child { border-bottom: none; }
+.nav-wallet-menu-item:hover { background: #2a2a2a; color: #fff; }
+.nav-wallet-menu-item--danger:hover { color: #f77; }
+
+.nav-credit-balance {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: transparent;
+  transition: color 0.12s, text-decoration-color 0.12s;
+}
+.nav-credit-balance:hover {
+  color: #ddd;
+  text-decoration-color: currentColor;
+}
 
 /* ─── View mode toggle ─────────────────────────────────────── */
 .view-toggle {
@@ -2157,4 +2205,82 @@ body {
   font-size: 0.68rem;
   color: #888;
   font-variant-numeric: tabular-nums;
+}
+
+/* ─── FundingPrompt ───────────────────────────────────────── */
+.funding-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.funding-prompt {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 1.5rem;
+  max-width: 380px;
+  width: 90%;
+}
+.funding-prompt h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+.funding-prompt p { color: #aaa; font-size: 0.82rem; line-height: 1.5; margin: 0 0 1rem; }
+.funding-prompt-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.funding-prompt-package {
+  background: #151515;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+.funding-prompt-package-usd { font-weight: 600; color: #fff; }
+.funding-prompt-package-credits { color: #999; flex: 1; text-align: center; }
+.funding-prompt-package-eth { color: #888; font-variant-numeric: tabular-nums; }
+.funding-prompt-buy {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.funding-prompt-buy:disabled { background: #333; color: #888; cursor: not-allowed; }
+.funding-prompt-status, .funding-prompt-success {
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background: #151515;
+  border: 1px solid #2a2a2a;
+}
+.funding-prompt-success { color: #5fcd8c; border-color: #5fcd8c; }
+.funding-prompt-status { color: #ccc; }
+.funding-prompt-error {
+  color: #e88;
+  font-size: 0.75rem;
+  margin: -0.5rem 0 1rem;
+}
+.funding-prompt-close {
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  color: #ddd;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  width: 100%;
 }

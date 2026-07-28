@@ -19,6 +19,11 @@ import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
 import type { LikeInfo } from './components/PermutationCard'
 import { SearchPage } from './components/SearchPage'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
+import { useSiweSession } from './useSiweSession'
+import { chargeCredits } from './chargeCredits'
+import { useCreditBalance } from './useCreditBalance'
+import { usePricing } from './usePricing'
+import { FundingPrompt } from './components/FundingPrompt'
 
 type FeedSource = 'token-works' | 'opensea'
 
@@ -26,6 +31,11 @@ export default function App() {
   const dbMode = hasSupabase()
   const { address, isConnected } = useAccount()
   useWalletTracking(address, isConnected)
+  const siwe = useSiweSession()
+  const credits = useCreditBalance(isConnected ? address : undefined)
+  const { prices } = usePricing()
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceCredits: number } | null>(null)
+  const [recipeGateError, setRecipeGateError] = useState<string>('')
 
   // ── View mode — derived from the URL path ───────────────────────────────────
   const { pathname } = useLocation()
@@ -263,6 +273,52 @@ export default function App() {
     }
   }
 
+  // Charges recipe_view credits before a Curated card's TreePanel is allowed
+  // to open. Passed as InfiniteGrid's onBeforeSelect only for curated mode —
+  // Explore/Search never pass this prop, so their reveal stays free/instant.
+  // chargingRef is a synchronous re-entrancy guard (same pattern as
+  // SearchPage.tsx's submittingRef): a rapid double-click on a curated card
+  // fires two concurrent onBeforeSelect calls before either awaited call
+  // resolves, and since both ultimately land on the same card index the
+  // user would only ever see one TreePanel open — masking a double charge.
+  // A ref (not state) is required since it must block the second call
+  // synchronously, within the same tick, before any await yields.
+  const chargingRef = useRef(false)
+  async function chargeForRecipeView(): Promise<boolean> {
+    if (chargingRef.current) return false
+    chargingRef.current = true
+    try {
+      setRecipeGateError('')
+      if (!isConnected || !address) {
+        setRecipeGateError('Connect a wallet to view this recipe.')
+        return false
+      }
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setRecipeGateError('Sign the wallet prompt to continue.')
+        return false
+      }
+      // One idempotency key per invocation of this gate (see chargeCredits.ts) —
+      // dedups against a lost response for THIS attempt without needing any
+      // client-side retry logic (there is none here beyond the user re-clicking,
+      // which is a new invocation and correctly gets a new key).
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
+        } else {
+          setRecipeGateError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return false
+      }
+      credits.refresh()
+      return true
+    } finally {
+      chargingRef.current = false
+    }
+  }
+
   // ── Derive display values ─────────────────────────────────────────────────
   const isExploreMode    = dbMode && viewMode === 'explore'
   const isSearchMode     = dbMode && viewMode === 'search'
@@ -424,9 +480,22 @@ export default function App() {
         )
       ) : (
         <>
+          {fundingPrompt && (
+            <FundingPrompt
+              actionType={fundingPrompt.actionType}
+              priceCredits={fundingPrompt.priceCredits}
+              receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+              onClose={() => setFundingPrompt(null)}
+            />
+          )}
           {navbarError && (
             <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
               {navbarError}
+            </div>
+          )}
+          {recipeGateError && (
+            <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
+              {recipeGateError}
             </div>
           )}
           {showFilters && (
@@ -471,6 +540,7 @@ export default function App() {
             initialSelectedIds={dbMode ? initialRecipeIds : null}
             onSelectedChange={dbMode ? handleSelectedRecipeChange : undefined}
             disableLoop={isCuratedMode}
+            onBeforeSelect={isCuratedMode ? chargeForRecipeView : undefined}
           />
           {(dbMode && isLoading) && (
             <div style={{

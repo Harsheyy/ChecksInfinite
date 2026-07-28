@@ -20,6 +20,11 @@ import { useEnsResolver, isEnsName } from '../useEnsResolver'
 import { useGlobalTraitSearch } from '../useGlobalTraitSearch'
 import { useBackgroundPermutations } from '../useBackgroundPermutations'
 import { isValidAddress } from '../utils'
+import { useSiweSession } from '../useSiweSession'
+import { chargeCredits } from '../chargeCredits'
+import { useCreditBalance } from '../useCreditBalance'
+import { usePricing } from '../usePricing'
+import { FundingPrompt } from './FundingPrompt'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
 
@@ -84,6 +89,10 @@ interface SearchPageProps {
 
 export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const { address, isConnected } = useAccount()
+  const siwe = useSiweSession()
+  const credits = useCreditBalance(isConnected ? address : undefined)
+  const { prices } = usePricing()
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceCredits: number } | null>(null)
 
   // ── Form state ──────────────────────────────────────────────────────────
   const [mode, setMode] = useState<SearchInputMode>('ids')
@@ -128,43 +137,190 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const submitEnabled = canSubmit || canSubmitGlobal
 
   // ── Submit ─────────────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async () => {
-    setSubmitError('')
-    setSubmitted(true)
-    if (mode === 'ids' && canSubmit) {
-      setActiveMode('ids')
-      idSearch.search(idsParsed)
-    } else if (mode === 'wallet' && walletValid) {
-      setActiveMode('wallet')
-      // Resolve ENS if needed
-      let target = walletTrim.toLowerCase()
-      let label = walletTrim
-      if (isEnsName(walletTrim)) {
-        const resolved = await ensResolver.resolve(walletTrim)
-        if (!resolved) {
-          setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
-          setSubmitted(false)
-          setActiveMode(null)
-          return
-        }
-        target = resolved
-      } else {
-        label = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
-      }
-      setResolvedWalletLabel(label)
-      setResolvedWallet(target)
-    } else if (canSubmitGlobal) {
-      setActiveMode(null)
-      global.run(filters)
+  // Shared credit-charge gate for search_query actions — used by both the
+  // initial handleSubmit below and the debounced live-refine effect further
+  // down (Fix 3), so the wallet/session/charge/insufficient-balance plumbing
+  // isn't duplicated across the two call sites. Each call generates its own
+  // idempotency key, scoped to that one logical charge attempt: if THIS
+  // invocation's chargeCredits response is lost (network drop, timeout) and
+  // the SAME invocation somehow retried, it would replay instead of
+  // double-charging (see migration 038 / chargeCredits.ts). A separate
+  // manual re-click/re-refine is a new logical attempt and correctly gets a
+  // new key — that's intentional, not a gap.
+  // skipCharge is set true only for a wallet-mode search targeting the
+  // connected wallet's own address — searching/browsing your own wallet is
+  // entirely free (you already own those tokens), matching the same
+  // exemption applied to per-recipe-view charges below.
+  const chargeForSearchQuery = useCallback(async (skipCharge = false): Promise<boolean> => {
+    if (skipCharge) return true
+    if (!isConnected || !address) {
+      setSubmitError('Connect a wallet to search.')
+      return false
     }
-  }, [mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
+    const sessionToken = await siwe.ensureSignedIn()
+    if (!sessionToken) {
+      setSubmitError('Sign the wallet prompt to continue.')
+      return false
+    }
+    const idempotencyKey = crypto.randomUUID()
+    const charge = await chargeCredits(address, sessionToken, 'search_query', idempotencyKey)
+    if (!charge.success) {
+      if (charge.message === 'insufficient_balance') {
+        setFundingPrompt({ actionType: 'search_query', priceCredits: prices.search_query })
+      } else {
+        setSubmitError(`Couldn't charge for this search (${charge.message}).`)
+      }
+      return false
+    }
+    credits.refresh()
+    return true
+  }, [isConnected, address, siwe, credits, prices])
 
-  // Re-run global query when filters change after first submit (live updates)
+  // Filters that were charged for and searched most recently, via either
+  // handleSubmit's initial charge or the debounced refine effect below.
+  // Lets that effect tell "filters actually changed since the last charge"
+  // apart from "this effect re-ran because submitted/activeMode flipped for
+  // an unrelated reason" (e.g. the initial submit itself entering global
+  // mode) — without this, submitting a global-trait search would charge
+  // once in handleSubmit and then immediately again in the refine effect.
+  const chargedFiltersRef = useRef<SearchFilters | null>(null)
+
+  // submittingRef is a synchronous re-entrancy guard: isLoading (and thus the
+  // submit button's disabled state) doesn't flip true until a branch below
+  // calls setActiveMode(...), which only happens after the awaited
+  // ensureSignedIn()/chargeCredits() calls resolve. A rapid double-click
+  // during that window would otherwise re-enter handleSubmit and trigger a
+  // second charge for what the user experiences as one click. A ref (not
+  // state) is required here since it must block the second click
+  // synchronously, within the same tick handleSubmit is invoked — state
+  // wouldn't be updated in time to stop a second call before a re-render.
+  const submittingRef = useRef(false)
+  const handleSubmit = useCallback(async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      setSubmitError('')
+
+      if (!isConnected || !address) {
+        setSubmitError('Connect a wallet to search.')
+        return
+      }
+
+      // Pre-flight for wallet-mode ENS names: resolve BEFORE charging.
+      // Resolution is a cheap, read-only check that can fail — if it does,
+      // the search never runs, so we must not have already charged for it
+      // (Fix 2). ids-mode and global-trait-mode have no equivalent
+      // pre-flight step, so they keep charging immediately below.
+      let walletTarget: string | undefined
+      let walletLabel = ''
+      if (mode === 'wallet' && walletValid) {
+        if (isEnsName(walletTrim)) {
+          const resolved = await ensResolver.resolve(walletTrim)
+          if (!resolved) {
+            setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
+            return
+          }
+          walletTarget = resolved
+          walletLabel = walletTrim
+        } else {
+          walletTarget = walletTrim.toLowerCase()
+          walletLabel = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
+        }
+      }
+
+      const isOwnWallet = mode === 'wallet' && !!walletTarget && !!address
+        && walletTarget.toLowerCase() === address.toLowerCase()
+      if (!(await chargeForSearchQuery(isOwnWallet))) return
+
+      setSubmitted(true)
+      if (mode === 'ids' && canSubmit) {
+        setActiveMode('ids')
+        idSearch.search(idsParsed)
+      } else if (mode === 'wallet' && walletValid && walletTarget) {
+        setActiveMode('wallet')
+        setResolvedWalletLabel(walletLabel)
+        setResolvedWallet(walletTarget)
+      } else if (canSubmitGlobal) {
+        setActiveMode(null)
+        chargedFiltersRef.current = filters
+        global.run(filters)
+      }
+    } finally {
+      submittingRef.current = false
+    }
+  }, [isConnected, address, chargeForSearchQuery, mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
+
+  // Re-run + re-charge the global query when filters change after first
+  // submit (live refine). Debounced ~1.5s after the last filter change so
+  // rapid toggling doesn't charge per keystroke/toggle — this still charges
+  // once per "settled" refinement rather than being a free, uncapped bypass
+  // of search_query pricing (Fix 3). The chargedFiltersRef check skips the
+  // charge when this effect re-fires only because submitted/activeMode
+  // changed (e.g. the initial submit itself), not because filters changed.
+  const refineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (submitted && activeMode === null && hasActiveSearchFilters(filters)) {
-      global.run(filters)
+    if (!(submitted && activeMode === null && hasActiveSearchFilters(filters))) return
+    if (filters === chargedFiltersRef.current) return
+
+    if (refineTimerRef.current) clearTimeout(refineTimerRef.current)
+    refineTimerRef.current = setTimeout(() => {
+      refineTimerRef.current = null
+      chargeForSearchQuery().then(ok => {
+        if (!ok) return
+        chargedFiltersRef.current = filters
+        global.run(filters)
+      })
+    }, 1500)
+
+    return () => {
+      if (refineTimerRef.current) {
+        clearTimeout(refineTimerRef.current)
+        refineTimerRef.current = null
+      }
     }
   }, [filters, submitted, activeMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Recipe-view charge (Token ID / Global / Wallet results) ────────────
+  // Opening an individual recipe's detail (TreePanel) costs recipe_view
+  // (0.25) on top of the search_query charge already paid to run the
+  // search — except for wallet-mode results on your OWN connected wallet,
+  // which stay entirely free (same exemption as the search charge above).
+  // Ref-guarded the same way as App.tsx's chargeForRecipeView/PatternsBrowse's
+  // openLayout, since a rapid double-click could otherwise double-charge.
+  const recipeChargingRef = useRef(false)
+  const chargeForRecipeView = useCallback(async (): Promise<boolean> => {
+    if (recipeChargingRef.current) return false
+    recipeChargingRef.current = true
+    try {
+      const isOwnWallet = activeMode === 'wallet' && !!resolvedWallet && !!address
+        && resolvedWallet.toLowerCase() === address.toLowerCase()
+      if (isOwnWallet) return true
+
+      if (!isConnected || !address) {
+        setSubmitError('Connect a wallet to view this recipe.')
+        return false
+      }
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setSubmitError('Sign the wallet prompt to continue.')
+        return false
+      }
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
+        } else {
+          setSubmitError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return false
+      }
+      credits.refresh()
+      return true
+    } finally {
+      recipeChargingRef.current = false
+    }
+  }, [isConnected, address, siwe, credits, prices, activeMode, resolvedWallet])
 
   // ── Edit / clear ───────────────────────────────────────────────────────
   function handleEdit() {
@@ -367,6 +523,14 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   return (
     <>
     <div className={`searchpage${showEmptyForm ? ' searchpage--landing' : ''}`}>
+      {fundingPrompt && (
+        <FundingPrompt
+          actionType={fundingPrompt.actionType}
+          priceCredits={fundingPrompt.priceCredits}
+          receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+          onClose={() => setFundingPrompt(null)}
+        />
+      )}
       {showEmptyForm && <SearchBackground svgs={bgSvgs} />}
 
       {showEmptyForm ? (
@@ -474,6 +638,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
           filtersTall={false}
           getLikeInfo={wrappedGetLikeInfo}
           topPx={gridTop}
+          onBeforeSelect={chargeForRecipeView}
         />
       )}
     </div>
