@@ -1,5 +1,6 @@
 // frontend/src/components/PatternsBrowse.tsx
 import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { useAccount } from 'wagmi'
 import { loadLayoutRecipes, type PatternLayout } from '../usePatternLayouts'
 import { InfiniteGrid } from './InfiniteGrid'
 import { SearchBackground } from './SearchPage'
@@ -7,6 +8,11 @@ import { PatternComposer } from './PatternComposer'
 import { PatternPaintGrid, MIN_CELLS_FOR_RESULTS } from './PatternPaintGrid'
 import type { PermutationResult } from '../useAllPermutations'
 import type { LikeInfo } from './PermutationCard'
+import { useSiweSession } from '../useSiweSession'
+import { chargeCredits } from '../chargeCredits'
+import { useCreditBalance } from '../useCreditBalance'
+import { usePricing } from '../usePricing'
+import { FundingPrompt } from './FundingPrompt'
 
 interface PatternsBrowseProps {
   tabs: ReactNode
@@ -23,6 +29,13 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
   const [recipes, setRecipes]     = useState<PermutationResult[]>([])
   const [recipesLoading, setRecipesLoading] = useState(false)
 
+  const { address, isConnected } = useAccount()
+  const siwe = useSiweSession()
+  const credits = useCreditBalance(isConnected ? address : undefined)
+  const { prices } = usePricing()
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'recipe_view'; priceWei: bigint } | null>(null)
+  const [chargeError, setChargeError] = useState('')
+
   // Mirrors SearchPage's own gridTop measurement so InfiniteGrid sits flush
   // under the fixed detail bar, exactly like the ids/wallet results view.
   const fixedBarRef = useRef<HTMLDivElement>(null)
@@ -36,12 +49,47 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
     setCells(prev => prev.includes(i) ? prev.filter(c => c !== i) : [...prev, i].sort((a, b) => a - b))
   }
 
+  // openingRef is a synchronous re-entrancy guard (same pattern as
+  // App.tsx's chargingRef / SearchPage.tsx's submittingRef): a rapid
+  // double-click on a layout card fires two concurrent openLayout calls
+  // before either awaited call resolves, which would otherwise trigger two
+  // separate recipe_view charges for what the user experienced as one
+  // click. A ref (not state) is required since it must block the second
+  // call synchronously, within the same tick, before any await yields.
+  const openingRef = useRef(false)
   async function openLayout(layout: PatternLayout) {
-    setSelected(layout)
-    setRecipesLoading(true)
-    const r = await loadLayoutRecipes(layout)
-    setRecipes(r)
-    setRecipesLoading(false)
+    if (openingRef.current) return
+    openingRef.current = true
+    try {
+      setChargeError('')
+      if (!isConnected || !address) {
+        setChargeError("Connect a wallet to view this layout's recipes.")
+        return
+      }
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setChargeError('Sign the wallet prompt to continue.')
+        return
+      }
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view')
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
+        } else {
+          setChargeError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return
+      }
+      credits.refresh()
+
+      setSelected(layout)
+      setRecipesLoading(true)
+      const r = await loadLayoutRecipes(layout)
+      setRecipes(r)
+      setRecipesLoading(false)
+    } finally {
+      openingRef.current = false
+    }
   }
 
   // ── Detail view: same fixed-bar + InfiniteGrid chrome the ids/wallet
@@ -94,9 +142,18 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
       {hasResults && (
         <div className="pattern-browse-results-scroll">
           <div className="pattern-browse-results-below">
+            {chargeError && <p className="pattern-status">{chargeError}</p>}
             <PatternComposer selected={cells} onSelectLayout={openLayout} />
           </div>
         </div>
+      )}
+      {fundingPrompt && (
+        <FundingPrompt
+          actionType={fundingPrompt.actionType}
+          priceWei={fundingPrompt.priceWei}
+          receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+          onClose={() => setFundingPrompt(null)}
+        />
       )}
     </div>
   )
