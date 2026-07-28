@@ -25,8 +25,25 @@ const ALLOWED_DOMAINS = new Set([
   '127.0.0.1:5173',
 ])
 
+// This function is called directly from the browser via
+// supabase.functions.invoke(), which sends Authorization/Content-Type
+// headers and therefore triggers a CORS preflight OPTIONS request. Without
+// these headers on every response (including errors), the browser blocks
+// the whole SIWE flow before our own error handling ever runs.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  }
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -40,7 +57,7 @@ Deno.serve(async (req: Request) => {
     if (!ALLOWED_DOMAINS.has(siweMessage.domain)) {
       return new Response(JSON.stringify({ error: 'invalid_domain' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -53,13 +70,13 @@ Deno.serve(async (req: Request) => {
     if (!nonceRow) {
       return new Response(JSON.stringify({ error: 'unknown_nonce' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
     if (Date.now() - new Date(nonceRow.created_at).getTime() > NONCE_TTL_MS) {
       return new Response(JSON.stringify({ error: 'expired_nonce' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -71,7 +88,7 @@ Deno.serve(async (req: Request) => {
     if (!result.success) {
       return new Response(JSON.stringify({ error: 'invalid_signature' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -92,18 +109,18 @@ Deno.serve(async (req: Request) => {
       console.error('siwe-verify session insert error:', insertError)
       return new Response(JSON.stringify({ error: 'session_creation_failed' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     return new Response(JSON.stringify({ sessionToken, walletAddress, expiresAt }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     console.error('siwe-verify error:', err)
     return new Response(JSON.stringify({ error: 'verification_failed' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
