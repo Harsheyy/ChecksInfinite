@@ -103,17 +103,18 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
   return (
     <div className="funding-prompt-overlay" onClick={onClose}>
       <div className="funding-prompt" onClick={e => e.stopPropagation()}>
-        <h3>Not enough credits</h3>
-        <p>
-          {ACTION_LABELS[actionType]} costs {priceCredits} credit{priceCredits === 1 ? '' : 's'}. Pick a package
-          below to pay directly from your connected wallet.
-        </p>
+        <h3>{creditReceived ? 'Credits added' : awaitingCredit ? 'Payment approved' : 'Not enough credits'}</h3>
 
         {creditReceived ? (
-          <p className="funding-prompt-success">✓ Credits added — you're all set.</p>
+          <p className="funding-prompt-success">✓ You're all set — go ahead and try again.</p>
         ) : awaitingCredit ? (
-          <p className="funding-prompt-status">Payment received — adding your credits now, just a few seconds…</p>
+          <p className="funding-prompt-status">Adding your credits now, just a few seconds…</p>
         ) : (
+          <>
+          <p>
+            {ACTION_LABELS[actionType]} costs {priceCredits} credit{priceCredits === 1 ? '' : 's'}. Pick a package
+            below to pay directly from your connected wallet.
+          </p>
           <div className="funding-prompt-packages">
             {PACKAGES.map(pkg => {
               const isThisBuying = buyingUsd === pkg.usd && (isSending || (txHash && !isConfirmed))
@@ -136,6 +137,7 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
               )
             })}
           </div>
+          </>
         )}
 
         {buyError && <p className="funding-prompt-error">{buyError}</p>}
