@@ -3,14 +3,16 @@ import { supabase } from './supabaseClient'
 
 type ActionType = 'search_query' | 'recipe_view'
 
-// Reads directly from pricing_config (public SELECT via RLS policy in
-// 034_credits.sql) rather than hardcoding prices in the frontend — prices
-// are a table specifically so they can be retuned via SQL without a
-// redeploy, which only works if the UI actually reads them live.
+// Reads directly from pricing_config (public SELECT via RLS policy) rather
+// than hardcoding prices in the frontend — prices are a table specifically
+// so they can be retuned via SQL without a redeploy, which only works if
+// the UI actually reads them live. Prices are in credits (search_query = 1,
+// recipe_view = 0.5) — small enough magnitudes that plain numbers are fine,
+// no BigInt/precision concerns the way wei amounts had.
 export function usePricing() {
-  const [prices, setPrices] = useState<Record<ActionType, bigint>>({
-    search_query: 0n,
-    recipe_view: 0n,
+  const [prices, setPrices] = useState<Record<ActionType, number>>({
+    search_query: 0,
+    recipe_view: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -18,12 +20,12 @@ export function usePricing() {
     if (!supabase) { setLoading(false); return }
     supabase
       .from('pricing_config')
-      .select('action_type, price_wei')
+      .select('action_type, price_credits')
       .then(({ data }) => {
         if (data) {
-          const next = { search_query: 0n, recipe_view: 0n }
-          for (const row of data as { action_type: ActionType; price_wei: string }[]) {
-            next[row.action_type] = BigInt(row.price_wei)
+          const next = { search_query: 0, recipe_view: 0 }
+          for (const row of data as { action_type: ActionType; price_credits: number }[]) {
+            next[row.action_type] = row.price_credits
           }
           setPrices(next)
         }

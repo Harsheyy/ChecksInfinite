@@ -34,7 +34,7 @@ export default function App() {
   const siwe = useSiweSession()
   const credits = useCreditBalance(isConnected ? address : undefined)
   const { prices } = usePricing()
-  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceWei: bigint } | null>(null)
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceCredits: number } | null>(null)
   const [recipeGateError, setRecipeGateError] = useState<string>('')
 
   // ── View mode — derived from the URL path ───────────────────────────────────
@@ -306,7 +306,7 @@ export default function App() {
       const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
       if (!charge.success) {
         if (charge.message === 'insufficient_balance') {
-          setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
         } else {
           setRecipeGateError(`Couldn't charge for this recipe view (${charge.message}).`)
         }
@@ -483,7 +483,7 @@ export default function App() {
           {fundingPrompt && (
             <FundingPrompt
               actionType={fundingPrompt.actionType}
-              priceWei={fundingPrompt.priceWei}
+              priceCredits={fundingPrompt.priceCredits}
               receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
               onClose={() => setFundingPrompt(null)}
             />

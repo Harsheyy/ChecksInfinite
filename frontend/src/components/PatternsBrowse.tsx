@@ -33,7 +33,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
   const siwe = useSiweSession()
   const credits = useCreditBalance(isConnected ? address : undefined)
   const { prices } = usePricing()
-  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'recipe_view'; priceWei: bigint } | null>(null)
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'recipe_view'; priceCredits: number } | null>(null)
   const [chargeError, setChargeError] = useState('')
 
   // Mirrors SearchPage's own gridTop measurement so InfiniteGrid sits flush
@@ -78,7 +78,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
       const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
       if (!charge.success) {
         if (charge.message === 'insufficient_balance') {
-          setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
         } else {
           setChargeError(`Couldn't charge for this recipe view (${charge.message}).`)
         }
@@ -154,7 +154,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
       {fundingPrompt && (
         <FundingPrompt
           actionType={fundingPrompt.actionType}
-          priceWei={fundingPrompt.priceWei}
+          priceCredits={fundingPrompt.priceCredits}
           receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
           onClose={() => setFundingPrompt(null)}
         />

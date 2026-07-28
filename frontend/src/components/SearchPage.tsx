@@ -92,7 +92,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const siwe = useSiweSession()
   const credits = useCreditBalance(isConnected ? address : undefined)
   const { prices } = usePricing()
-  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceWei: bigint } | null>(null)
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceCredits: number } | null>(null)
 
   // ── Form state ──────────────────────────────────────────────────────────
   const [mode, setMode] = useState<SearchInputMode>('ids')
@@ -161,7 +161,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
     const charge = await chargeCredits(address, sessionToken, 'search_query', idempotencyKey)
     if (!charge.success) {
       if (charge.message === 'insufficient_balance') {
-        setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
+        setFundingPrompt({ actionType: 'search_query', priceCredits: prices.search_query })
       } else {
         setSubmitError(`Couldn't charge for this search (${charge.message}).`)
       }
@@ -477,7 +477,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       {fundingPrompt && (
         <FundingPrompt
           actionType={fundingPrompt.actionType}
-          priceWei={fundingPrompt.priceWei}
+          priceCredits={fundingPrompt.priceCredits}
           receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
           onClose={() => setFundingPrompt(null)}
         />

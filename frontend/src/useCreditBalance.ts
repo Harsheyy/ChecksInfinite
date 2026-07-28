@@ -8,7 +8,7 @@ import { supabase } from './supabaseClient'
 // the Navbar's chip until an unrelated re-render happened to re-fetch it —
 // letting the spec's "always visible before a charge can happen" balance
 // go stale/too-high indefinitely.
-const balanceCache = new Map<string, bigint>()
+const balanceCache = new Map<string, number>()
 type BalanceListener = () => void
 const balanceListeners = new Set<BalanceListener>()
 
@@ -25,20 +25,20 @@ export function useCreditBalance(address: string | undefined) {
   const key = address?.toLowerCase()
   // Seed from the shared cache if another instance already fetched this
   // wallet's balance — avoids a redundant fetch on mount.
-  const [balanceWei, setBalanceWei] = useState<bigint | null>(() => (key ? balanceCache.get(key) ?? null : null))
+  const [balance, setBalance] = useState<number | null>(() => (key ? balanceCache.get(key) ?? null : null))
   const [loading, setLoading] = useState(false)
 
   const refresh = useCallback(() => {
-    if (!supabase || !address) { setBalanceWei(null); return }
+    if (!supabase || !address) { setBalance(null); return }
     const lower = address.toLowerCase()
     setLoading(true)
     supabase
       .rpc('get_wallet_balance', { p_wallet_address: lower })
       .then(({ data, error }) => {
         if (!error && data !== null) {
-          const value = BigInt(data)
+          const value = Number(data)
           balanceCache.set(lower, value)
-          setBalanceWei(value)
+          setBalance(value)
           notifyBalanceListeners()
         }
         setLoading(false)
@@ -53,9 +53,9 @@ export function useCreditBalance(address: string | undefined) {
     if (!key) return
     return subscribeToBalance(() => {
       const cached = balanceCache.get(key)
-      if (cached !== undefined) setBalanceWei(cached)
+      if (cached !== undefined) setBalance(cached)
     })
   }, [key])
 
-  return { balanceWei, loading, refresh }
+  return { balance, loading, refresh }
 }

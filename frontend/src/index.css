@@ -2186,6 +2186,26 @@ body {
 }
 .funding-prompt h3 { margin: 0 0 0.6rem; font-size: 1rem; }
 .funding-prompt p { color: #aaa; font-size: 0.82rem; line-height: 1.5; margin: 0 0 1rem; }
+.funding-prompt-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.funding-prompt-package {
+  background: #151515;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+.funding-prompt-package-usd { font-weight: 600; color: #fff; }
+.funding-prompt-package-credits { color: #999; flex: 1; text-align: center; }
+.funding-prompt-package-eth { color: #888; font-variant-numeric: tabular-nums; }
 .funding-prompt-address {
   background: #1a1a1a;
   border: 1px solid #2a2a2a;

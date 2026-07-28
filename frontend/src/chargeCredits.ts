@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 
 export interface ChargeResult {
   success: boolean
-  newBalanceWei: bigint | null
+  newBalance: number | null
   message: string
 }
 
@@ -11,7 +11,7 @@ export interface ChargeResult {
 // once at the start of a single handleSubmit/openLayout/chargeForRecipeView
 // invocation) and passed through here. If the RPC's response is lost to the
 // client (network drop, timeout) and the SAME invocation is retried with the
-// SAME key, charge_credits (migration 038) replays the original result
+// SAME key, charge_credits (migration 038/039) replays the original result
 // instead of charging twice. A fresh manual re-click/re-submit is a new
 // logical attempt and should get a new key — that's expected, not a gap:
 // it protects specifically against response loss, not against the user
@@ -22,7 +22,7 @@ export async function chargeCredits(
   actionType: 'search_query' | 'recipe_view',
   idempotencyKey?: string
 ): Promise<ChargeResult> {
-  if (!supabase) return { success: false, newBalanceWei: null, message: 'no_supabase' }
+  if (!supabase) return { success: false, newBalance: null, message: 'no_supabase' }
 
   const { data, error } = await supabase
     .rpc('charge_credits', {
@@ -34,17 +34,16 @@ export async function chargeCredits(
     .single()
 
   if (error || !data) {
-    return { success: false, newBalanceWei: null, message: error?.message ?? 'charge_failed' }
+    return { success: false, newBalance: null, message: error?.message ?? 'charge_failed' }
   }
 
-  // new_balance_wei comes back as text (see migration 037) — same
-  // precision consideration as get_wallet_balance (migration 036):
-  // a JSON number above Number.MAX_SAFE_INTEGER loses precision before
-  // BigInt() ever sees it, so the RPC returns a numeric string instead.
-  const row = data as { success: boolean; new_balance_wei: string | null; message: string }
+  // Credits are small enough magnitudes (max realistic balance ~50, in
+  // 0.5 increments) that a plain JS number has no precision concern the
+  // way wei amounts did — charge_credits returns numeric directly.
+  const row = data as { success: boolean; new_balance: number | null; message: string }
   return {
     success: row.success,
-    newBalanceWei: row.new_balance_wei !== null ? BigInt(row.new_balance_wei) : null,
+    newBalance: row.new_balance,
     message: row.message,
   }
 }
