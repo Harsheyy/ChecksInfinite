@@ -2206,6 +2206,39 @@ body {
 .funding-prompt-package-usd { font-weight: 600; color: #fff; }
 .funding-prompt-package-credits { color: #999; flex: 1; text-align: center; }
 .funding-prompt-package-eth { color: #888; font-variant-numeric: tabular-nums; }
+.funding-prompt-buy {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.funding-prompt-buy:disabled { background: #333; color: #888; cursor: not-allowed; }
+.funding-prompt-status, .funding-prompt-success {
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background: #151515;
+  border: 1px solid #2a2a2a;
+}
+.funding-prompt-success { color: #5fcd8c; border-color: #5fcd8c; }
+.funding-prompt-status { color: #ccc; }
+.funding-prompt-error {
+  color: #e88;
+  font-size: 0.75rem;
+  margin: -0.5rem 0 1rem;
+}
+.funding-prompt-manual-label {
+  color: #666;
+  font-size: 0.68rem;
+  margin: 0 0 0.4rem;
+}
 .funding-prompt-address {
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
