@@ -13,6 +13,18 @@ import { SiweMessage } from 'https://esm.sh/siwe@2'
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const NONCE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
+// Domains this server accepts SIWE sign-ins for. The signed message's
+// `domain` field must match one of these — otherwise a message signed for
+// some other site (phishing, a different deploy, etc.) could be replayed
+// here even though the signature itself is cryptographically valid.
+const ALLOWED_DOMAINS = new Set([
+  'checks.wiki',
+  'www.checks.wiki',
+  'localhost:5173',
+  'localhost:3000',
+  '127.0.0.1:5173',
+])
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
@@ -24,6 +36,13 @@ Deno.serve(async (req: Request) => {
   try {
     const { message, signature } = await req.json() as { message: string; signature: string }
     const siweMessage = new SiweMessage(message)
+
+    if (!ALLOWED_DOMAINS.has(siweMessage.domain)) {
+      return new Response(JSON.stringify({ error: 'invalid_domain' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: nonceRow } = await supabase
       .from('siwe_nonces')
@@ -44,7 +63,11 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const result = await siweMessage.verify({ signature, nonce: siweMessage.nonce })
+    const result = await siweMessage.verify({
+      signature,
+      nonce: siweMessage.nonce,
+      domain: siweMessage.domain,
+    })
     if (!result.success) {
       return new Response(JSON.stringify({ error: 'invalid_signature' }), {
         status: 401,
@@ -59,11 +82,19 @@ Deno.serve(async (req: Request) => {
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString()
     const walletAddress = siweMessage.address.toLowerCase()
 
-    await supabase.from('wallet_sessions').insert({
+    const { error: insertError } = await supabase.from('wallet_sessions').insert({
       session_token: sessionToken,
       wallet_address: walletAddress,
       expires_at: expiresAt,
     })
+
+    if (insertError) {
+      console.error('siwe-verify session insert error:', insertError)
+      return new Response(JSON.stringify({ error: 'session_creation_failed' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     return new Response(JSON.stringify({ sessionToken, walletAddress, expiresAt }), {
       headers: { 'Content-Type': 'application/json' },
