@@ -19,6 +19,10 @@ import { useMyLikedKeys, likedKey } from './useMyLikedKeys'
 import type { LikeInfo } from './components/PermutationCard'
 import { SearchPage } from './components/SearchPage'
 import { useAllChecksPermutations } from './useAllChecksPermutations'
+import { useSiweSession } from './useSiweSession'
+import { chargeCredits } from './chargeCredits'
+import { usePricing } from './usePricing'
+import { FundingPrompt } from './components/FundingPrompt'
 
 type FeedSource = 'token-works' | 'opensea'
 
@@ -26,6 +30,10 @@ export default function App() {
   const dbMode = hasSupabase()
   const { address, isConnected } = useAccount()
   useWalletTracking(address, isConnected)
+  const siwe = useSiweSession()
+  const { prices } = usePricing()
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'search_query' | 'recipe_view'; priceWei: bigint } | null>(null)
+  const [recipeGateError, setRecipeGateError] = useState<string>('')
 
   // ── View mode — derived from the URL path ───────────────────────────────────
   const { pathname } = useLocation()
@@ -263,6 +271,32 @@ export default function App() {
     }
   }
 
+  // Charges recipe_view credits before a Curated card's TreePanel is allowed
+  // to open. Passed as InfiniteGrid's onBeforeSelect only for curated mode —
+  // Explore/Search never pass this prop, so their reveal stays free/instant.
+  async function chargeForRecipeView(): Promise<boolean> {
+    setRecipeGateError('')
+    if (!isConnected || !address) {
+      setRecipeGateError('Connect a wallet to view this recipe.')
+      return false
+    }
+    const sessionToken = await siwe.ensureSignedIn()
+    if (!sessionToken) {
+      setRecipeGateError('Sign the wallet prompt to continue.')
+      return false
+    }
+    const charge = await chargeCredits(address, sessionToken, 'recipe_view')
+    if (!charge.success) {
+      if (charge.message === 'insufficient_balance') {
+        setFundingPrompt({ actionType: 'recipe_view', priceWei: prices.recipe_view })
+      } else {
+        setRecipeGateError(`Couldn't charge for this recipe view (${charge.message}).`)
+      }
+      return false
+    }
+    return true
+  }
+
   // ── Derive display values ─────────────────────────────────────────────────
   const isExploreMode    = dbMode && viewMode === 'explore'
   const isSearchMode     = dbMode && viewMode === 'search'
@@ -424,9 +458,22 @@ export default function App() {
         )
       ) : (
         <>
+          {fundingPrompt && (
+            <FundingPrompt
+              actionType={fundingPrompt.actionType}
+              priceWei={fundingPrompt.priceWei}
+              receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}
+              onClose={() => setFundingPrompt(null)}
+            />
+          )}
           {navbarError && (
             <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
               {navbarError}
+            </div>
+          )}
+          {recipeGateError && (
+            <div className={`error-banner${showFilters ? ' error-banner--below-filter' : ''}`}>
+              {recipeGateError}
             </div>
           )}
           {showFilters && (
@@ -471,6 +518,7 @@ export default function App() {
             initialSelectedIds={dbMode ? initialRecipeIds : null}
             onSelectedChange={dbMode ? handleSelectedRecipeChange : undefined}
             disableLoop={isCuratedMode}
+            onBeforeSelect={isCuratedMode ? chargeForRecipeView : undefined}
           />
           {(dbMode && isLoading) && (
             <div style={{

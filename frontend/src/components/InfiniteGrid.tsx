@@ -29,9 +29,13 @@ interface Props {
   initialSelectedIds?: string[] | null
   // Reports the open panel's token IDs (null when closed) for URL mirroring
   onSelectedChange?: (tokenIds: string[] | null) => void
+  // Optional gate awaited before a card click reveals TreePanel. Returning
+  // false cancels the reveal. Undefined for consumers (Explore, Search) that
+  // want the existing free/instant reveal behavior unchanged.
+  onBeforeSelect?: (perm: PermutationResult) => Promise<boolean>
 }
 
-export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange, disableLoop }: Props) {
+export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasError, dbMode, hideBuy, filtersTall, getLikeInfo, tokenPriceMap, topPx, initialSelectedIds, onSelectedChange, disableLoop, onBeforeSelect }: Props) {
   const [selected, setSelected]   = useState<number | null>(null)
   const containerRef               = useRef<HTMLDivElement>(null)
   const [scroll, setScroll]        = useState({ x: 0, y: 0 })
@@ -153,7 +157,13 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
                 key={perm.def.label + '-' + i}
                 result={perm}
                 visible={true}
-                onClick={() => setSelected(i)}
+                onClick={async () => {
+                  if (onBeforeSelect) {
+                    const proceed = await onBeforeSelect(visible[i])
+                    if (!proceed) return
+                  }
+                  setSelected(i)
+                }}
                 likeInfo={getLikeInfo?.(perm)}
               />
             ))}
@@ -206,7 +216,13 @@ export function InfiniteGrid({ permutations, ids, showFlags, hasFilters, hasErro
               <PermutationCard
                 result={visible[i]}
                 visible={true}
-                onClick={() => setSelected(i)}
+                onClick={async () => {
+                  if (onBeforeSelect) {
+                    const proceed = await onBeforeSelect(visible[i])
+                    if (!proceed) return
+                  }
+                  setSelected(i)
+                }}
                 likeInfo={getLikeInfo?.(visible[i])}
               />
             </div>
