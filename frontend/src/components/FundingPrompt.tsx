@@ -14,8 +14,7 @@ import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wa
 import { parseEther } from 'viem'
 import { useEthUsdPrice } from '../useEthUsdPrice'
 import { useCreditBalance } from '../useCreditBalance'
-
-type ActionType = 'search_query' | 'recipe_view'
+import type { ActionType } from '../usePricing'
 
 interface FundingPromptProps {
   // Omitted when opened proactively (e.g. clicking the navbar balance to
@@ -29,6 +28,7 @@ interface FundingPromptProps {
 const ACTION_LABELS: Record<ActionType, string> = {
   search_query: 'a search',
   recipe_view: 'viewing a recipe',
+  pattern_query: "viewing this pattern's matches",
 }
 
 const PACKAGES = [

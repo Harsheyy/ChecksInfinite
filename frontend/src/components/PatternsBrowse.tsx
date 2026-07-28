@@ -33,7 +33,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
   const siwe = useSiweSession()
   const credits = useCreditBalance(isConnected ? address : undefined)
   const { prices } = usePricing()
-  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'recipe_view'; priceCredits: number } | null>(null)
+  const [fundingPrompt, setFundingPrompt] = useState<{ actionType: 'recipe_view' | 'pattern_query'; priceCredits: number } | null>(null)
   const [chargeError, setChargeError] = useState('')
 
   // Mirrors SearchPage's own gridTop measurement so InfiniteGrid sits flush
@@ -53,7 +53,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
   // App.tsx's chargingRef / SearchPage.tsx's submittingRef): a rapid
   // double-click on a layout card fires two concurrent openLayout calls
   // before either awaited call resolves, which would otherwise trigger two
-  // separate recipe_view charges for what the user experienced as one
+  // separate pattern_query charges for what the user experienced as one
   // click. A ref (not state) is required since it must block the second
   // call synchronously, within the same tick, before any await yields.
   const openingRef = useRef(false)
@@ -75,12 +75,12 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
       // — dedups against a lost response for THIS attempt; a fresh manual
       // re-click is a new invocation and correctly gets a new key.
       const idempotencyKey = crypto.randomUUID()
-      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
+      const charge = await chargeCredits(address, sessionToken, 'pattern_query', idempotencyKey)
       if (!charge.success) {
         if (charge.message === 'insufficient_balance') {
-          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
+          setFundingPrompt({ actionType: 'pattern_query', priceCredits: prices.pattern_query })
         } else {
-          setChargeError(`Couldn't charge for this recipe view (${charge.message}).`)
+          setChargeError(`Couldn't charge for this pattern query (${charge.message}).`)
         }
         return
       }
@@ -93,6 +93,41 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
       setRecipesLoading(false)
     } finally {
       openingRef.current = false
+    }
+  }
+
+  // Opening one specific recipe's detail (TreePanel) within an already-open
+  // layout's match list costs an additional recipe_view (0.25), on top of
+  // the pattern_query charge already paid to reveal that list.
+  const recipeOpeningRef = useRef(false)
+  async function chargeForRecipeView(): Promise<boolean> {
+    if (recipeOpeningRef.current) return false
+    recipeOpeningRef.current = true
+    try {
+      setChargeError('')
+      if (!isConnected || !address) {
+        setChargeError('Connect a wallet to view this recipe.')
+        return false
+      }
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setChargeError('Sign the wallet prompt to continue.')
+        return false
+      }
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
+        } else {
+          setChargeError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return false
+      }
+      credits.refresh()
+      return true
+    } finally {
+      recipeOpeningRef.current = false
     }
   }
 
@@ -120,6 +155,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
             hideBuy={true}
             topPx={gridTop}
             getLikeInfo={getLikeInfo}
+            onBeforeSelect={chargeForRecipeView}
           />
         )}
       </>

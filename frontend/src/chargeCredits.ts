@@ -1,5 +1,6 @@
 // frontend/src/chargeCredits.ts
 import { supabase } from './supabaseClient'
+import type { ActionType } from './usePricing'
 
 export interface ChargeResult {
   success: boolean
@@ -19,7 +20,7 @@ export interface ChargeResult {
 export async function chargeCredits(
   walletAddress: string,
   sessionToken: string,
-  actionType: 'search_query' | 'recipe_view',
+  actionType: ActionType,
   idempotencyKey?: string
 ): Promise<ChargeResult> {
   if (!supabase) return { success: false, newBalance: null, message: 'no_supabase' }

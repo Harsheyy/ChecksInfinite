@@ -147,7 +147,12 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   // double-charging (see migration 038 / chargeCredits.ts). A separate
   // manual re-click/re-refine is a new logical attempt and correctly gets a
   // new key — that's intentional, not a gap.
-  const chargeForSearchQuery = useCallback(async (): Promise<boolean> => {
+  // skipCharge is set true only for a wallet-mode search targeting the
+  // connected wallet's own address — searching/browsing your own wallet is
+  // entirely free (you already own those tokens), matching the same
+  // exemption applied to per-recipe-view charges below.
+  const chargeForSearchQuery = useCallback(async (skipCharge = false): Promise<boolean> => {
+    if (skipCharge) return true
     if (!isConnected || !address) {
       setSubmitError('Connect a wallet to search.')
       return false
@@ -223,7 +228,9 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
         }
       }
 
-      if (!(await chargeForSearchQuery())) return
+      const isOwnWallet = mode === 'wallet' && !!walletTarget && !!address
+        && walletTarget.toLowerCase() === address.toLowerCase()
+      if (!(await chargeForSearchQuery(isOwnWallet))) return
 
       setSubmitted(true)
       if (mode === 'ids' && canSubmit) {
@@ -272,6 +279,48 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
       }
     }
   }, [filters, submitted, activeMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Recipe-view charge (Token ID / Global / Wallet results) ────────────
+  // Opening an individual recipe's detail (TreePanel) costs recipe_view
+  // (0.25) on top of the search_query charge already paid to run the
+  // search — except for wallet-mode results on your OWN connected wallet,
+  // which stay entirely free (same exemption as the search charge above).
+  // Ref-guarded the same way as App.tsx's chargeForRecipeView/PatternsBrowse's
+  // openLayout, since a rapid double-click could otherwise double-charge.
+  const recipeChargingRef = useRef(false)
+  const chargeForRecipeView = useCallback(async (): Promise<boolean> => {
+    if (recipeChargingRef.current) return false
+    recipeChargingRef.current = true
+    try {
+      const isOwnWallet = activeMode === 'wallet' && !!resolvedWallet && !!address
+        && resolvedWallet.toLowerCase() === address.toLowerCase()
+      if (isOwnWallet) return true
+
+      if (!isConnected || !address) {
+        setSubmitError('Connect a wallet to view this recipe.')
+        return false
+      }
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setSubmitError('Sign the wallet prompt to continue.')
+        return false
+      }
+      const idempotencyKey = crypto.randomUUID()
+      const charge = await chargeCredits(address, sessionToken, 'recipe_view', idempotencyKey)
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'recipe_view', priceCredits: prices.recipe_view })
+        } else {
+          setSubmitError(`Couldn't charge for this recipe view (${charge.message}).`)
+        }
+        return false
+      }
+      credits.refresh()
+      return true
+    } finally {
+      recipeChargingRef.current = false
+    }
+  }, [isConnected, address, siwe, credits, prices, activeMode, resolvedWallet])
 
   // ── Edit / clear ───────────────────────────────────────────────────────
   function handleEdit() {
@@ -589,6 +638,7 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
           filtersTall={false}
           getLikeInfo={wrappedGetLikeInfo}
           topPx={gridTop}
+          onBeforeSelect={chargeForRecipeView}
         />
       )}
     </div>
