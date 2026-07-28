@@ -4,8 +4,7 @@
  * so the ~1.6 MB modal UI stays out of the entry chunk.
  */
 import { createAppKit } from '@reown/appkit/react'
-import { mainnet } from '@reown/appkit/networks'
-import { wagmiAdapter, projectId } from './wagmiConfig'
+import { wagmiAdapter, projectId, networks } from './wagmiConfig'
 import { siweConfig } from './siweConfig'
 
 type AppKitModal = ReturnType<typeof createAppKit>
@@ -15,7 +14,7 @@ let modal: AppKitModal | undefined
 export function initAppKit(): AppKitModal {
   modal ??= createAppKit({
     adapters: [wagmiAdapter],
-    networks: [mainnet],
+    networks,
     projectId: projectId ?? 'MISSING_PROJECT_ID',
     siweConfig,
     metadata: {

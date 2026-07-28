@@ -8,6 +8,7 @@
 import { createSIWEConfig, formatMessage } from '@reown/appkit-siwe'
 import type { SIWECreateMessageArgs, SIWEVerifyMessageArgs } from '@reown/appkit-siwe'
 import { mainnet } from '@reown/appkit/networks'
+import { networks } from './wagmiConfig'
 import { supabase } from './supabaseClient'
 
 let currentSessionToken: string | null = null
@@ -40,7 +41,7 @@ export const siweConfig = createSIWEConfig({
   getMessageParams: async () => ({
     domain: window.location.host,
     uri: window.location.origin,
-    chains: [mainnet.id],
+    chains: networks.map(n => n.id) as number[],
     statement: 'Sign in to Checks Infinite to fund and spend your search/recipe-view credit balance.',
   }),
   createMessage: ({ address, ...args }: SIWECreateMessageArgs) => formatMessage(args, address),
