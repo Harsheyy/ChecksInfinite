@@ -137,55 +137,71 @@ export function SearchPage({ getLikeInfo }: SearchPageProps) {
   const submitEnabled = canSubmit || canSubmitGlobal
 
   // ── Submit ─────────────────────────────────────────────────────────────
+  // submittingRef is a synchronous re-entrancy guard: isLoading (and thus the
+  // submit button's disabled state) doesn't flip true until a branch below
+  // calls setActiveMode(...), which only happens after the awaited
+  // ensureSignedIn()/chargeCredits() calls resolve. A rapid double-click
+  // during that window would otherwise re-enter handleSubmit and trigger a
+  // second charge for what the user experiences as one click. A ref (not
+  // state) is required here since it must block the second click
+  // synchronously, within the same tick handleSubmit is invoked — state
+  // wouldn't be updated in time to stop a second call before a re-render.
+  const submittingRef = useRef(false)
   const handleSubmit = useCallback(async () => {
-    setSubmitError('')
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      setSubmitError('')
 
-    if (!isConnected || !address) {
-      setSubmitError('Connect a wallet to search.')
-      return
-    }
-    const sessionToken = await siwe.ensureSignedIn()
-    if (!sessionToken) {
-      setSubmitError('Sign the wallet prompt to continue.')
-      return
-    }
-    const charge = await chargeCredits(address, sessionToken, 'search_query')
-    if (!charge.success) {
-      if (charge.message === 'insufficient_balance') {
-        setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
-      } else {
-        setSubmitError(`Couldn't charge for this search (${charge.message}).`)
+      if (!isConnected || !address) {
+        setSubmitError('Connect a wallet to search.')
+        return
       }
-      return
-    }
-    credits.refresh()
-
-    setSubmitted(true)
-    if (mode === 'ids' && canSubmit) {
-      setActiveMode('ids')
-      idSearch.search(idsParsed)
-    } else if (mode === 'wallet' && walletValid) {
-      setActiveMode('wallet')
-      // Resolve ENS if needed
-      let target = walletTrim.toLowerCase()
-      let label = walletTrim
-      if (isEnsName(walletTrim)) {
-        const resolved = await ensResolver.resolve(walletTrim)
-        if (!resolved) {
-          setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
-          setSubmitted(false)
-          setActiveMode(null)
-          return
+      const sessionToken = await siwe.ensureSignedIn()
+      if (!sessionToken) {
+        setSubmitError('Sign the wallet prompt to continue.')
+        return
+      }
+      const charge = await chargeCredits(address, sessionToken, 'search_query')
+      if (!charge.success) {
+        if (charge.message === 'insufficient_balance') {
+          setFundingPrompt({ actionType: 'search_query', priceWei: prices.search_query })
+        } else {
+          setSubmitError(`Couldn't charge for this search (${charge.message}).`)
         }
-        target = resolved
-      } else {
-        label = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
+        return
       }
-      setResolvedWalletLabel(label)
-      setResolvedWallet(target)
-    } else if (canSubmitGlobal) {
-      setActiveMode(null)
-      global.run(filters)
+      credits.refresh()
+
+      setSubmitted(true)
+      if (mode === 'ids' && canSubmit) {
+        setActiveMode('ids')
+        idSearch.search(idsParsed)
+      } else if (mode === 'wallet' && walletValid) {
+        setActiveMode('wallet')
+        // Resolve ENS if needed
+        let target = walletTrim.toLowerCase()
+        let label = walletTrim
+        if (isEnsName(walletTrim)) {
+          const resolved = await ensResolver.resolve(walletTrim)
+          if (!resolved) {
+            setSubmitError(`Couldn't resolve '${walletTrim}'. Try the 0x address instead.`)
+            setSubmitted(false)
+            setActiveMode(null)
+            return
+          }
+          target = resolved
+        } else {
+          label = `${walletTrim.slice(0, 6)}…${walletTrim.slice(-4)}`
+        }
+        setResolvedWalletLabel(label)
+        setResolvedWallet(target)
+      } else if (canSubmitGlobal) {
+        setActiveMode(null)
+        global.run(filters)
+      }
+    } finally {
+      submittingRef.current = false
     }
   }, [isConnected, address, siwe, credits, prices, mode, canSubmit, canSubmitGlobal, idsParsed, walletTrim, walletValid, filters, idSearch, ensResolver, global])
 
