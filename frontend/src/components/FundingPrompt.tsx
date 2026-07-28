@@ -112,7 +112,7 @@ export function FundingPrompt({ actionType, priceCredits, receivingAddress, onCl
         {creditReceived ? (
           <p className="funding-prompt-success">✓ Credits added — you're all set.</p>
         ) : awaitingCredit ? (
-          <p className="funding-prompt-status">Payment confirmed — waiting for your credits to land (usually a block or two)…</p>
+          <p className="funding-prompt-status">Payment received — adding your credits now, just a few seconds…</p>
         ) : (
           <div className="funding-prompt-packages">
             {PACKAGES.map(pkg => {
