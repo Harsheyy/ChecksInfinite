@@ -1,5 +1,5 @@
 import { type FormEvent, useState, useRef, useEffect } from 'react'
-import { useAccount, useEnsName } from 'wagmi'
+import { useAccount, useEnsName, useDisconnect } from 'wagmi'
 import { useCreditBalance } from '../useCreditBalance'
 import { FundingPrompt } from './FundingPrompt'
 
@@ -24,6 +24,7 @@ interface NavbarProps {
 export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode, onViewModeChange }: NavbarProps) {
   const { address, isConnected } = useAccount()
   const { data: ensName }        = useEnsName({ address })
+  const { disconnect } = useDisconnect()
   const { balance } = useCreditBalance(isConnected ? address : undefined)
   const [showFundingPrompt, setShowFundingPrompt] = useState(false)
 
@@ -39,6 +40,20 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
     return () => document.removeEventListener('mousedown', handler)
   }, [dropOpen])
 
+  // Custom wallet-account menu (replaces AppKit's own Account modal) —
+  // just the two actions this app actually needs, not Fund/Swap/Send/Activity.
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false)
+  const walletMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!walletMenuOpen) return
+    function handler(e: MouseEvent) {
+      if (!walletMenuRef.current?.contains(e.target as Node)) setWalletMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [walletMenuOpen])
+
   const availableModes: ViewMode[] = ['explore', 'search', 'curated']
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -47,10 +62,15 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
   }
 
   async function handleWallet() {
+    if (isConnected) {
+      // Connected: our own minimal menu, not AppKit's full Account modal.
+      setWalletMenuOpen(o => !o)
+      return
+    }
     // Dynamic import keeps the AppKit chunk lazy; if the idle prefetch
     // already ran this resolves instantly.
     const { openWalletModal } = await import('../appkit')
-    await openWalletModal(isConnected ? 'Account' : 'Connect')
+    await openWalletModal('Connect')
   }
 
   return (
@@ -141,9 +161,31 @@ export function Navbar({ ids, loading, onIdsChange, onPreview, dbMode, viewMode,
           {balance} credit{balance === 1 ? '' : 's'}
         </button>
       )}
-      <button type="button" className="nav-wallet" onClick={handleWallet}>
-        {isConnected ? (ensName ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`) : 'Connect Wallet'}
-      </button>
+      <div className="nav-wallet-wrap" ref={walletMenuRef}>
+        <button type="button" className="nav-wallet" onClick={handleWallet}>
+          {isConnected ? (ensName ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`) : 'Connect Wallet'}
+        </button>
+        {walletMenuOpen && (
+          <div className="nav-wallet-menu" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className="nav-wallet-menu-item"
+              onClick={() => { setWalletMenuOpen(false); setShowFundingPrompt(true) }}
+            >
+              Buy credits
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="nav-wallet-menu-item nav-wallet-menu-item--danger"
+              onClick={() => { setWalletMenuOpen(false); disconnect() }}
+            >
+              Disconnect
+            </button>
+          </div>
+        )}
+      </div>
       {showFundingPrompt && (
         <FundingPrompt
           receivingAddress={import.meta.env.VITE_CREDITS_RECEIVING_ADDRESS ?? ''}

@@ -75,6 +75,7 @@ body {
 .nav-preview-btn:hover:not(:disabled) { background: #fff; }
 
 
+.nav-wallet-wrap { position: relative; flex-shrink: 0; }
 .nav-wallet {
   background: transparent;
   border: 1px solid #333;
@@ -85,9 +86,36 @@ body {
   padding: 0.3rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 .nav-wallet:hover { border-color: #555; color: #999; }
+.nav-wallet-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  z-index: 300;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.nav-wallet-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #2a2a2a;
+  color: #bbb;
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+}
+.nav-wallet-menu-item:last-child { border-bottom: none; }
+.nav-wallet-menu-item:hover { background: #2a2a2a; color: #fff; }
+.nav-wallet-menu-item--danger:hover { color: #f77; }
 
 .nav-credit-balance {
   background: none;
