@@ -3,9 +3,10 @@
 // card (before a search starts) and the wide composer sidebar (once it has).
 const GRID_CELLS = 20
 // Matches the actual range every minority cluster found so far falls
-// into — searching below 3 would be querying for something that can't
+// into — searching below 2 would be querying for something that can't
 // exist yet anyway.
-export const MIN_CELLS_FOR_RESULTS = 3
+export const MIN_CELLS_FOR_RESULTS = 2
+export const MAX_CELLS_FOR_RESULTS = 10
 
 // The actual Checks badge path (same one checksArtJS.ts renders every real
 // check with, natural bounding box ~36x36) — a single path whose second
@@ -23,9 +24,9 @@ interface PatternPaintGridProps {
 export function PatternPaintGrid({ selected, onToggle, onClear }: PatternPaintGridProps) {
   const statusText = (() => {
     const n = selected.length
-    if (n === 0) return 'Select between 3–6 cells to query pattern results.'
+    if (n === 0) return `Select between ${MIN_CELLS_FOR_RESULTS}–${MAX_CELLS_FOR_RESULTS} cells to query pattern results.`
     if (n < MIN_CELLS_FOR_RESULTS) return `${n} cell${n === 1 ? '' : 's'} selected — need at least ${MIN_CELLS_FOR_RESULTS} to search.`
-    if (n > 6) return `${n} cells selected — clusters found so far top out at 6.`
+    if (n > MAX_CELLS_FOR_RESULTS) return `${n} cells selected — clusters found so far top out at ${MAX_CELLS_FOR_RESULTS}.`
     return `${n} cells selected.`
   })()
 

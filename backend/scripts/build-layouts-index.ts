@@ -61,7 +61,7 @@ async function main() {
 
   function addEntries(entries: RawEntry[]) {
     for (const e of entries) {
-      if (e.minoritySize < 3 || e.minoritySize > 6) continue
+      if (e.minoritySize < 2 || e.minoritySize > 10) continue
       const cellsKey = e.patternKey.split('|')[0]
       const cells = cellsKey.split(',').map(Number)
       let layout = layouts.get(cellsKey)

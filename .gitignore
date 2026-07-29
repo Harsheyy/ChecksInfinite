@@ -23,6 +23,11 @@ npm-debug.log*
 # Supabase local dev
 supabase/.temp/
 
+# Generated pattern-hunt data (local cache / uploaded to Supabase Storage separately)
+backend/hunt-diversity-results.json
+backend/consolidated-patterns.json
+backend/layouts-index.json
+
 # Ignored directories
 .claude/
 docs/plans/
