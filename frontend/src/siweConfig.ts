@@ -84,6 +84,13 @@ function notifySiweSessionListeners(): void {
 }
 
 export const siweConfig = createSIWEConfig({
+  // Not required: wagmi's default reconnectOnMount silently reconnects a
+  // previously-authorized wallet on every page load, and `required: true`
+  // (the appkit-siwe default) would force the sign-message prompt right
+  // then — before the user ever clicks Connect Wallet. With this false,
+  // a silent reconnect stays silent; the sign prompt only appears as part
+  // of the explicit connect flow triggered from the nav/search buttons.
+  required: false,
   getMessageParams: async () => ({
     domain: window.location.host,
     uri: window.location.origin,
