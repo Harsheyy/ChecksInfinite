@@ -1,3 +1,52 @@
+const TOOLS = [
+  {
+    name: 'Permutation Browser',
+    description: 'Browse every possible composite from the Checks VV collection.',
+    href: 'https://permutations.checks.wiki',
+    status: 'live' as const,
+  },
+  {
+    name: 'Checkmath',
+    description: 'Find the cheapest way to acquire a specific Check.',
+    href: 'https://single.checks.wiki',
+    status: 'live' as const,
+  },
+  {
+    name: 'Migration Predictor',
+    description: 'Preview possible composite outcomes before migrating a Check.',
+    href: null,
+    status: 'coming-soon' as const,
+  },
+]
+
 export default function App() {
-  return <div>Checks Wiki</div>
+  return (
+    <div className="landing">
+      <header className="landing-header">
+        <img src="/checks-icon.svg" alt="" className="landing-icon" />
+        <h1>Checks Wiki</h1>
+        <p className="landing-tagline">Tools for the Checks VV collection.</p>
+      </header>
+      <div className="landing-cards">
+        {TOOLS.map(tool => (
+          <a
+            key={tool.name}
+            href={tool.href ?? undefined}
+            className={`landing-card${tool.status === 'coming-soon' ? ' disabled' : ''}`}
+            aria-disabled={tool.status === 'coming-soon'}
+          >
+            <span className="landing-card-name">{tool.name}</span>
+            <span className="landing-card-desc">{tool.description}</span>
+            {tool.status === 'coming-soon' && <span className="landing-card-badge">Coming soon</span>}
+          </a>
+        ))}
+      </div>
+      <footer className="site-footer">
+        <span>This artwork may or may not be notable</span>
+        <a href="https://x.com/0xHarsheth" target="_blank" rel="noopener noreferrer">
+          Designed by Harsh
+        </a>
+      </footer>
+    </div>
+  )
 }
