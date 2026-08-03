@@ -1,4 +1,4 @@
-// frontend/src/useGlobalTraitSearch.ts
+// apps/works/src/useGlobalTraitSearch.ts
 import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import {

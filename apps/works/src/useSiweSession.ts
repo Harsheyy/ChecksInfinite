@@ -1,4 +1,4 @@
-// frontend/src/useSiweSession.ts
+// apps/works/src/useSiweSession.ts
 import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { getCurrentSession, siweConfig, subscribeToSiweSession } from './siweConfig'

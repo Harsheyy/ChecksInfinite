@@ -1,4 +1,4 @@
-// frontend/src/useEthUsdPrice.ts
+// apps/works/src/useEthUsdPrice.ts
 //
 // Reads the live ETH/USD price from Chainlink's price feed (same contracts
 // credits-webhook reads server-side, confirmed against Chainlink's docs)

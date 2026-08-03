@@ -1,4 +1,4 @@
-// frontend/src/components/PatternComposer.tsx
+// apps/works/src/components/PatternComposer.tsx
 // Results-only: the paint grid itself lives in PatternPaintGrid, shared
 // with the narrow landing-card state in PatternsBrowse. This renders once
 // a search is underway (see MIN_CELLS_FOR_RESULTS) — live-narrowed matches

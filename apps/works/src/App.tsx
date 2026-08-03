@@ -1,4 +1,4 @@
-// frontend/src/App.tsx
+// apps/works/src/App.tsx
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useAccount, useReadContracts } from 'wagmi'

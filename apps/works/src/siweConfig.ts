@@ -1,4 +1,4 @@
-// frontend/src/siweConfig.ts
+// apps/works/src/siweConfig.ts
 //
 // @reown/appkit-siwe wiring. Nonce issuance and signature verification both
 // happen server-side (siwe-nonce / siwe-verify edge functions) — this file

@@ -1,4 +1,4 @@
-// frontend/src/components/FundingPrompt.tsx
+// apps/works/src/components/FundingPrompt.tsx
 //
 // Shown when charge_credits returns insufficient_balance, or proactively
 // from the navbar's credit-balance link. Credits are sold in three fixed

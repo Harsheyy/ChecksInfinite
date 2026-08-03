@@ -29,7 +29,7 @@ SVG rendering is done entirely client-side via a JS port of `ChecksArt.sol`, pro
 ## Architecture
 
 ```
-frontend/          React + Vite UI
+apps/works/        React + Vite UI (permutation browser) — permutations.checks.wiki
   src/
     checksArtJS.ts                JS port of the on-chain rendering engine
     usePermutationsDB.ts          Token Works feed: loads from Supabase, price hooks

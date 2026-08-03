@@ -1,4 +1,4 @@
-// frontend/src/components/PermutationCard.tsx
+// apps/works/src/components/PermutationCard.tsx
 import { useRef, useEffect, useState } from 'react'
 import type { PermutationResult } from '../useAllPermutations'
 

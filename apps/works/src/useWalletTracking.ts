@@ -1,4 +1,4 @@
-// frontend/src/useWalletTracking.ts
+// apps/works/src/useWalletTracking.ts
 import { useEffect, useRef } from 'react'
 import { useEnsName } from 'wagmi'
 import { supabase } from './supabaseClient'

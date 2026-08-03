@@ -1,4 +1,4 @@
-// frontend/src/permutationsCache.ts
+// apps/works/src/permutationsCache.ts
 import type { PermRow } from './usePermutationsDB'
 
 const KEYS = {

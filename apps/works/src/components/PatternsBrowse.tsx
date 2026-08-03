@@ -1,4 +1,4 @@
-// frontend/src/components/PatternsBrowse.tsx
+// apps/works/src/components/PatternsBrowse.tsx
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { useAccount } from 'wagmi'
 import { loadLayoutRecipes, type PatternLayout } from '../usePatternLayouts'

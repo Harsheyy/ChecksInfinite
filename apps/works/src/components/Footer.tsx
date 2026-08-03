@@ -1,4 +1,4 @@
-// frontend/src/components/Footer.tsx
+// apps/works/src/components/Footer.tsx
 export function Footer() {
   return (
     <footer className="site-footer">

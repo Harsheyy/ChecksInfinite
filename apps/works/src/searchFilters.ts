@@ -1,4 +1,4 @@
-// frontend/src/searchFilters.ts
+// apps/works/src/searchFilters.ts
 import type { Attribute } from './utils'
 
 export interface SearchFilters {

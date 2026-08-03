@@ -1,4 +1,4 @@
-// frontend/src/useMyCheckPermutations.ts
+// apps/works/src/useMyCheckPermutations.ts
 import { useState, useCallback, useRef } from 'react'
 import {
   simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap,

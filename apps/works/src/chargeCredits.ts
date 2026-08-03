@@ -1,4 +1,4 @@
-// frontend/src/chargeCredits.ts
+// apps/works/src/chargeCredits.ts
 import { supabase } from './supabaseClient'
 import type { ActionType } from './usePricing'
 

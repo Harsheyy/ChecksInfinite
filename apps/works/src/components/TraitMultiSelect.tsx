@@ -1,4 +1,4 @@
-// frontend/src/components/TraitMultiSelect.tsx
+// apps/works/src/components/TraitMultiSelect.tsx
 import { useState, useEffect, useRef } from 'react'
 
 interface TraitMultiSelectProps {

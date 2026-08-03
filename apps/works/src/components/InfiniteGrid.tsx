@@ -1,4 +1,4 @@
-// frontend/src/components/InfiniteGrid.tsx
+// apps/works/src/components/InfiniteGrid.tsx
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PermutationCard, type LikeInfo } from './PermutationCard'
 import { TreePanel } from './TreePanel'

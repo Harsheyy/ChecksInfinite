@@ -1,4 +1,4 @@
-// frontend/src/useEnsResolver.ts
+// apps/works/src/useEnsResolver.ts
 import { useState, useCallback } from 'react'
 import { createPublicClient, http } from 'viem'
 import { normalize } from 'viem/ens'

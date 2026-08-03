@@ -1,4 +1,4 @@
-// frontend/src/components/SearchPage.tsx
+// apps/works/src/components/SearchPage.tsx
 import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect, memo } from 'react'
 import { useAccount } from 'wagmi'
 import { InfiniteGrid } from './InfiniteGrid'

@@ -1,4 +1,4 @@
-// frontend/src/components/PatternPaintGrid.tsx
+// apps/works/src/components/PatternPaintGrid.tsx
 // Pure, controlled 20-cell paint grid — shared between the narrow landing
 // card (before a search starts) and the wide composer sidebar (once it has).
 const GRID_CELLS = 20

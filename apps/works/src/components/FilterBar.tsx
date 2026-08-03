@@ -1,4 +1,4 @@
-// frontend/src/components/FilterBar.tsx
+// apps/works/src/components/FilterBar.tsx
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { Attribute } from '../utils'
 import type { PermutationResult } from '../useAllPermutations'

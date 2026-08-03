@@ -1,4 +1,4 @@
-// frontend/src/useCuratedOutputs.ts
+// apps/works/src/useCuratedOutputs.ts
 import { useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import { fromJSON, type CheckStructJSON } from './usePermutationsDB'

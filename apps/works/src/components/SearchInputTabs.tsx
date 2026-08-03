@@ -1,4 +1,4 @@
-// frontend/src/components/SearchInputTabs.tsx
+// apps/works/src/components/SearchInputTabs.tsx
 import { isValidAddress } from '../utils'
 
 export type SearchInputMode = 'ids' | 'wallet' | 'patterns'

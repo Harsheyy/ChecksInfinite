@@ -1,4 +1,4 @@
-// frontend/src/usePatternLayouts.ts
+// apps/works/src/usePatternLayouts.ts
 //
 // Cell-layout-consolidated pattern data for the Patterns tab's paint-grid
 // composer — replaces usePatternCatalog's flat per-color-pair list. Colors

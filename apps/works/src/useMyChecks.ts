@@ -1,4 +1,4 @@
-// frontend/src/useMyChecks.ts
+// apps/works/src/useMyChecks.ts
 import { useState, useEffect } from 'react'
 import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
