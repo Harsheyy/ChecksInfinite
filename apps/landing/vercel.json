@@ -1,0 +1,8 @@
+{
+  "redirects": [
+    { "source": "/opensea", "destination": "https://permutations.checks.wiki/opensea", "permanent": false },
+    { "source": "/curated", "destination": "https://permutations.checks.wiki/curated", "permanent": false },
+    { "source": "/search", "destination": "https://permutations.checks.wiki/search", "permanent": false },
+    { "source": "/tokenworks", "destination": "https://permutations.checks.wiki/", "permanent": false }
+  ]
+}
