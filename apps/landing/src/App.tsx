@@ -2,7 +2,7 @@ const TOOLS = [
   {
     name: 'Permutation Browser',
     description: 'Browse every possible composite from the Checks VV collection.',
-    href: 'https://permutations.checks.wiki',
+    href: 'https://explore.checks.wiki',
     status: 'live' as const,
   },
   {

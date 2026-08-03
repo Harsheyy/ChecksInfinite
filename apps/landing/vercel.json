@@ -3,12 +3,12 @@
     {
       "source": "/",
       "has": [{ "type": "query", "key": "recipe" }],
-      "destination": "https://permutations.checks.wiki/",
+      "destination": "https://explore.checks.wiki/",
       "permanent": false
     },
-    { "source": "/opensea", "destination": "https://permutations.checks.wiki/opensea", "permanent": false },
-    { "source": "/curated", "destination": "https://permutations.checks.wiki/curated", "permanent": false },
-    { "source": "/search", "destination": "https://permutations.checks.wiki/search", "permanent": false },
-    { "source": "/tokenworks", "destination": "https://permutations.checks.wiki/", "permanent": false }
+    { "source": "/opensea", "destination": "https://explore.checks.wiki/opensea", "permanent": false },
+    { "source": "/curated", "destination": "https://explore.checks.wiki/curated", "permanent": false },
+    { "source": "/search", "destination": "https://explore.checks.wiki/search", "permanent": false },
+    { "source": "/tokenworks", "destination": "https://explore.checks.wiki/", "permanent": false }
   ]
 }
