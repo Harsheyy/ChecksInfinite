@@ -37,3 +37,8 @@ BEGIN
   RETURN updated_count;
 END;
 $$;
+
+-- Same rationale as migration 024 for bulk_update_check_prices: this is a
+-- SECURITY DEFINER RPC that bypasses RLS, and Supabase grants EXECUTE to
+-- PUBLIC on new functions by default. Lock it down to service_role only.
+REVOKE EXECUTE ON FUNCTION bulk_update_editions_prices(jsonb) FROM PUBLIC, anon, authenticated;

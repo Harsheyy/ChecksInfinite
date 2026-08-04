@@ -19,6 +19,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const COLLECTION_SLUG     = 'vv-checks'
 const EDITIONS_CONTRACT   = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9'
 const DB_BATCH            = 500
+const PAGE_SIZE           = 900 // PostgREST caps rows per request at ~1000; page under that
 
 Deno.serve(async (req: Request) => {
   const cronSecret = Deno.env.get('CRON_SECRET')
@@ -49,12 +50,20 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetched ${priceMap.size} unique listed Editions tokens from OpenSea`)
 
     // ── 2. Load all known token IDs from DB ────────────────────────────────────
-    const { data: allRows, error: dbErr } = await supabase
-      .from('editions_checks')
-      .select('token_id')
-    if (dbErr) throw dbErr
+    // Paged (PAGE_SIZE=900) to stay under PostgREST's ~1000-row cap — Editions
+    // is a large collection (well over 1000 tokens), so an unpaged .select()
+    // here would silently truncate and leave most tokens un-priced. Ordered
+    // by token_id, which is also the unique tiebreaker, so page boundaries
+    // are deterministic. Mirrors sync-checkmath's fetchAllPaged.
+    const allRows = await fetchAllPaged<{ token_id: number }>((from, to) =>
+      supabase
+        .from('editions_checks')
+        .select('token_id')
+        .order('token_id', { ascending: true })
+        .range(from, to),
+    )
 
-    const allIds = (allRows ?? []).map((r: { token_id: number }) => r.token_id)
+    const allIds = allRows.map(r => r.token_id)
     console.log(`${allIds.length} Editions tokens in DB`)
 
     // ── 3. Build update batches ────────────────────────────────────────────────
@@ -95,7 +104,12 @@ async function fetchAllListings(apiKey: string): Promise<Map<number, number>> {
   let cursor: string | undefined
   let page = 0
 
-  do {
+  // for(;;) with an explicit break (instead of do-while) so the 429 branch's
+  // `continue` jumps back to the top of the loop body and actually retries
+  // the same page — in a do-while, `continue` jumps to the `while (cursor)`
+  // condition check instead, which on page 1 (cursor still undefined) exits
+  // the loop entirely and silently returns an empty priceMap.
+  for (;;) {
     const params = new URLSearchParams({ limit: '100', ...(cursor ? { next: cursor } : {}) })
     const res = await fetch(`${base}?${params}`, {
       headers: { accept: 'application/json', 'x-api-key': apiKey },
@@ -129,10 +143,33 @@ async function fetchAllListings(apiKey: string): Promise<Map<number, number>> {
 
     cursor = json.next
     if (page % 10 === 0) console.log(`Page ${page}, ${priceMap.size} listings so far…`)
-  } while (cursor)
+    if (!cursor) break
+  }
 
   console.log(`Fetched ${page} pages — ${priceMap.size} listed Editions tokens`)
   return priceMap
+}
+
+// ─── DB paging helper ─────────────────────────────────────────────────────────
+
+// Pages through a Supabase query in PAGE_SIZE-row batches (PostgREST caps a
+// single response at ~1000 rows; an unpaged .select() would silently return
+// an arbitrary truncated slice instead of erroring once rows cross that cap).
+// Mirrors sync-checkmath/index.ts's fetchAllPaged.
+async function fetchAllPaged<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  let offset = 0
+  for (;;) {
+    const { data, error } = await queryFactory(offset, offset + PAGE_SIZE - 1)
+    if (error) throw error
+    const batch = data ?? []
+    rows.push(...batch)
+    if (batch.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+  return rows
 }
 
 // ─── sync_log helpers ─────────────────────────────────────────────────────────

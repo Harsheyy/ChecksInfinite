@@ -81,6 +81,12 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── 1. Load listed, non-burned Checks VV tokens ────────────────────────────
+    // is_tokenstr=false excludes TokenStrategy-held tokens: their price comes
+    // from the TokenStrategy contract's nftForSale() (a separate acquisition
+    // path, synced by sync-tokenstr), not a real OpenSea listing, and the
+    // frontend links every Checkmath token to OpenSea — so a tokenstr-held
+    // token surfacing here would point users at a dead/wrong listing. Mirrors
+    // sync-market-prices, which treats is_tokenstr as a separate channel.
     // Ordered + paged (PAGE_SIZE=900) to stay under PostgREST's ~1000-row cap —
     // an unbounded .select() would silently truncate to an arbitrary unordered
     // slice instead of erroring if listings ever exceed the cap. token_id is a
@@ -96,6 +102,7 @@ Deno.serve(async (req: Request) => {
           .select('token_id, checks_count, eth_price')
           .eq('is_listed', true)
           .eq('is_burned', false)
+          .eq('is_tokenstr', false)
           .not('eth_price', 'is', null)
           .order('eth_price', { ascending: true })
           .order('token_id', { ascending: true })
