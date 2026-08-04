@@ -7,26 +7,21 @@ interface CheapestSingleProps {
 }
 
 export function CheapestSingle({ price, tokenId, svg }: CheapestSingleProps) {
+  if (price === null || tokenId === null) {
+    return <p className="checkmath-stat-empty">No single currently listed</p>
+  }
   return (
-    <section className="checkmath-card">
-      <h2>Cheapest Single</h2>
-      <p className="checkmath-card-desc">Cheapest checks_count=1 Check currently listed</p>
-      {price !== null && tokenId !== null ? (
-        <a
-          className="checkmath-stat-link"
-          href={`https://opensea.io/assets/ethereum/${CHECKS_CONTRACT}/${tokenId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {svg && <div className="checkmath-token-image" dangerouslySetInnerHTML={{ __html: svg }} />}
-          <div className="checkmath-stat-text">
-            <span className="checkmath-stat">{price.toFixed(3)} ETH</span>
-            <span className="checkmath-stat-sub">Check #{tokenId}</span>
-          </div>
-        </a>
-      ) : (
-        <p className="checkmath-stat-empty">No single currently listed</p>
-      )}
-    </section>
+    <a
+      className="checkmath-stat-link"
+      href={`https://opensea.io/assets/ethereum/${CHECKS_CONTRACT}/${tokenId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {svg && <div className="checkmath-token-image" dangerouslySetInnerHTML={{ __html: svg }} />}
+      <div className="checkmath-stat-text">
+        <span className="checkmath-stat">{price.toFixed(3)} ETH</span>
+        <span className="checkmath-stat-sub">Check #{tokenId}</span>
+      </div>
+    </a>
   )
 }

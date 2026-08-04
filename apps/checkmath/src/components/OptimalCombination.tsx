@@ -27,6 +27,10 @@ function openSeaUrl(item: CombinationItem): string {
 export function OptimalCombination({ totalCost, items, checksSvgByTokenId, editionsImageByTokenId }: OptimalCombinationProps) {
   const [openTier, setOpenTier] = useState<string | null>(null)
 
+  if (totalCost === null) {
+    return <p className="checkmath-stat-empty">Not enough listed supply to compute a combination</p>
+  }
+
   const byTier = new Map<string, CombinationItem[]>()
   for (const item of items) {
     const key = tierKey(item.checksCount, item.collection)
@@ -42,63 +46,53 @@ export function OptimalCombination({ totalCost, items, checksSvgByTokenId, editi
   })
 
   return (
-    <section className="checkmath-card">
-      <h2>Optimal Combination</h2>
-      <p className="checkmath-card-desc">
-        Cheapest way to compose one single from smaller pieces (Checks Editions count as an 80-check)
-      </p>
-      {totalCost !== null ? (
-        <>
-          <p className="checkmath-stat">{totalCost.toFixed(3)} ETH</p>
-          <div className="checkmath-tiers">
-            {tiers.map(([key, tierItems]) => {
-              const { checksCount, collection } = tierItems[0]
-              return (
-                <div key={key} className="checkmath-tier">
-                  <button
-                    type="button"
-                    className="checkmath-tier-header"
-                    onClick={() => setOpenTier(openTier === key ? null : key)}
-                  >
-                    <span>{tierLabel(checksCount, collection)}{tierItems.length > 1 ? 's' : ''} × {tierItems.length}</span>
-                    <span>{openTier === key ? '−' : '+'}</span>
-                  </button>
-                  {openTier === key && (
-                    <div className="checkmath-tier-items">
-                      {tierItems.map(item => {
-                        const image = item.collection === 'editions'
-                          ? editionsImageByTokenId.get(item.tokenId)
-                          : checksSvgByTokenId.get(item.tokenId)
-                        return (
-                          <a
-                            key={`${item.collection}-${item.tokenId}`}
-                            className="checkmath-tier-item"
-                            href={openSeaUrl(item)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {image && (
-                              item.collection === 'editions'
-                                ? <img className="checkmath-token-image" src={image} alt="" />
-                                : <div className="checkmath-token-image" dangerouslySetInnerHTML={{ __html: image }} />
-                            )}
-                            <div className="checkmath-tier-item-info">
-                              <span>#{item.tokenId}</span>
-                              <span>{item.ethPrice.toFixed(3)} ETH</span>
-                            </div>
-                          </a>
-                        )
-                      })}
-                    </div>
-                  )}
+    <>
+      <p className="checkmath-stat">{totalCost.toFixed(3)} ETH</p>
+      <div className="checkmath-tiers">
+        {tiers.map(([key, tierItems]) => {
+          const { checksCount, collection } = tierItems[0]
+          return (
+            <div key={key} className="checkmath-tier">
+              <button
+                type="button"
+                className="checkmath-tier-header"
+                onClick={() => setOpenTier(openTier === key ? null : key)}
+              >
+                <span>{tierLabel(checksCount, collection)}{tierItems.length > 1 ? 's' : ''} × {tierItems.length}</span>
+                <span>{openTier === key ? '−' : '+'}</span>
+              </button>
+              {openTier === key && (
+                <div className="checkmath-tier-items">
+                  {tierItems.map(item => {
+                    const image = item.collection === 'editions'
+                      ? editionsImageByTokenId.get(item.tokenId)
+                      : checksSvgByTokenId.get(item.tokenId)
+                    return (
+                      <a
+                        key={`${item.collection}-${item.tokenId}`}
+                        className="checkmath-tier-item"
+                        href={openSeaUrl(item)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {image && (
+                          item.collection === 'editions'
+                            ? <img className="checkmath-token-image" src={image} alt="" />
+                            : <div className="checkmath-token-image" dangerouslySetInnerHTML={{ __html: image }} />
+                        )}
+                        <div className="checkmath-tier-item-info">
+                          <span>#{item.tokenId}</span>
+                          <span>{item.ethPrice.toFixed(3)} ETH</span>
+                        </div>
+                      </a>
+                    )
+                  })}
                 </div>
-              )
-            })}
-          </div>
-        </>
-      ) : (
-        <p className="checkmath-stat-empty">Not enough listed supply to compute a combination</p>
-      )}
-    </section>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 }

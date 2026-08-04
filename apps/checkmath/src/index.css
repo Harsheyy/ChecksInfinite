@@ -38,9 +38,9 @@
 .checkmath-cards {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 520px;
+  max-width: 760px;
 }
 
 .checkmath-card {
@@ -135,6 +135,8 @@
   gap: 0.25rem;
   margin-top: 0.4rem;
   padding-left: 0.85rem;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .checkmath-tier-item {
@@ -169,4 +171,74 @@
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+/* ─── Buy vs. Build comparison panel ─────────────────────── */
+
+.checkmath-compare {
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 1.5rem;
+}
+
+.checkmath-compare h2 {
+  font-size: 1.1rem;
+  font-weight: 400;
+  margin-bottom: 1.5rem;
+}
+
+.checkmath-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.checkmath-compare-col {
+  padding: 0 1.5rem;
+}
+.checkmath-compare-col:first-child {
+  padding-left: 0;
+  border-right: 1px solid #2a2a2a;
+}
+.checkmath-compare-col:last-child {
+  padding-right: 0;
+}
+
+.checkmath-compare-col h3 {
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.checkmath-compare-desc {
+  color: #999;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+  margin-bottom: 1rem;
+}
+
+.checkmath-compare-delta {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #2a2a2a;
+  font-size: 0.85rem;
+  color: #ccc;
+  text-align: center;
+}
+.checkmath-compare-delta strong {
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .checkmath-compare-grid {
+    grid-template-columns: 1fr;
+  }
+  .checkmath-compare-col {
+    padding: 0;
+  }
+  .checkmath-compare-col:first-child {
+    border-right: none;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
 }
