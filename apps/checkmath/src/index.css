@@ -1,9 +1,30 @@
+/* Checkmath — a measuring instrument for the Checks market.
+ *
+ * The world is a dark terminal: Courier, near-black, on-chain SVGs rendered
+ * inline. Monospace is load-bearing here (every figure is an ETH measurement
+ * or a token ID), not a costume.
+ *
+ * Color budget: --accent (from Source/EightyColors.sol, the collection's own
+ * palette) names the cheaper path and draws the focus ring. --stale flags
+ * data that has aged out or a partial sweep. Nothing else on the page spends
+ * color; every other distinction is carried by weight, size, and position.
+ */
+
 .checkmath {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: calc(48px + 2.5rem) 1.5rem 4rem;
+  padding: calc(48px + 2.5rem) 1.5rem 5rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ─── Navbar ─────────────────────────────────────────────── */
@@ -12,8 +33,8 @@
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 48px;
-  background: #111;
-  border-bottom: 1px solid #222;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -33,97 +54,150 @@
 }
 .nav-brand:hover { color: #fff; }
 
-.nav-brand-icon {
-  display: inline-block;
-  flex-shrink: 0;
-}
+.nav-brand-icon { display: inline-block; flex-shrink: 0; }
 
 .nav-updated {
-  color: #777;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-faint);
   font-size: 0.75rem;
   white-space: nowrap;
 }
+.nav-updated-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.nav-updated.is-stale { color: var(--stale); }
+.nav-updated.is-stale .nav-updated-dot { background: var(--stale); }
 
-.checkmath-header {
+/* ─── Header ─────────────────────────────────────────────── */
+
+.cm-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
-.checkmath-icon {
-  width: 40px;
-  height: 40px;
-  margin-bottom: 0.75rem;
-}
+.cm-header-icon { width: 40px; height: 40px; margin-bottom: 0.75rem; }
 
-.checkmath-header h1 {
+.cm-header h1 {
   font-size: 1.75rem;
   font-weight: 400;
   letter-spacing: 0.02em;
 }
 
-.checkmath-tagline {
-  color: #aaa;
+.cm-tagline {
+  color: var(--text-dim);
   margin-top: 0.4rem;
   font-size: 0.9rem;
 }
 
-.checkmath-cards {
+.cm-main {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   width: 100%;
-  max-width: 760px;
+  max-width: 860px;
 }
 
-.checkmath-card {
-  border: 1px solid #2a2a2a;
-  border-radius: 4px;
-  padding: 1.25rem;
+/* ─── Panels ─────────────────────────────────────────────── */
+
+.cm-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
 }
 
-.checkmath-card h2 {
+.cm-panel h2 {
   font-size: 1.1rem;
   font-weight: 400;
 }
 
-.checkmath-card-desc {
-  color: #999;
-  font-size: 0.78rem;
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
+/* No max-width on the panel copy: these are one- and two-line captions, not
+ * prose, and capping them at a reading measure left a third of every panel
+ * empty. The panel's own 860px cap is the measure. */
+.cm-panel-desc {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin-top: 0.3rem;
+  margin-bottom: 1.5rem;
 }
 
-.checkmath-stat {
-  font-size: 1.5rem;
-}
-
-.checkmath-stat-sub {
-  display: block;
-  color: #999;
-  font-size: 0.78rem;
-  margin-top: 0.25rem;
-}
-
-.checkmath-stat-empty {
-  color: #777;
+.cm-empty {
+  color: var(--text-faint);
   font-size: 0.85rem;
+  line-height: 1.5;
 }
 
-.checkmath-stat-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: inherit;
-  text-decoration: none;
-}
-.checkmath-stat-link:hover .checkmath-stat { text-decoration: underline; }
-
-.checkmath-stat-text {
-  display: flex;
-  flex-direction: column;
+/* Scope caveat: sits between the description and the numbers so it's read
+ * before the figures are trusted, not discovered after. */
+.cm-caveat {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-interactive);
+  margin-top: -0.75rem;
+  margin-bottom: 1.75rem;
 }
 
-.checkmath-single-link {
+/* ─── Verdict: the answer, stated first ──────────────────── */
+
+.cm-verdict {
+  margin-top: 1.25rem;
+  font-size: 1.45rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.cm-verdict strong {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.cm-verdict--empty {
+  font-size: 0.95rem;
+  color: var(--text-faint);
+}
+
+/* ─── Buy vs. Build columns ──────────────────────────────── */
+
+.cm-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  align-items: start;
+  gap: 2.5rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+/* The build column grows as tiers expand; pinning the buy column keeps the
+ * thing it is being compared against on screen instead of leaving a column
+ * of dead space beside it. */
+.cm-compare-col:first-child {
+  position: sticky;
+  top: calc(48px + 1.5rem);
+}
+
+.cm-compare-col h3 {
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.cm-compare-desc {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  margin-top: 0.3rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ─── Cheapest single ────────────────────────────────────── */
+
+.cm-single {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -132,184 +206,286 @@
   text-decoration: none;
   text-align: center;
 }
-.checkmath-single-link:hover .checkmath-stat { text-decoration: underline; }
 
-.checkmath-single-image {
+.cm-single-image {
+  display: block;
   width: 100%;
-  max-width: 220px;
+  max-width: 240px;
   aspect-ratio: 1;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
-  background: #111;
+  background: var(--surface);
+  transition: border-color 160ms var(--ease-out);
 }
-.checkmath-single-image svg,
-.checkmath-single-image img {
+.cm-single-image > span { display: block; width: 100%; height: 100%; }
+.cm-single-image svg {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
 }
+.cm-single:hover .cm-single-image { border-color: var(--border-interactive); }
 
-.checkmath-sweep-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem 2rem;
+.cm-single-meta { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.cm-single-price {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
 }
+.cm-single:hover .cm-single-price { text-decoration: underline; }
 
-.checkmath-sweep-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.checkmath-sweep-label {
-  color: #999;
+.cm-single-id {
+  color: var(--text-dim);
   font-size: 0.78rem;
 }
 
-.checkmath-tiers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
+/* ─── Optimal combination ────────────────────────────────── */
+
+.cm-combination-total {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.checkmath-tier-header {
+.cm-combination-sub {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+  margin-bottom: 1.25rem;
+}
+
+.cm-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cm-tier-heading { font-size: inherit; font-weight: inherit; }
+
+.cm-tier-header {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #111;
-  border: 1px solid #2a2a2a;
-  color: inherit;
-  font-family: inherit;
-  font-size: 0.85rem;
-  padding: 0.6rem 0.85rem;
-  cursor: pointer;
-}
-.checkmath-tier-header:hover { border-color: #555; }
-
-.checkmath-tier-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.4rem;
-  padding-left: 0.85rem;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.checkmath-tier-item {
+  min-height: 44px; /* WCAG 2.5.8 target size */
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #ccc;
+  background: var(--surface);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+.cm-tier-header:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+
+.cm-tier-name { flex: 1; }
+
+.cm-tier-subtotal {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Drawn, not a "+" glyph: one authored chevron that rotates to carry state
+ * alongside aria-expanded. */
+.cm-tier-chevron {
+  width: 7px; height: 7px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--text-dim);
+  border-bottom: 1px solid var(--text-dim);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 200ms var(--ease-out);
+}
+.cm-tier-header[aria-expanded='true'] .cm-tier-chevron {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.cm-tier-panel { padding-left: 0.85rem; }
+.cm-tier-panel[hidden] { display: none; }
+
+.cm-tier-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.4rem;
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cm-tier-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px; /* WCAG 2.5.8 target size */
+  color: var(--text-dim);
   text-decoration: none;
   font-size: 0.8rem;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0.4rem 0.25rem 0;
+  border-radius: 2px;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
 }
-.checkmath-tier-item:hover { color: #fff; }
-.checkmath-tier-item:hover .checkmath-tier-item-info { text-decoration: underline; }
-
-.checkmath-tier-item-info {
-  display: flex;
-  justify-content: space-between;
-  flex: 1;
+.cm-tier-item:hover {
+  color: var(--text);
+  background: var(--surface);
 }
 
-.checkmath-token-image {
-  width: 40px;
-  height: 40px;
+.cm-tier-item-id { flex: 1; }
+.cm-tier-item-price { font-variant-numeric: tabular-nums; }
+
+.cm-token-image {
+  display: block;
+  width: 40px; height: 40px;
   flex-shrink: 0;
   border-radius: 2px;
   overflow: hidden;
-  background: #111;
+  background: var(--surface);
 }
-.checkmath-token-image svg,
-.checkmath-token-image img {
+.cm-token-image svg,
+.cm-token-image img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
 }
 
-/* ─── Buy vs. Build comparison panel ─────────────────────── */
+/* ─── Sweeps ─────────────────────────────────────────────── */
 
-.checkmath-compare {
-  border: 1px solid #2a2a2a;
-  border-radius: 4px;
+.cm-sweeps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem 2rem;
+}
+
+.cm-sweep {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cm-sweep-name {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.cm-sweep-stat {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.cm-sweep-unit {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.cm-sweep-detail {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.cm-sweep-partial { color: var(--stale); }
+
+/* ─── Loading / error ────────────────────────────────────── */
+
+.cm-skeleton {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cm-skeleton-bar,
+.cm-skeleton-block {
+  display: block;
+  background: var(--surface-raised);
+  border-radius: 2px;
+  animation: cm-pulse 1.6s ease-in-out infinite;
+}
+.cm-skeleton-bar { height: 12px; width: 70%; }
+.cm-skeleton-bar--lead { height: 22px; width: 45%; margin-bottom: 0.75rem; }
+.cm-skeleton-block { height: 180px; width: 100%; margin-top: 0.75rem; }
+
+@keyframes cm-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.cm-error {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 1.5rem;
 }
-
-.checkmath-compare h2 {
-  font-size: 1.1rem;
-  font-weight: 400;
-  margin-bottom: 1.5rem;
+.cm-error-title { font-size: 1rem; }
+.cm-error-body {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  max-width: 52ch;
+  margin-top: 0.5rem;
+  margin-bottom: 1.25rem;
 }
 
-.checkmath-compare-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-}
-
-.checkmath-compare-col {
-  padding: 0 1.5rem;
-}
-.checkmath-compare-col:first-child {
-  padding-left: 0;
-  border-right: 1px solid #2a2a2a;
-}
-.checkmath-compare-col:last-child {
-  padding-right: 0;
-}
-
-.checkmath-compare-col h3 {
-  font-size: 0.95rem;
-  font-weight: 400;
-}
-
-.checkmath-compare-desc {
-  color: #999;
-  font-size: 0.75rem;
-  margin-top: 0.2rem;
-  margin-bottom: 1rem;
-}
-
-.checkmath-compare-delta {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid #2a2a2a;
+.cm-button {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
   font-size: 0.85rem;
-  color: #ccc;
-  text-align: center;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
 }
-.checkmath-compare-delta strong {
-  color: #fff;
+.cm-button:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
 }
 
-@media (max-width: 640px) {
-  .checkmath-compare-grid {
+/* ─── Responsive ─────────────────────────────────────────── */
+
+/* Below ~880px the two columns can't hold their measure side by side, but
+ * the verdict and its bars still fit, so only the evidence stacks. */
+@media (max-width: 880px) {
+  .cm-compare {
     grid-template-columns: 1fr;
+    gap: 2rem;
   }
-  .checkmath-compare-col {
-    padding: 0;
+  .cm-compare-col:first-child {
+    position: static;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
   }
-  .checkmath-compare-col:first-child {
-    border-right: none;
-    border-bottom: 1px solid #2a2a2a;
-    padding-bottom: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
+}
+
+@media (max-width: 720px) {
+  .cm-sweeps { grid-template-columns: 1fr; gap: 1.25rem; }
+}
+
+@media (max-width: 620px) {
+  .checkmath { padding: calc(48px + 2rem) 1rem 5rem; }
+  .cm-panel { padding: 1.25rem; }
+  .cm-verdict { font-size: 1.1rem; }
 }
 
 @media (max-width: 480px) {
-  .navbar {
-    padding: 0 14px;
-  }
+  .navbar { padding: 0 14px; }
   .nav-updated {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 45vw;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The skeleton's pulse is the only looping motion; state changes stay. */
+  .cm-skeleton-bar,
+  .cm-skeleton-block { animation: none; opacity: 0.7; }
+  * { transition-duration: 120ms; }
 }

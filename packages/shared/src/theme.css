@@ -1,10 +1,70 @@
+/* ─── Design tokens ───────────────────────────────────────────
+ *
+ * Shared across checkmath / works / landing. Values are the ones the
+ * apps already used, with two deliberate contrast corrections:
+ *
+ *   --border            #2a2a2a → #333333   (decorative card/panel edges)
+ *   --border-interactive         #5e5e5e    (NEW — controls only)
+ *
+ * WCAG 1.4.11 requires 3:1 against the background for boundaries you
+ * need in order to *identify a control*. #2a2a2a on #0a0a0a is 1.37:1.
+ * Raising every edge to a passing 3:1 would turn the whole page into
+ * glaring boxes, so the token set splits the job: purely decorative
+ * panel edges get a modest legibility bump (#333), and anything the
+ * user can actually operate — buttons, accordion headers, focus rings —
+ * uses --border-interactive (#5e5e5e ≈ 3.1:1), which is what the
+ * success criterion is actually about.
+ *
+ * Accent colors are taken from the canonical Checks palette
+ * (Source/EightyColors.sol) rather than invented, so every color on the
+ * site traces back to the artwork it describes.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-raised: #161616;
+
+  /* Lines */
+  --border: #333333;
+  --border-interactive: #5e5e5e;
+  --border-strong: #808080;
+
+  /* Text */
+  --text: #eeeeee;
+  --text-dim: #999999;
+  --text-faint: #777777;
+
+  /* Accent — 'B5F13B' from EightyColors.COLORS(), the palette's brightest
+   * chartreuse. Used for exactly two things: the words naming the cheaper
+   * path, and the keyboard focus ring. */
+  --accent: #b5f13b;
+
+  /* Status */
+  --stale: #f2a93c;
+
+  --radius: 4px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Courier New', Courier, monospace;
-  background: #0a0a0a;
-  color: #eee;
+  background: var(--bg);
+  color: var(--text);
 }
+
+/* Keyboard focus. Previously the stylesheet had zero focus rules across
+ * every app — keyboard users fell back to the UA ring, which is close to
+ * invisible against #0a0a0a. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
 
 .site-footer {
   position: fixed;
@@ -12,7 +72,7 @@ body {
   height: 32px;
   background: rgba(13,13,13,0.96);
   backdrop-filter: blur(4px);
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;

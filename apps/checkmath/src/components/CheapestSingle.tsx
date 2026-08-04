@@ -1,4 +1,4 @@
-const CHECKS_CONTRACT = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
+import { openSeaUrl } from '../tiers'
 
 interface CheapestSingleProps {
   price: number | null
@@ -8,20 +8,24 @@ interface CheapestSingleProps {
 
 export function CheapestSingle({ price, tokenId, svg }: CheapestSingleProps) {
   if (price === null || tokenId === null) {
-    return <p className="checkmath-stat-empty">No single currently listed</p>
+    return <p className="cm-empty">No single is listed right now.</p>
   }
+
   return (
     <a
-      className="checkmath-single-link"
-      href={`https://opensea.io/assets/ethereum/${CHECKS_CONTRACT}/${tokenId}`}
+      className="cm-single"
+      href={openSeaUrl({ tokenId, collection: 'checks-vv' })}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={`Check #${tokenId}, ${price.toFixed(3)} ETH — view on OpenSea (opens in a new tab)`}
     >
-      {svg && <div className="checkmath-single-image" dangerouslySetInnerHTML={{ __html: svg }} />}
-      <div className="checkmath-stat-text">
-        <span className="checkmath-stat">{price.toFixed(3)} ETH</span>
-        <span className="checkmath-stat-sub">Check #{tokenId}</span>
-      </div>
+      <span className="cm-single-image">
+        {svg ? <span dangerouslySetInnerHTML={{ __html: svg }} /> : null}
+      </span>
+      <span className="cm-single-meta">
+        <span className="cm-single-price">{price.toFixed(3)} ETH</span>
+        <span className="cm-single-id">Check #{tokenId}</span>
+      </span>
     </a>
   )
 }
