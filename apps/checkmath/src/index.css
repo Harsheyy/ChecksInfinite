@@ -164,14 +164,27 @@
 
 /* ─── Buy vs. Build columns ──────────────────────────────── */
 
+/* Three shared rows — heading, description, body — with each column opting
+ * into them via subgrid. The two descriptions are different lengths, so
+ * without this the two prices being compared start at different heights and
+ * the reader has to hunt for the second one. */
 .cm-compare {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: auto auto auto;
   align-items: start;
   gap: 2.5rem;
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 1px solid var(--border);
+}
+
+.cm-compare-col {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  align-content: start;
+  row-gap: 0;
 }
 
 /* The build column grows as tiers expand; pinning the buy column keeps the
@@ -197,20 +210,19 @@
 
 /* ─── Cheapest single ────────────────────────────────────── */
 
+/* Deliberately mirrors .cm-combination-total / .cm-combination-sub below, so
+ * the two prices being compared sit on the same line across both columns. */
 .cm-single {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.85rem;
+  display: block;
   color: inherit;
   text-decoration: none;
-  text-align: center;
 }
 
 .cm-single-image {
   display: block;
   width: 100%;
   max-width: 240px;
+  margin: 0 auto;
   aspect-ratio: 1;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -226,17 +238,20 @@
 }
 .cm-single:hover .cm-single-image { border-color: var(--border-interactive); }
 
-.cm-single-meta { display: flex; flex-direction: column; gap: 0.3rem; }
+.cm-single-meta { display: block; margin-bottom: 1.25rem; }
 
 .cm-single-price {
+  display: block;
   font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }
 .cm-single:hover .cm-single-price { text-decoration: underline; }
 
 .cm-single-id {
+  display: block;
   color: var(--text-dim);
   font-size: 0.78rem;
+  margin-top: 0.3rem;
 }
 
 /* ─── Optimal combination ────────────────────────────────── */
@@ -389,6 +404,44 @@
 }
 .cm-sweep-partial { color: var(--stale); }
 
+/* ─── Price history chart ────────────────────────────────── */
+
+/* The only chart on the site, and it earns the exception by being a genuine
+ * time series: the crossover between the two paths can't be said in a
+ * sentence. It stays monochrome — the two lines are told apart by direct
+ * end labels rather than a legend or the page's accent. */
+.cm-chart { overflow-x: auto; }
+
+/* The SVG scales with its box, so its text scales too. Below this floor the
+ * axis labels drop under ~10px and stop being readable — so the chart
+ * scrolls rather than shrinking. */
+.cm-chart-svg {
+  display: block;
+  width: 100%;
+  min-width: 660px;
+  height: auto;
+}
+
+.cm-chart-tick {
+  fill: var(--text-faint);
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-chart-label {
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-chart-summary {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin-top: 1.25rem;
+}
+
 /* ─── Loading / error ────────────────────────────────────── */
 
 .cm-skeleton {
@@ -455,7 +508,14 @@
 @media (max-width: 880px) {
   .cm-compare {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     gap: 2rem;
+  }
+  /* Stacked, there are no sibling rows left to align to — and leaving the
+   * subgrid spans on would interleave the two columns' rows. */
+  .cm-compare-col {
+    display: block;
+    grid-row: auto;
   }
   .cm-compare-col:first-child {
     position: static;

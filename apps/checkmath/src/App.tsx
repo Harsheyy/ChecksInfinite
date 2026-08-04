@@ -6,6 +6,8 @@ import { CheapestSingle } from './components/CheapestSingle'
 import { SweepCalculator } from './components/SweepCalculator'
 import { OptimalCombination } from './components/OptimalCombination'
 import { Verdict } from './components/Verdict'
+import { PriceHistory } from './components/PriceHistory'
+import { useCheckmathHistory } from './useCheckmathHistory'
 
 // Stable reference so `useTokenImages`'s effect deps don't see a "change"
 // on every render when there's no snapshot yet (module-scope, not per-render).
@@ -13,6 +15,7 @@ const EMPTY_COMBINATION_ITEMS: CombinationItem[] = []
 
 export default function App() {
   const { snapshot, loading, error } = useCheckmathSnapshot()
+  const history = useCheckmathHistory()
   const { checksSvgByTokenId, editionsImageByTokenId } = useTokenImages(
     snapshot?.cheapestSingleTokenId ?? null,
     snapshot?.optimalCombinationItems ?? EMPTY_COMBINATION_ITEMS,
@@ -88,6 +91,12 @@ export default function App() {
                 </div>
               </div>
             </section>
+
+            <PriceHistory
+              days={history.days}
+              loading={history.loading}
+              error={history.error}
+            />
 
             <SweepCalculator
               checksSweepCost={snapshot.checksSweepCost}
