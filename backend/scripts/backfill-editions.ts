@@ -43,13 +43,25 @@ async function fetchAllEditions(): Promise<EditionToken[]> {
     const res = await fetch(`${base}?${params}`)
     if (!res.ok) throw new Error(`Alchemy error: ${res.status} ${await res.text()}`)
     const json = await res.json() as {
-      nfts: { tokenId: string; image?: { originalUrl?: string }; raw?: { metadata?: { image?: string } } }[]
+      nfts: {
+        tokenId: string
+        image?: { originalUrl?: string }
+        raw?: { metadata?: { image?: string } }
+        contract?: { openSeaMetadata?: { imageUrl?: string } }
+      }[]
       pageKey?: string
     }
     for (const nft of json.nfts) {
+      // Per-token metadata is unavailable for every Editions token — the
+      // contract's tokenURI() itself is broken on-chain (Alchemy reports
+      // "Contract returned a broken token uri" for every token, confirmed
+      // by direct query). Falling back to the collection-level image means
+      // every Editions item shares one picture rather than having none —
+      // still visually distinct from Checks VV items via the "Edition"
+      // label, just not unique per token.
       tokens.push({
         tokenId:  Number(nft.tokenId),
-        imageUrl: nft.image?.originalUrl ?? nft.raw?.metadata?.image ?? '',
+        imageUrl: nft.image?.originalUrl ?? nft.raw?.metadata?.image ?? nft.contract?.openSeaMetadata?.imageUrl ?? '',
       })
     }
     pageKey = json.pageKey
