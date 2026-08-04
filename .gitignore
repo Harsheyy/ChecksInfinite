@@ -5,6 +5,9 @@ node_modules/
 dist/
 .vite/
 
+# Vercel CLI project links
+.vercel/
+
 # Environment — keep .env.example, ignore real secrets
 .env
 .env.local

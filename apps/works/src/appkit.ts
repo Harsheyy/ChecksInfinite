@@ -20,7 +20,7 @@ export function initAppKit(): AppKitModal {
     metadata: {
       name: 'Checks Wiki',
       description: 'Checks VV permutation browser',
-      url: 'https://checks.wiki',
+      url: window.location.origin,
       icons: [],
     },
     themeMode: 'dark',

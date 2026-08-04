@@ -20,6 +20,7 @@ const NONCE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const ALLOWED_DOMAINS = new Set([
   'checks.wiki',
   'www.checks.wiki',
+  'explore.checks.wiki',
   'localhost:5173',
   'localhost:3000',
   '127.0.0.1:5173',
