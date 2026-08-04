@@ -10,8 +10,8 @@ const TOOLS = [
   {
     name: 'Checkmath',
     description: 'Find the cheapest way to acquire a specific Check.',
-    href: null,
-    status: 'coming-soon' as const,
+    href: 'https://calc.checks.wiki',
+    status: 'live' as const,
   },
   {
     name: 'Migration Predictor',
