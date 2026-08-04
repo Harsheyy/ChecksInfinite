@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase, hasSupabase } from '@checks-wiki/shared'
 
+export type Collection = 'checks-vv' | 'editions'
+
 export interface CombinationItem {
   tokenId: number
   checksCount: number
   ethPrice: number
+  collection: Collection
 }
 
 export interface CheckmathSnapshot {
@@ -14,7 +17,9 @@ export interface CheckmathSnapshot {
   optimalCombinationCost: number | null
   optimalCombinationItems: CombinationItem[]
   checksSweepCost: number | null
+  checksSweepCount: number
   editionsSweepCost: number | null
+  editionsSweepCount: number
 }
 
 interface SnapshotRow {
@@ -24,7 +29,9 @@ interface SnapshotRow {
   optimal_combination_cost: number | null
   optimal_combination: { items: CombinationItem[] } | null
   checks_sweep_cost: number | null
+  checks_sweep_count: number | null
   editions_sweep_cost: number | null
+  editions_sweep_count: number | null
 }
 
 export function useCheckmathSnapshot() {
@@ -46,7 +53,7 @@ export function useCheckmathSnapshot() {
 
       const { data, error: fetchError } = await supabase
         .from('checkmath_snapshots')
-        .select('computed_at, cheapest_single_price, cheapest_single_token_id, optimal_combination_cost, optimal_combination, checks_sweep_cost, editions_sweep_cost')
+        .select('computed_at, cheapest_single_price, cheapest_single_token_id, optimal_combination_cost, optimal_combination, checks_sweep_cost, checks_sweep_count, editions_sweep_cost, editions_sweep_count')
         .order('computed_at', { ascending: false })
         .limit(1)
         .maybeSingle<SnapshotRow>()
@@ -63,7 +70,9 @@ export function useCheckmathSnapshot() {
           optimalCombinationCost: data.optimal_combination_cost,
           optimalCombinationItems: data.optimal_combination?.items ?? [],
           checksSweepCost: data.checks_sweep_cost,
+          checksSweepCount: data.checks_sweep_count ?? 0,
           editionsSweepCost: data.editions_sweep_cost,
+          editionsSweepCount: data.editions_sweep_count ?? 0,
         })
       } else {
         setError('No snapshot data yet')

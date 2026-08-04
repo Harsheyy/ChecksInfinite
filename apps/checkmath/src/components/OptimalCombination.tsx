@@ -1,60 +1,99 @@
 import { useState } from 'react'
-import type { CombinationItem } from '../useCheckmathSnapshot'
+import type { CombinationItem, Collection } from '../useCheckmathSnapshot'
 
 const CHECKS_CONTRACT = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1'
+const EDITIONS_CONTRACT = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9'
 
 interface OptimalCombinationProps {
   totalCost: number | null
   items: CombinationItem[]
+  checksSvgByTokenId: Map<number, string>
+  editionsImageByTokenId: Map<number, string>
 }
 
-export function OptimalCombination({ totalCost, items }: OptimalCombinationProps) {
-  const [openTier, setOpenTier] = useState<number | null>(null)
+function tierLabel(checksCount: number, collection: Collection): string {
+  return collection === 'editions' ? 'Edition' : `${checksCount}-check`
+}
 
-  const byTier = new Map<number, CombinationItem[]>()
+function tierKey(checksCount: number, collection: Collection): string {
+  return `${checksCount}-${collection}`
+}
+
+function openSeaUrl(item: CombinationItem): string {
+  const contract = item.collection === 'editions' ? EDITIONS_CONTRACT : CHECKS_CONTRACT
+  return `https://opensea.io/assets/ethereum/${contract}/${item.tokenId}`
+}
+
+export function OptimalCombination({ totalCost, items, checksSvgByTokenId, editionsImageByTokenId }: OptimalCombinationProps) {
+  const [openTier, setOpenTier] = useState<string | null>(null)
+
+  const byTier = new Map<string, CombinationItem[]>()
   for (const item of items) {
-    const list = byTier.get(item.checksCount) ?? []
+    const key = tierKey(item.checksCount, item.collection)
+    const list = byTier.get(key) ?? []
     list.push(item)
-    byTier.set(item.checksCount, list)
+    byTier.set(key, list)
   }
-  const tiers = [...byTier.entries()].sort((a, b) => b[0] - a[0])
+  const tiers = [...byTier.entries()].sort((a, b) => {
+    const itemA = a[1][0]
+    const itemB = b[1][0]
+    if (itemB.checksCount !== itemA.checksCount) return itemB.checksCount - itemA.checksCount
+    return itemA.collection.localeCompare(itemB.collection)
+  })
 
   return (
     <section className="checkmath-card">
       <h2>Optimal Combination</h2>
-      <p className="checkmath-card-desc">Cheapest combination of listed Checks that composites into one single</p>
+      <p className="checkmath-card-desc">
+        Cheapest way to compose one single from smaller pieces (Checks Editions count as an 80-check)
+      </p>
       {totalCost !== null ? (
         <>
           <p className="checkmath-stat">{totalCost.toFixed(3)} ETH</p>
           <div className="checkmath-tiers">
-            {tiers.map(([checksCount, tierItems]) => (
-              <div key={checksCount} className="checkmath-tier">
-                <button
-                  type="button"
-                  className="checkmath-tier-header"
-                  onClick={() => setOpenTier(openTier === checksCount ? null : checksCount)}
-                >
-                  <span>{checksCount}-check{tierItems.length > 1 ? 's' : ''} × {tierItems.length}</span>
-                  <span>{openTier === checksCount ? '−' : '+'}</span>
-                </button>
-                {openTier === checksCount && (
-                  <div className="checkmath-tier-items">
-                    {tierItems.map(item => (
-                      <a
-                        key={item.tokenId}
-                        className="checkmath-tier-item"
-                        href={`https://opensea.io/assets/ethereum/${CHECKS_CONTRACT}/${item.tokenId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span>#{item.tokenId}</span>
-                        <span>{item.ethPrice.toFixed(3)} ETH</span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+            {tiers.map(([key, tierItems]) => {
+              const { checksCount, collection } = tierItems[0]
+              return (
+                <div key={key} className="checkmath-tier">
+                  <button
+                    type="button"
+                    className="checkmath-tier-header"
+                    onClick={() => setOpenTier(openTier === key ? null : key)}
+                  >
+                    <span>{tierLabel(checksCount, collection)}{tierItems.length > 1 ? 's' : ''} × {tierItems.length}</span>
+                    <span>{openTier === key ? '−' : '+'}</span>
+                  </button>
+                  {openTier === key && (
+                    <div className="checkmath-tier-items">
+                      {tierItems.map(item => {
+                        const image = item.collection === 'editions'
+                          ? editionsImageByTokenId.get(item.tokenId)
+                          : checksSvgByTokenId.get(item.tokenId)
+                        return (
+                          <a
+                            key={`${item.collection}-${item.tokenId}`}
+                            className="checkmath-tier-item"
+                            href={openSeaUrl(item)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {image && (
+                              item.collection === 'editions'
+                                ? <img className="checkmath-token-image" src={image} alt="" />
+                                : <div className="checkmath-token-image" dangerouslySetInnerHTML={{ __html: image }} />
+                            )}
+                            <div className="checkmath-tier-item-info">
+                              <span>#{item.tokenId}</span>
+                              <span>{item.ethPrice.toFixed(3)} ETH</span>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </>
       ) : (
