@@ -83,7 +83,12 @@ Deno.serve(async (req: Request) => {
     // ── 1. Load listed, non-burned Checks VV tokens ────────────────────────────
     // Ordered + paged (PAGE_SIZE=900) to stay under PostgREST's ~1000-row cap —
     // an unbounded .select() would silently truncate to an arbitrary unordered
-    // slice instead of erroring if listings ever exceed the cap.
+    // slice instead of erroring if listings ever exceed the cap. token_id is a
+    // secondary sort key so page boundaries are deterministic even though many
+    // listings share the same eth_price — without it, a tied-price token could
+    // land on two consecutive pages (duplicated) or neither (dropped), since
+    // each page is an independent query and Postgres doesn't guarantee stable
+    // ordering among ties across separate ORDER BY ... LIMIT ... OFFSET calls.
     const checksRows = await fetchAllPaged<{ token_id: number; checks_count: number; eth_price: number }>(
       (from, to) =>
         supabase
@@ -93,6 +98,7 @@ Deno.serve(async (req: Request) => {
           .eq('is_burned', false)
           .not('eth_price', 'is', null)
           .order('eth_price', { ascending: true })
+          .order('token_id', { ascending: true })
           .range(from, to),
     )
 
@@ -110,6 +116,7 @@ Deno.serve(async (req: Request) => {
         .eq('is_listed', true)
         .not('eth_price', 'is', null)
         .order('eth_price', { ascending: true })
+        .order('token_id', { ascending: true })
         .range(from, to),
     )
 
