@@ -10,7 +10,7 @@ CREATE TABLE checkmath_snapshots (
   cheapest_single_price     float,      -- null if no checks_count=1 token is listed
   cheapest_single_token_id  bigint,
   optimal_combination_cost  float,      -- null if not enough supply to reach 64 weight-units
-  optimal_combination       jsonb,      -- {items: [{tokenId, checksCount, ethPrice}, ...]}
+  optimal_combination       jsonb,      -- {items: [{tokenId, checksCount, ethPrice, collection}, ...]}
   checks_sweep_cost         float,      -- sum of the cheapest listed Checks VV tokens, up to 64
   editions_sweep_cost       float       -- sum of the cheapest listed Editions tokens, up to 64
 );

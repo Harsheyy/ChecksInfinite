@@ -1,15 +1,19 @@
 import { Footer } from '@checks-wiki/shared'
-import { useCheckmathSnapshot } from './useCheckmathSnapshot'
+import { useCheckmathSnapshot, type CombinationItem } from './useCheckmathSnapshot'
 import { useTokenImages } from './useTokenImages'
 import { CheapestSingle } from './components/CheapestSingle'
 import { SweepCalculator } from './components/SweepCalculator'
 import { OptimalCombination } from './components/OptimalCombination'
 
+// Stable reference so `useTokenImages`'s effect deps don't see a "change"
+// on every render when there's no snapshot yet (module-scope, not per-render).
+const EMPTY_COMBINATION_ITEMS: CombinationItem[] = []
+
 export default function App() {
   const { snapshot, loading, error } = useCheckmathSnapshot()
   const { checksSvgByTokenId, editionsImageByTokenId } = useTokenImages(
     snapshot?.cheapestSingleTokenId ?? null,
-    snapshot?.optimalCombinationItems ?? [],
+    snapshot?.optimalCombinationItems ?? EMPTY_COMBINATION_ITEMS,
   )
 
   return (
