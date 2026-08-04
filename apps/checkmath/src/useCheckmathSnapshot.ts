@@ -20,6 +20,8 @@ export interface CheckmathSnapshot {
   checksSweepCount: number
   editionsSweepCost: number | null
   editionsSweepCount: number
+  tokenworksSweepCost: number | null
+  tokenworksSweepCount: number
 }
 
 interface SnapshotRow {
@@ -32,6 +34,8 @@ interface SnapshotRow {
   checks_sweep_count: number | null
   editions_sweep_cost: number | null
   editions_sweep_count: number | null
+  tokenworks_sweep_cost: number | null
+  tokenworks_sweep_count: number | null
 }
 
 export function useCheckmathSnapshot() {
@@ -53,7 +57,7 @@ export function useCheckmathSnapshot() {
 
       const { data, error: fetchError } = await supabase
         .from('checkmath_snapshots')
-        .select('computed_at, cheapest_single_price, cheapest_single_token_id, optimal_combination_cost, optimal_combination, checks_sweep_cost, checks_sweep_count, editions_sweep_cost, editions_sweep_count')
+        .select('computed_at, cheapest_single_price, cheapest_single_token_id, optimal_combination_cost, optimal_combination, checks_sweep_cost, checks_sweep_count, editions_sweep_cost, editions_sweep_count, tokenworks_sweep_cost, tokenworks_sweep_count')
         .order('computed_at', { ascending: false })
         .limit(1)
         .maybeSingle<SnapshotRow>()
@@ -73,6 +77,8 @@ export function useCheckmathSnapshot() {
           checksSweepCount: data.checks_sweep_count ?? 0,
           editionsSweepCost: data.editions_sweep_cost,
           editionsSweepCount: data.editions_sweep_count ?? 0,
+          tokenworksSweepCost: data.tokenworks_sweep_cost,
+          tokenworksSweepCount: data.tokenworks_sweep_count ?? 0,
         })
       } else {
         setError('No snapshot data yet')

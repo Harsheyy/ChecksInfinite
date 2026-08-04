@@ -125,7 +125,8 @@
 
 .checkmath-sweep-row {
   display: flex;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
 }
 
 .checkmath-sweep-item {

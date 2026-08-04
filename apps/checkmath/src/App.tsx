@@ -38,7 +38,7 @@ export default function App() {
             <div className="checkmath-compare-grid">
               <div className="checkmath-compare-col">
                 <h3>Cheapest Single</h3>
-                <p className="checkmath-compare-desc">Cheapest checks_count=1 Check currently listed</p>
+                <p className="checkmath-compare-desc">Cheapest single check currently listed</p>
                 <CheapestSingle
                   price={snapshot.cheapestSinglePrice}
                   tokenId={snapshot.cheapestSingleTokenId}
@@ -48,7 +48,7 @@ export default function App() {
               <div className="checkmath-compare-col">
                 <h3>Optimal Combination</h3>
                 <p className="checkmath-compare-desc">
-                  Cheapest way to compose one single from smaller pieces (Checks Editions count as an 80-check)
+                  Cheapest way to compose one single from smaller pieces
                 </p>
                 <OptimalCombination
                   totalCost={snapshot.optimalCombinationCost}
@@ -69,6 +69,8 @@ export default function App() {
             checksSweepCount={snapshot.checksSweepCount}
             editionsSweepCost={snapshot.editionsSweepCost}
             editionsSweepCount={snapshot.editionsSweepCount}
+            tokenworksSweepCost={snapshot.tokenworksSweepCost}
+            tokenworksSweepCount={snapshot.tokenworksSweepCount}
           />
         </div>
       ) : null}

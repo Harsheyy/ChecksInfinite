@@ -3,9 +3,18 @@ interface SweepCalculatorProps {
   checksSweepCount: number
   editionsSweepCost: number | null
   editionsSweepCount: number
+  tokenworksSweepCost: number | null
+  tokenworksSweepCount: number
 }
 
-export function SweepCalculator({ checksSweepCost, checksSweepCount, editionsSweepCost, editionsSweepCount }: SweepCalculatorProps) {
+export function SweepCalculator({
+  checksSweepCost,
+  checksSweepCount,
+  editionsSweepCost,
+  editionsSweepCount,
+  tokenworksSweepCost,
+  tokenworksSweepCount,
+}: SweepCalculatorProps) {
   return (
     <section className="checkmath-card">
       <h2>Sweep Calculator</h2>
@@ -18,6 +27,10 @@ export function SweepCalculator({ checksSweepCost, checksSweepCount, editionsSwe
         <div className="checkmath-sweep-item">
           <span className="checkmath-sweep-label">Checks Editions ({editionsSweepCount}/64 listed)</span>
           <span className="checkmath-stat">{editionsSweepCost !== null ? `${editionsSweepCost.toFixed(3)} ETH` : 'N/A'}</span>
+        </div>
+        <div className="checkmath-sweep-item">
+          <span className="checkmath-sweep-label">Token Works ({tokenworksSweepCount}/64 listed)</span>
+          <span className="checkmath-stat">{tokenworksSweepCost !== null ? `${tokenworksSweepCost.toFixed(3)} ETH` : 'N/A'}</span>
         </div>
       </div>
     </section>

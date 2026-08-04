@@ -2,8 +2,8 @@
  * sync-checkmath — Supabase Edge Function
  *
  * Hourly: compute the Checkmath numbers (cheapest single, optimal
- * combination, sweep prices for both Checks VV and Checks Editions) and
- * insert one row into checkmath_snapshots.
+ * combination, sweep prices for Checks VV, Checks Editions, and Token
+ * Works) and insert one row into checkmath_snapshots.
  *
  * Merge-cost model: Checks VV composites are a strict binary tree — every
  * composite burns two same-tier tokens and produces one token at the next
@@ -148,6 +148,32 @@ Deno.serve(async (req: Request) => {
       collection: 'editions' as const,
     }))
 
+    // ── 2b. Load listed Token Works (TokenStrategy-held) tokens ─────────────────
+    // Same is_listed semantics as market rows (sync-tokenstr sets it true only
+    // when nftForSale() returns a real, non-zero price) — a genuine sweep
+    // target via the TokenStrategy contract's own buy flow, just not an
+    // OpenSea listing. Sweep-only: not part of the combination DP or
+    // cheapest-single (those stay OpenSea-linkable, per the is_tokenstr
+    // exclusion below them).
+    const tokenworksRows = await fetchAllPaged<{ token_id: number; eth_price: number }>((from, to) =>
+      supabase
+        .from('all_checks')
+        .select('token_id, eth_price')
+        .eq('is_listed', true)
+        .eq('is_burned', false)
+        .eq('is_tokenstr', true)
+        .not('eth_price', 'is', null)
+        .order('eth_price', { ascending: true })
+        .order('token_id', { ascending: true })
+        .range(from, to),
+    )
+
+    const tokenworksTokens: PricedToken[] = tokenworksRows.map(r => ({
+      tokenId: r.token_id,
+      ethPrice: r.eth_price,
+      collection: 'checks-vv' as const, // Token Works tokens are Checks VV, just held by TokenStrategy
+    }))
+
     // ── 3. Cheapest single ──────────────────────────────────────────────────────
     // Always a real Checks VV token — Editions have no checks_count/merge
     // concept, so "a single" only ever means a genuine checks_count=1 token.
@@ -173,6 +199,7 @@ Deno.serve(async (req: Request) => {
     // ── 5. Sweep prices ─────────────────────────────────────────────────────────
     const checksSweep = computeSweep(checksTokens)
     const editionsSweep = computeSweep(editionsTokens)
+    const tokenworksSweep = computeSweep(tokenworksTokens)
 
     // ── 6. Insert snapshot ──────────────────────────────────────────────────────
     const { error: insertErr } = await supabase.from('checkmath_snapshots').insert({
@@ -184,6 +211,8 @@ Deno.serve(async (req: Request) => {
       checks_sweep_count: checksSweep.count,
       editions_sweep_cost: editionsSweep.cost,
       editions_sweep_count: editionsSweep.count,
+      tokenworks_sweep_cost: tokenworksSweep.cost,
+      tokenworks_sweep_count: tokenworksSweep.count,
     })
     if (insertErr) throw insertErr
 
@@ -194,6 +223,7 @@ Deno.serve(async (req: Request) => {
         optimalCombinationCost: optimal.totalCost,
         checksSweep,
         editionsSweep,
+        tokenworksSweep,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     )
