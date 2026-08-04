@@ -11,6 +11,7 @@
     "backfill-market-incremental": "tsx --env-file=.env scripts/backfill-market-checks.ts --incremental",
     "backfill-market-prices": "tsx --env-file=.env scripts/backfill-market-prices.ts",
     "backfill-editions": "tsx --env-file=.env scripts/backfill-editions.ts",
+    "backfill-market-svg": "tsx --env-file=.env scripts/backfill-market-svg.ts",
     "populate-market": "tsx --env-file=.env scripts/populate-market-permutations.ts",
     "hunt-diversity": "tsx --env-file=.env scripts/hunt-diversity.ts"
   },
