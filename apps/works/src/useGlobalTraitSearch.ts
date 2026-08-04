@@ -1,6 +1,6 @@
 // apps/works/src/useGlobalTraitSearch.ts
 import { useState, useCallback } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import {
   attachChecks,
   rowToPermutationResult,

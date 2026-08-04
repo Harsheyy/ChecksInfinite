@@ -3,7 +3,7 @@ import { useAccount, useBalance, useReadContract, useReadContracts, useWriteCont
 import { formatEther } from 'viem'
 import { CheckCard } from './CheckCard'
 import type { LikeInfo } from './PermutationCard'
-import { supabase } from '../supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { checksRecipeMinterAbi, CHECKS_RECIPE_MINTER_ADDRESS } from '../checksRecipeMinterAbi'
 import { tokenStrategyAbi, TOKEN_STRATEGY_ADDRESS } from '../tokenStrategyAbi'
 import { mapCheckAttributes } from '../utils'

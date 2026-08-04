@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap } from './checksArtJS'
 import { mapCheckAttributes, type CheckStruct } from './utils'
 import type { PermutationResult } from './useAllPermutations'

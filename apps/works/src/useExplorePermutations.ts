@@ -3,7 +3,7 @@ import { checksClient, CHECKS_CONTRACT } from './client'
 import { CHECKS_ABI } from './checksAbi'
 import type { CheckStruct } from './utils'
 import { useMyCheckPermutations } from './useMyCheckPermutations'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { fetchCheckStructMap, fromJSON } from './usePermutationsDB'
 
 export const EXPLORE_MAX_IDS = 10

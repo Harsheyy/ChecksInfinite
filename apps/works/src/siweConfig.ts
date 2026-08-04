@@ -9,7 +9,7 @@ import { createSIWEConfig, formatMessage } from '@reown/appkit-siwe'
 import type { SIWECreateMessageArgs, SIWEVerifyMessageArgs } from '@reown/appkit-siwe'
 import { mainnet } from '@reown/appkit/networks'
 import { networks } from './wagmiConfig'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 
 // Persisted to localStorage (not just kept in memory) so a page refresh or
 // tab reopen doesn't force a fresh signature — the session is still only

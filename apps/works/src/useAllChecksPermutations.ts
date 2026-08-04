@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import {
   type PermRowBasic,
   type PermRow,

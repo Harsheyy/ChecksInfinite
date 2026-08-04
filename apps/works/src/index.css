@@ -1,36 +1,8 @@
-/* Reset */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import '@checks-wiki/shared/theme.css';
 
 body {
-  font-family: 'Courier New', Courier, monospace;
-  background: #0a0a0a;
-  color: #eee;
   overflow: hidden;
 }
-
-/* ─── Footer ─────────────────────────────────────────────── */
-.site-footer {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 32px;
-  background: rgba(13,13,13,0.96);
-  backdrop-filter: blur(4px);
-  border-top: 1px solid #2a2a2a;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  font-size: 0.78rem;
-  color: #aaa;
-  z-index: 10;
-  pointer-events: none;
-}
-.site-footer a {
-  color: #ccc;
-  text-decoration: none;
-  pointer-events: auto;
-}
-.site-footer a:hover { color: #fff; text-decoration: underline; }
 
 /* ─── Navbar ─────────────────────────────────────────────── */
 .navbar {

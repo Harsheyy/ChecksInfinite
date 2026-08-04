@@ -1,6 +1,6 @@
 // apps/works/src/useCuratedOutputs.ts
 import { useState, useCallback } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { fromJSON, type CheckStructJSON } from './usePermutationsDB'
 import { simulateCompositeJS, generateSVGJS, computeL2, buildL2RenderMap } from './checksArtJS'
 import { mapCheckAttributes, type CheckStruct } from './utils'

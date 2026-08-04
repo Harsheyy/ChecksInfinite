@@ -12,7 +12,7 @@
 // SVG data — and loads a specific variation's recipes on demand only when
 // the user opens it, via loadVariationRecipes.
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { attachChecks, rowToPermutationResult, type PermRowBasic } from './usePermutationsDB'
 import type { PermutationResult } from './useAllPermutations'
 

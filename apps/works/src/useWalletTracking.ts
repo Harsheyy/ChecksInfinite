@@ -1,7 +1,7 @@
 // apps/works/src/useWalletTracking.ts
 import { useEffect, useRef } from 'react'
 import { useEnsName } from 'wagmi'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 
 export function useWalletTracking(address: string | undefined, isConnected: boolean) {
   const logged = useRef<string | null>(null)

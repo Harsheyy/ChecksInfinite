@@ -1,6 +1,6 @@
 // apps/works/src/useMyLikedKeys.ts
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 
 interface LikedKeyRow {
   keeper_1_id: number

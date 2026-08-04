@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 
 // Module-level shared cache + pub/sub, mirroring the pattern in siweConfig.ts
 // (sessionListeners / subscribeToSiweSession / notifySiweSessionListeners).

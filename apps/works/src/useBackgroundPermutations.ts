@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import { attachChecks, rowToPermutationResult, type PermRowBasic } from './usePermutationsDB'
 
 const BG_COUNT = 20

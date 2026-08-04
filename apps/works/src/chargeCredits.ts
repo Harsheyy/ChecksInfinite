@@ -1,5 +1,5 @@
 // apps/works/src/chargeCredits.ts
-import { supabase } from './supabaseClient'
+import { supabase } from '@checks-wiki/shared'
 import type { ActionType } from './usePricing'
 
 export interface ChargeResult {
