@@ -3,7 +3,45 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2.5rem 1.5rem 4rem;
+  padding: calc(48px + 2.5rem) 1.5rem 4rem;
+}
+
+/* ─── Navbar ─────────────────────────────────────────────── */
+
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  z-index: 10;
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #ccc;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-brand:hover { color: #fff; }
+
+.nav-brand-icon {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.nav-updated {
+  color: #777;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .checkmath-header {
@@ -27,12 +65,6 @@
   color: #aaa;
   margin-top: 0.4rem;
   font-size: 0.9rem;
-}
-
-.checkmath-updated {
-  color: #666;
-  margin-top: 0.5rem;
-  font-size: 0.72rem;
 }
 
 .checkmath-cards {
@@ -240,5 +272,16 @@
     border-bottom: 1px solid #2a2a2a;
     padding-bottom: 1.5rem;
     margin-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0 14px;
+  }
+  .nav-updated {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 45vw;
   }
 }

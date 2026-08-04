@@ -1,6 +1,7 @@
 import { Footer } from '@checks-wiki/shared'
 import { useCheckmathSnapshot, type CombinationItem } from './useCheckmathSnapshot'
 import { useTokenImages } from './useTokenImages'
+import { Navbar } from './components/Navbar'
 import { CheapestSingle } from './components/CheapestSingle'
 import { SweepCalculator } from './components/SweepCalculator'
 import { OptimalCombination } from './components/OptimalCombination'
@@ -19,13 +20,11 @@ export default function App() {
 
   return (
     <div className="checkmath">
+      <Navbar updatedAt={snapshot?.computedAt ?? null} />
       <header className="checkmath-header">
         <img src="/checks-icon.svg" alt="" className="checkmath-icon" />
         <h1>Checkmath</h1>
         <p className="checkmath-tagline">What's the cheapest way to own a Check?</p>
-        {snapshot && (
-          <p className="checkmath-updated">Updated {new Date(snapshot.computedAt).toLocaleString()}</p>
-        )}
       </header>
 
       {loading ? (
