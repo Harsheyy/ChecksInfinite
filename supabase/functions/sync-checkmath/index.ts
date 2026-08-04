@@ -16,6 +16,15 @@
  * tokens from ever being selected as part of a combination, since weight 80
  * could never fit a target of 64).
  *
+ * Checks Editions (a separate, non-mergeable collection) are treated as
+ * economically equivalent to a checks_count=80 Checks VV token — weight 1 —
+ * and pooled together with real 80-count tokens in the combination DP's
+ * cheapest-first ordering, so the algorithm picks whichever is actually
+ * cheaper. This is a cost-comparison convenience only: Editions can't really
+ * be composited on-chain with Checks VV tokens, so every combination item
+ * carries a `collection` tag ('checks-vv' | 'editions') and the frontend
+ * must always show which collection an item actually came from.
+ *
  * `computeOptimalCombination` is an exact bounded-knapsack DP (see its own
  * comment below) — any multiset of these powers-of-two weights summing to
  * exactly 64 is mechanically valid (no partial/leftover merge pieces), so
@@ -49,19 +58,24 @@ const WEIGHT_BY_CHECKS_COUNT: Record<number, number> = Object.fromEntries(
 // it cost to compose one from smaller pieces," as the counterpart to the
 // separately-reported "Cheapest Single" (buy one outright). See header.
 const COMBINATION_TIERS = DIVISORS.filter(count => count !== 1)
+const EDITIONS_TIER_CHECKS_COUNT = 80 // Editions are pooled into the weight-1 tier
 const TARGET = 64
 const SWEEP_SIZE = 64
 const PAGE_SIZE = 900 // PostgREST caps rows per request at ~1000; page under that
 
+type Collection = 'checks-vv' | 'editions'
+
 interface PricedToken {
   tokenId: number
   ethPrice: number
+  collection: Collection
 }
 
 interface CombinationItem {
   tokenId: number
   checksCount: number
   ethPrice: number
+  collection: Collection
 }
 
 Deno.serve(async (req: Request) => {
@@ -113,6 +127,7 @@ Deno.serve(async (req: Request) => {
       tokenId: r.token_id,
       checksCount: r.checks_count,
       ethPrice: r.eth_price,
+      collection: 'checks-vv' as const,
     }))
 
     // ── 2. Load listed Editions tokens ──────────────────────────────────────────
@@ -127,27 +142,37 @@ Deno.serve(async (req: Request) => {
         .range(from, to),
     )
 
-    const editionsTokens: PricedToken[] = editionsRows.map(r => ({ tokenId: r.token_id, ethPrice: r.eth_price }))
+    const editionsTokens: PricedToken[] = editionsRows.map(r => ({
+      tokenId: r.token_id,
+      ethPrice: r.eth_price,
+      collection: 'editions' as const,
+    }))
 
     // ── 3. Cheapest single ──────────────────────────────────────────────────────
+    // Always a real Checks VV token — Editions have no checks_count/merge
+    // concept, so "a single" only ever means a genuine checks_count=1 token.
     const singles = checksTokens.filter(t => t.checksCount === 1).sort((a, b) => a.ethPrice - b.ethPrice)
     const cheapestSingle = singles[0] ?? null
 
     // ── 4. Optimal combination ──────────────────────────────────────────────────
     // Only builds tiers 80/40/20/10/5/4 (COMBINATION_TIERS) — checks_count=1 is
-    // deliberately excluded from the DP's own pool; see header comment.
+    // deliberately excluded from the DP's own pool; see header comment. The
+    // weight-1 (checks_count=80) tier pools BOTH real 80-count Checks VV
+    // tokens AND Editions tokens together, sorted by price — Editions count
+    // as an 80-check for this purpose (see header comment on the economic
+    // equivalence). Every other tier is Checks VV only, since Editions have
+    // no smaller-tier equivalent to merge into.
     const byChecksCount = new Map<number, PricedToken[]>()
     for (const count of COMBINATION_TIERS) {
-      byChecksCount.set(
-        count,
-        checksTokens.filter(t => t.checksCount === count).sort((a, b) => a.ethPrice - b.ethPrice),
-      )
+      const checksVVPool = checksTokens.filter(t => t.checksCount === count)
+      const pool = count === EDITIONS_TIER_CHECKS_COUNT ? [...checksVVPool, ...editionsTokens] : checksVVPool
+      byChecksCount.set(count, pool.sort((a, b) => a.ethPrice - b.ethPrice))
     }
     const optimal = computeOptimalCombination(byChecksCount)
 
     // ── 5. Sweep prices ─────────────────────────────────────────────────────────
-    const checksSweepCost = computeSweep(checksTokens)
-    const editionsSweepCost = computeSweep(editionsTokens)
+    const checksSweep = computeSweep(checksTokens)
+    const editionsSweep = computeSweep(editionsTokens)
 
     // ── 6. Insert snapshot ──────────────────────────────────────────────────────
     const { error: insertErr } = await supabase.from('checkmath_snapshots').insert({
@@ -155,8 +180,10 @@ Deno.serve(async (req: Request) => {
       cheapest_single_token_id: cheapestSingle?.tokenId ?? null,
       optimal_combination_cost: optimal.totalCost,
       optimal_combination: optimal.totalCost !== null ? { items: optimal.items } : null,
-      checks_sweep_cost: checksSweepCost,
-      editions_sweep_cost: editionsSweepCost,
+      checks_sweep_cost: checksSweep.cost,
+      checks_sweep_count: checksSweep.count,
+      editions_sweep_cost: editionsSweep.cost,
+      editions_sweep_count: editionsSweep.count,
     })
     if (insertErr) throw insertErr
 
@@ -165,8 +192,8 @@ Deno.serve(async (req: Request) => {
         ok: true,
         cheapestSingle: cheapestSingle?.ethPrice ?? null,
         optimalCombinationCost: optimal.totalCost,
-        checksSweepCost,
-        editionsSweepCost,
+        checksSweep,
+        editionsSweep,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     )
@@ -181,14 +208,15 @@ Deno.serve(async (req: Request) => {
 // ─── Corrected combination algorithm ─────────────────────────────────────────
 //
 // Exact bounded-knapsack DP over weight-units 0..TARGET(64), built ONLY from
-// COMBINATION_TIERS (checks_count 80/40/20/10/5/4 — weights 1/2/4/8/16/32).
-// checks_count=1 (weight 64) is deliberately excluded from this DP's own
-// candidate pool — see the header comment for why. Any multiset of these six
-// tiers' weights summing to exactly TARGET is still mechanically valid (no
-// partial/leftover merge pieces) and 64 is still always reachable from them
-// in principle (e.g. two weight-32 tokens, or four weight-16, etc.), so this
-// DP finds the true minimum-cost combination, not an approximation — it just
-// isn't allowed to shortcut to "buy an existing single" anymore.
+// COMBINATION_TIERS (checks_count 80/40/20/10/5/4 — weights 1/2/4/8/16/32,
+// with the weight-1 tier's pool mixing in Editions tokens too). checks_count=1
+// (weight 64) is deliberately excluded from this DP's own candidate pool —
+// see the header comment for why. Any multiset of these six tiers' weights
+// summing to exactly TARGET is still mechanically valid (no partial/leftover
+// merge pieces) and 64 is still always reachable from them in principle
+// (e.g. two weight-32 tokens, or four weight-16, etc.), so this DP finds the
+// true minimum-cost combination, not an approximation — it just isn't
+// allowed to shortcut to "buy an existing single" anymore.
 //
 // Process tiers one at a time (COMBINATION_TIERS order). For each tier,
 // build a prefix-sum of its sorted-ascending prices (prefix[k] = cost of the
@@ -267,7 +295,7 @@ function computeOptimalCombination(
     const tokens = sortedByTier.get(count)!
     for (let j = 0; j < k; j++) {
       const token = tokens[j]
-      items.push({ tokenId: token.tokenId, checksCount: count, ethPrice: token.ethPrice })
+      items.push({ tokenId: token.tokenId, checksCount: count, ethPrice: token.ethPrice, collection: token.collection })
     }
     remaining -= k * weight
   }
@@ -275,10 +303,11 @@ function computeOptimalCombination(
   return { totalCost: dp[TARGET], items }
 }
 
-function computeSweep(tokens: PricedToken[], n = SWEEP_SIZE): number | null {
-  if (tokens.length === 0) return null
+function computeSweep(tokens: PricedToken[], n = SWEEP_SIZE): { cost: number | null; count: number } {
+  if (tokens.length === 0) return { cost: null, count: 0 }
   const sorted = [...tokens].sort((a, b) => a.ethPrice - b.ethPrice)
-  return sorted.slice(0, n).reduce((sum, t) => sum + t.ethPrice, 0)
+  const selected = sorted.slice(0, n)
+  return { cost: selected.reduce((sum, t) => sum + t.ethPrice, 0), count: selected.length }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
