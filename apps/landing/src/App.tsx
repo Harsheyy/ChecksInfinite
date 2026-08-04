@@ -2,15 +2,15 @@ import { Footer } from '@checks-wiki/shared'
 
 const TOOLS = [
   {
-    name: 'Permutation Browser',
-    description: 'Browse every possible composite from the Checks VV collection.',
-    href: 'https://explore.checks.wiki',
+    name: 'Single Check Calculator',
+    description: 'Find the cheapest way to acquire a specific Check.',
+    href: 'https://calc.checks.wiki',
     status: 'live' as const,
   },
   {
-    name: 'Checkmath',
-    description: 'Find the cheapest way to acquire a specific Check.',
-    href: 'https://calc.checks.wiki',
+    name: 'Permutation Browser',
+    description: 'Browse every possible composite from the Checks VV collection.',
+    href: 'https://explore.checks.wiki',
     status: 'live' as const,
   },
   {
