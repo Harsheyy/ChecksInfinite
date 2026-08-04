@@ -1,3 +1,5 @@
+import { Footer } from '@checks-wiki/shared'
+
 const TOOLS = [
   {
     name: 'Permutation Browser',
@@ -41,12 +43,7 @@ export default function App() {
           </a>
         ))}
       </div>
-      <footer className="site-footer">
-        <span>This artwork may or may not be notable</span>
-        <a href="https://x.com/0xHarsheth" target="_blank" rel="noopener noreferrer">
-          Designed by Harsh
-        </a>
-      </footer>
+      <Footer />
     </div>
   )
 }
