@@ -204,9 +204,9 @@ function ownerOfCalldata(tokenId: number): string {
 }
 
 // nftForSale(uint256) selector = keccak256("nftForSale(uint256)")[0..4]
-// Computed: 0xf8a2810f
+// Computed: 0x90ba7a32
 function nftForSaleCalldata(tokenId: number): string {
-  return '0xf8a2810f' + tokenId.toString(16).padStart(64, '0')
+  return '0x90ba7a32' + tokenId.toString(16).padStart(64, '0')
 }
 
 function decodeUint256Wei(hexResult: string): number {

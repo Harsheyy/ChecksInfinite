@@ -55,18 +55,24 @@ Deno.serve(async (req: Request) => {
     // ── 2. DB state (tokenstr tokens only) ──────────────────────────────────
     const { data: dbRows, error: dbErr } = await supabase
       .from('all_checks')
-      .select('token_id')
+      .select('token_id, eth_price')
       .eq('is_tokenstr', true)
     if (dbErr) throw dbErr
 
-    const dbIds  = (dbRows ?? []).map((r: { token_id: number }) => r.token_id)
-    const dbSet  = new Set(dbIds)
+    const dbIds       = (dbRows ?? []).map((r: { token_id: number }) => r.token_id)
+    const dbSet        = new Set(dbIds)
+    const dbPriceById  = new Map((dbRows ?? []).map((r: { token_id: number; eth_price: number | null }) => [r.token_id, r.eth_price]))
     console.log(`DB: ${dbIds.length} tokens tracked`)
 
     // ── 3. Compute diffs ─────────────────────────────────────────────────────
     const toDelete  = dbIds.filter(id => !onChainSet.has(id))
     const toAdd     = onChainIds.filter(id => !dbSet.has(id))
-    const toRefresh = onChainIds  // refresh prices for ALL wallet tokens
+    // TokenStrategy prices are set once and don't change after listing — a
+    // sold token leaves the wallet entirely (caught by toDelete above), it
+    // doesn't get relisted at a new price. So we only need nftForSale for
+    // tokens that are still unpriced, instead of re-checking all 700+ every
+    // hour — this is what was blowing through Alchemy's compute-unit budget.
+    const toRefresh = onChainIds.filter(id => dbSet.has(id) && dbPriceById.get(id) == null)
     console.log(`Diff — delete: ${toDelete.length}, add: ${toAdd.length}, price-refresh: ${toRefresh.length}`)
 
     // ── 4. Remove tokens no longer in wallet ─────────────────────────────────
@@ -82,26 +88,42 @@ Deno.serve(async (req: Request) => {
       await supabase.from('all_checks').delete().eq('token_id', tokenId)
     }
 
-    // ── 5. Refresh eth_price for all on-chain tokens ─────────────────────────
+    // ── 5. Refresh eth_price for still-unpriced on-chain tokens ──────────────
     // Fetch prices in parallel batches, then write each batch in a single bulk
-    // RPC call to avoid N separate PostgREST round-trips.
+    // RPC call to avoid N separate PostgREST round-trips. A short pause
+    // between batches keeps us under Alchemy's compute-unit-per-second budget
+    // instead of firing every batch back-to-back and tripping 429s.
     let priceUpdates = 0
+    let priceFailures = 0
     for (let i = 0; i < toRefresh.length; i += PRICE_BATCH) {
-      const batch  = toRefresh.slice(i, i + PRICE_BATCH)
-      const prices = await Promise.all(batch.map(id => fetchEthPrice(id, rpcUrl)))
+      if (i > 0) await sleep(250)
 
-      const updates = batch.map((tokenId, j) => ({
-        token_id:  tokenId,
-        eth_price: prices[j] ?? null,
-        is_listed: prices[j] !== null,
-      }))
+      const batch   = toRefresh.slice(i, i + PRICE_BATCH)
+      const results = await Promise.all(batch.map(id => fetchEthPrice(id, rpcUrl)))
 
-      const { error } = await supabase.rpc('bulk_update_check_prices', { p_updates: updates })
-      if (error) console.warn(`Bulk price update error (batch ${i}):`, error.message)
+      // A failed fetch (rate-limited / network error, after retries) is NOT
+      // the same as a confirmed "unlisted" — writing null here would wipe a
+      // real listing from the DB just because Alchemy hiccupped. Skip those
+      // tokens entirely and let the next hourly run retry them.
+      const updates = batch
+        .map((tokenId, j) => ({ tokenId, price: results[j] }))
+        .filter(({ price }) => price !== 'failed')
+        .map(({ tokenId, price }) => ({
+          token_id:  tokenId,
+          eth_price: price === 'unlisted' ? null : price,
+          is_listed: price !== 'unlisted' && price !== null,
+        }))
 
-      priceUpdates += prices.filter(p => p !== null).length
+      priceFailures += results.filter(p => p === 'failed').length
+
+      if (updates.length > 0) {
+        const { error } = await supabase.rpc('bulk_update_check_prices', { p_updates: updates })
+        if (error) console.warn(`Bulk price update error (batch ${i}):`, error.message)
+      }
+
+      priceUpdates += updates.filter(u => u.is_listed).length
     }
-    console.log(`Updated ${priceUpdates} prices`)
+    console.log(`Updated ${priceUpdates} prices${priceFailures > 0 ? ` (${priceFailures} tokens skipped after failed eth_call)` : ''}`)
 
     // ── 6. Full upsert for new tokens (missed incoming transfers) ────────────
     const newToProcess = toAdd.slice(0, NEW_TOKEN_LIMIT)
@@ -187,8 +209,8 @@ async function refetchAndUpsert(
     fetchEthPrice(tokenId, rpcUrl),
   ])
 
-  if (!uriResult || !checkResult || !ownerResult) {
-    console.warn(`Token ${tokenId}: one or more eth_calls returned null — skipping`)
+  if (uriResult === 'failed' || uriResult === null || checkResult === 'failed' || checkResult === null || ownerResult === 'failed' || ownerResult === null) {
+    console.warn(`Token ${tokenId}: one or more eth_calls failed/reverted — skipping`)
     return
   }
 
@@ -197,14 +219,15 @@ async function refetchAndUpsert(
   const svg         = decodeTokenURISVG(uriResult)
   const checkStruct = decodeGetCheck(checkResult)
   const attrs       = decodeTokenURIAttrs(uriResult)
+  const priceValue  = typeof ethPrice === 'number' ? ethPrice : null
 
   await supabase.from('all_checks').upsert({
     token_id:       tokenId,
     owner,
     is_burned:      isBurned,
     is_tokenstr:    true,
-    price_source:   ethPrice !== null ? 'contract' : null,
-    is_listed:      ethPrice !== null,
+    price_source:   priceValue !== null ? 'contract' : null,
+    is_listed:      priceValue !== null,
     checks_count:   Number(attrs['Checks'] ?? 0),
     color_band:     attrs['Color Band'] ?? null,
     gradient:       attrs['Gradient']   ?? null,
@@ -212,39 +235,70 @@ async function refetchAndUpsert(
     shift:          attrs['Shift']      ?? null,
     svg,
     check_struct:   checkStruct,
-    eth_price:      ethPrice,
+    eth_price:      priceValue,
     last_synced_at: new Date().toISOString(),
   }, { onConflict: 'token_id' })
 
   await supabase.rpc('update_permutation_costs', { p_token_id: tokenId })
-  console.log(`Upserted new token ${tokenId} (price: ${ethPrice ?? 'unlisted'})`)
+  console.log(`Upserted new token ${tokenId} (price: ${priceValue ?? 'unlisted'})`)
 }
 
 // ─── eth_call helpers ─────────────────────────────────────────────────────────
 
-async function fetchEthPrice(tokenId: number, rpcUrl: string): Promise<number | null> {
+// 'failed'   — eth_call errored out (rate-limited / network) even after retries;
+//              caller should leave the existing DB row alone.
+// 'unlisted' — call succeeded and nftForSale returned 0 (confirmed not for sale).
+// number     — call succeeded, this is the listed price in ETH.
+async function fetchEthPrice(tokenId: number, rpcUrl: string): Promise<number | 'unlisted' | 'failed'> {
   const result = await ethCall(rpcUrl, TOKEN_STRATEGY, nftForSaleCalldata(tokenId))
-  if (!result) return null
+  if (result === 'failed') return 'failed'
+  if (result === null) return 'unlisted'
   const price = decodeUint256Wei(result)
-  // nftForSale returns 0 for tokens that aren't listed — treat as null
-  return price === 0 ? null : price
+  return price === 0 ? 'unlisted' : price
 }
 
-async function ethCall(rpcUrl: string, to: string, data: string): Promise<string | null> {
-  const res = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to, data }, 'latest'],
-    }),
-  })
-  if (!res.ok) { console.warn(`eth_call HTTP ${res.status}`); return null }
-  const text = await res.text()
-  let json: { result?: string; error?: unknown }
-  try { json = JSON.parse(text) } catch { console.warn(`eth_call bad JSON: ${text.slice(0, 200)}`); return null }
-  if (json.error) return null
-  return json.result ?? null
+const ETH_CALL_RETRIES    = 4
+const ETH_CALL_RETRY_BASE_MS = 400
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Returns the eth_call result, `null` for a confirmed revert/empty result
+// (not retryable — the answer won't change), or 'failed' once retries on
+// transient errors (429 / network) are exhausted.
+async function ethCall(rpcUrl: string, to: string, data: string): Promise<string | null | 'failed'> {
+  for (let attempt = 0; attempt <= ETH_CALL_RETRIES; attempt++) {
+    let res: Response
+    try {
+      res = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{ to, data }, 'latest'],
+        }),
+      })
+    } catch (e) {
+      if (attempt === ETH_CALL_RETRIES) { console.warn(`eth_call network error (exhausted retries): ${e}`); return 'failed' }
+      await sleep(ETH_CALL_RETRY_BASE_MS * 2 ** attempt)
+      continue
+    }
+
+    if (res.status === 429 || res.status === 503) {
+      if (attempt === ETH_CALL_RETRIES) { console.warn(`eth_call HTTP ${res.status} (exhausted retries)`); return 'failed' }
+      await sleep(ETH_CALL_RETRY_BASE_MS * 2 ** attempt)
+      continue
+    }
+    if (!res.ok) { console.warn(`eth_call HTTP ${res.status}`); return 'failed' }
+
+    const text = await res.text()
+    let json: { result?: string; error?: unknown }
+    try { json = JSON.parse(text) } catch { console.warn(`eth_call bad JSON: ${text.slice(0, 200)}`); return 'failed' }
+    if (json.error) return null // real contract-level revert — not transient, don't retry
+    return json.result ?? null
+  }
+  return 'failed' // unreachable, satisfies TS
 }
 
 function tokenURICalldata(tokenId: number): string {
@@ -257,7 +311,7 @@ function ownerOfCalldata(tokenId: number): string {
   return '0x6352211e' + tokenId.toString(16).padStart(64, '0')
 }
 function nftForSaleCalldata(tokenId: number): string {
-  return '0xf8a2810f' + tokenId.toString(16).padStart(64, '0')
+  return '0x90ba7a32' + tokenId.toString(16).padStart(64, '0')
 }
 
 function decodeUint256Wei(hexResult: string): number {
