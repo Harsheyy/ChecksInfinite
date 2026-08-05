@@ -91,7 +91,9 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
   // both paths sit well above zero, and a zero baseline would flatten the
   // crossovers this chart exists to show. The axis is labelled, so the
   // non-zero baseline is visible rather than implied.
-  const values = usable.flatMap(d => [d.buyLow, d.composeLow]).filter((v): v is number => v !== null)
+  const values = usable
+    .flatMap(d => [d.buyLow, d.composeLow, d.saleLow])
+    .filter((v): v is number => v !== null)
   const rawMin = Math.min(...values)
   const rawMax = Math.max(...values)
   const pad = (rawMax - rawMin) * 0.08 || Math.max(rawMax * 0.05, 0.001)
@@ -128,6 +130,21 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
   // One decimal place for every tick, chosen from the range rather than
   // per-value, so the axis doesn't mix "27.3" with "5.28".
   const tickDp = yMax >= 10 ? 1 : 3
+  // Realized sales are plotted at their actual price on the same scale as the
+  // Buy line — a sale IS a realized "buy one outright", so the gap between a
+  // marker and the line above it is the gap between asking and getting.
+  // Composites have no price, so they get a tick on the baseline instead.
+  const saleMarks = usable
+    .filter(d => d.saleLow !== null)
+    .map(d => ({ day: d.day, x: x(d.day), y: y(d.saleLow as number), n: d.sales }))
+  const compositeMarks = usable
+    .filter(d => d.composites > 0)
+    .map(d => ({ day: d.day, x: x(d.day), n: d.composites }))
+  const baselineY = PAD_T + PLOT_H
+
+  const totalSales = usable.reduce((n, d) => n + d.sales, 0)
+  const totalComposites = usable.reduce((n, d) => n + d.composites, 0)
+
   const gridValues = [yMax, (yMin + yMax) / 2, yMin]
   const composeCheaperDays = usable.filter(
     d => d.composePremiumLow !== null && d.composePremiumLow < 1,
@@ -162,8 +179,9 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
             {Math.min(...usable.map(d => d.buyLow ?? Infinity)).toFixed(3)} to{' '}
             {Math.max(...usable.map(d => d.buyLow ?? -Infinity)).toFixed(3)} ETH. Composing ranges
             from {Math.min(...usable.map(d => d.composeLow ?? Infinity)).toFixed(3)} to{' '}
-            {Math.max(...usable.map(d => d.composeLow ?? -Infinity)).toFixed(3)} ETH. The full
-            figures follow in a table.
+            {Math.max(...usable.map(d => d.composeLow ?? -Infinity)).toFixed(3)} ETH.{' '}
+            {totalSales} single{totalSales === 1 ? '' : 's'} sold and {totalComposites} were
+            composed in that window. The full figures follow in a table.
           </title>
 
           {gridValues.map((v, i) => (
@@ -217,6 +235,26 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
             )),
           )}
 
+          {saleMarks.map(m => (
+            <circle
+              key={`sale-${m.day}`}
+              cx={m.x}
+              cy={m.y}
+              r={4.5}
+              fill="none"
+              stroke={BUY_COLOR}
+              strokeWidth={1.5}
+            />
+          ))}
+
+          {compositeMarks.map(m => (
+            <path
+              key={`comp-${m.day}`}
+              d={`M ${m.x - 4} ${baselineY + 9} L ${m.x} ${baselineY + 2} L ${m.x + 4} ${baselineY + 9} Z`}
+              fill={COMPOSE_COLOR}
+            />
+          ))}
+
           {buyLast !== null && buyLabelY !== null ? (
             <text x={PAD_L + PLOT_W + 12} y={buyLabelY} fill={BUY_COLOR} className="cm-chart-label">
               <tspan x={PAD_L + PLOT_W + 12} dy="-2">
@@ -254,6 +292,8 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
               <th scope="col">Day</th>
               <th scope="col">Buy outright</th>
               <th scope="col">Compose</th>
+              <th scope="col">Singles sold</th>
+              <th scope="col">Singles composed</th>
             </tr>
           </thead>
           <tbody>
@@ -262,6 +302,8 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
                 <th scope="row">{formatDay(d.day)}</th>
                 <td>{d.buyLow !== null ? d.buyLow.toFixed(3) : 'nothing listed'}</td>
                 <td>{d.composeLow !== null ? d.composeLow.toFixed(3) : 'not enough supply'}</td>
+                <td>{d.sales > 0 ? `${d.sales}, lowest ${(d.saleLow as number).toFixed(3)}` : 'none'}</td>
+                <td>{d.composites > 0 ? d.composites : 'none'}</td>
               </tr>
             ))}
           </tbody>
@@ -271,7 +313,19 @@ export function PriceHistory({ days, loading, error }: PriceHistoryProps) {
       <p className="cm-chart-summary">
         {composeCheaperDays === 0
           ? `Composing has not been the cheaper path on any of the last ${usable.length} days.`
-          : `Composing was the cheaper path at some point on ${composeCheaperDays} of the last ${usable.length} days.`}
+          : `Composing was the cheaper path at some point on ${composeCheaperDays} of the last ${usable.length} days.`}{' '}
+        {totalSales > 0
+          ? `${totalSales} single${totalSales > 1 ? 's' : ''} actually sold in that window`
+          : 'No single actually sold in that window'}
+        {totalComposites > 0
+          ? `, and ${totalComposites} ${totalComposites > 1 ? 'were' : 'was'} composed.`
+          : '.'}
+      </p>
+
+      <p className="cm-chart-key">
+        <span className="cm-key-sale" aria-hidden="true" /> a single sold that day, plotted at
+        what it fetched &nbsp;·&nbsp;
+        <span className="cm-key-composite" aria-hidden="true" /> one was composed
       </p>
     </section>
   )

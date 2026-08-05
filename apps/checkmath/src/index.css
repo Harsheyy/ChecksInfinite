@@ -442,6 +442,40 @@
   margin-top: 1.25rem;
 }
 
+/* A written key rather than a boxed legend — the two lines label themselves
+ * at their ends, so this only has to explain the two event glyphs. */
+.cm-chart-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  margin-top: 0.5rem;
+}
+
+.cm-key-sale,
+.cm-key-composite {
+  display: inline-block;
+  flex: none;
+  margin-right: 0.4rem;
+}
+
+.cm-key-sale {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid #eeeeee;
+  border-radius: 50%;
+}
+
+.cm-key-composite {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid #a8a8a8;
+}
+
 /* ─── Loading / error ────────────────────────────────────── */
 
 .cm-skeleton {

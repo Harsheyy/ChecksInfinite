@@ -16,6 +16,12 @@ export interface HistoryDay {
   composePremiumLow: number | null
   /** How many hourly snapshots fed this day — a partial day is still plotted. */
   snapshots: number
+  /** Singles that actually changed hands that day. */
+  sales: number
+  /** Lowest price a single actually sold for that day, if any did. */
+  saleLow: number | null
+  /** Tokens that became singles that day — someone composed one. */
+  composites: number
 }
 
 interface HistoryRow {
@@ -24,6 +30,9 @@ interface HistoryRow {
   compose_low: number | null
   compose_premium_low: number | null
   snapshots: number | null
+  sales: number | null
+  sale_low: number | null
+  composites: number | null
 }
 
 const WINDOW_DAYS = 90
@@ -61,6 +70,9 @@ export function useCheckmathHistory() {
             composeLow: row.compose_low,
             composePremiumLow: row.compose_premium_low,
             snapshots: row.snapshots ?? 0,
+            sales: row.sales ?? 0,
+            saleLow: row.sale_low,
+            composites: row.composites ?? 0,
           })),
         )
       }

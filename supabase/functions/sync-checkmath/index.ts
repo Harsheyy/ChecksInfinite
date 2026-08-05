@@ -71,6 +71,8 @@ interface PricedToken {
   collection: Collection
 }
 
+type SupabaseLike = ReturnType<typeof createClient>
+
 interface CombinationItem {
   tokenId: number
   checksCount: number
@@ -216,6 +218,26 @@ Deno.serve(async (req: Request) => {
     })
     if (insertErr) throw insertErr
 
+    // ── 7. Event markers ────────────────────────────────────────────────────────
+    // Best-effort: these annotate the history chart, and a failure to reach
+    // OpenSea's event feed must not cost us the snapshot that was just
+    // written. Errors are logged and reported in the response, not thrown.
+    const events = { sales: 0, composites: 0, errors: [] as string[] }
+
+    try {
+      events.sales = await recordSingleSales(supabase)
+    } catch (err) {
+      console.error('sync-checkmath: sale events failed:', err)
+      events.errors.push(`sales: ${errMsg(err)}`)
+    }
+
+    try {
+      events.composites = await recordNewSingles(supabase)
+    } catch (err) {
+      console.error('sync-checkmath: composite events failed:', err)
+      events.errors.push(`composites: ${errMsg(err)}`)
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -224,6 +246,7 @@ Deno.serve(async (req: Request) => {
         checksSweep,
         editionsSweep,
         tokenworksSweep,
+        events,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     )
@@ -338,6 +361,198 @@ function computeSweep(tokens: PricedToken[], n = SWEEP_SIZE): { cost: number | n
   const sorted = [...tokens].sort((a, b) => a.ethPrice - b.ethPrice)
   const selected = sorted.slice(0, n)
   return { cost: selected.reduce((sum, t) => sum + t.ethPrice, 0), count: selected.length }
+}
+
+// ─── Event markers ────────────────────────────────────────────────────────────
+//
+// Two different questions from two different sources, both landing in
+// checkmath_events:
+//
+//   sale      — a checks_count=1 token actually changed hands. OpenSea's
+//               event feed, filtered to tokens we know to be singles.
+//   composite — a token became a single. Derived by diffing the set of
+//               checks_count=1 token ids against checkmath_singles rather
+//               than reading the contract's Composite event, because
+//               eth_getLogs is capped at a 10-block range on our Alchemy
+//               plan. The set is ~70 rows, so the diff is cheap, and it is
+//               exact for anything that happens after migration 050 seeded
+//               the table — it just can't see backwards.
+//
+// Both write with ignoreDuplicates on event_key, so re-running is harmless.
+
+/**
+ * Pulls recent sales from OpenSea and records the ones that were singles.
+ *
+ * Paging stops at the newest sale already recorded — the first sync after
+ * deploy walks back SALE_BACKFILL_PAGES worth of history, and every sync
+ * after that reads a page or two.
+ *
+ * Caveat worth knowing: "was a single" is judged from the token's CURRENT
+ * checks_count. Singles are terminal (a checks_count=1 token can only leave
+ * that state by being burned into an Infinity), so this can't misjudge
+ * recent sales — but a token sold years ago as a 4-check and composed up
+ * since would be tagged wrongly. Hence the page cap: this is a recent-events
+ * feed, not an archive.
+ */
+const OPENSEA_COLLECTION = 'vv-checks-originals'
+const SALE_PAGE_LIMIT = 50
+const SALE_BACKFILL_PAGES = 20
+
+interface OpenSeaSaleEvent {
+  event_type: string
+  event_timestamp: number
+  transaction?: string
+  nft?: { identifier?: string }
+  payment?: { quantity?: string; decimals?: number; symbol?: string }
+}
+
+async function recordSingleSales(supabase: SupabaseLike): Promise<number> {
+  const apiKey = Deno.env.get('OPENSEA_API_KEY')
+  if (!apiKey) throw new Error('OPENSEA_API_KEY secret not set')
+
+  // The set of token ids that are singles right now — the filter for which
+  // sales are interesting. ~70 rows.
+  const { data: singleRows, error: singlesErr } = await supabase
+    .from('all_checks')
+    .select('token_id')
+    .eq('checks_count', 1)
+    .eq('is_burned', false)
+  if (singlesErr) throw singlesErr
+  const singleIds = new Set((singleRows ?? []).map((r: TokenIdRow) => r.token_id))
+  if (singleIds.size === 0) return 0
+
+  // Where to stop paging: the most recent sale we already have.
+  const { data: latest, error: latestErr } = await supabase
+    .from('checkmath_events')
+    .select('occurred_at')
+    .eq('kind', 'sale')
+    .order('occurred_at', { ascending: false })
+    .limit(1)
+  if (latestErr) throw latestErr
+  const latestAt = (latest as { occurred_at: string }[] | null)?.[0]?.occurred_at
+  const stopAt = latestAt ? Date.parse(latestAt) / 1000 : 0
+
+  const rows: EventRow[] = []
+  let cursor: string | null = null
+
+  for (let page = 0; page < SALE_BACKFILL_PAGES; page++) {
+    const url = new URL(`https://api.opensea.io/api/v2/events/collection/${OPENSEA_COLLECTION}`)
+    url.searchParams.set('event_type', 'sale')
+    url.searchParams.set('limit', String(SALE_PAGE_LIMIT))
+    if (cursor) url.searchParams.set('next', cursor)
+
+    const res = await fetch(url, { headers: { 'x-api-key': apiKey } })
+    if (!res.ok) throw new Error(`OpenSea events ${res.status}: ${await res.text()}`)
+    const body = await res.json() as { asset_events?: OpenSeaSaleEvent[]; next?: string }
+
+    const batch = body.asset_events ?? []
+    if (batch.length === 0) break
+
+    let reachedKnown = false
+    for (const ev of batch) {
+      if (ev.event_timestamp <= stopAt) { reachedKnown = true; continue }
+      const tokenId = Number(ev.nft?.identifier)
+      if (!Number.isFinite(tokenId) || !singleIds.has(tokenId)) continue
+      const tx = ev.transaction
+      if (!tx) continue
+
+      rows.push({
+        kind: 'sale',
+        token_id: tokenId,
+        occurred_at: new Date(ev.event_timestamp * 1000).toISOString(),
+        eth_price: parsePaymentEth(ev.payment),
+        event_key: `sale:${tx}:${tokenId}`,
+      })
+    }
+
+    cursor = body.next ?? null
+    if (reachedKnown || !cursor) break
+  }
+
+  return await insertEvents(supabase, rows)
+}
+
+/**
+ * Records a composite for every token that has become a single since the
+ * last run, and grows checkmath_singles to match.
+ *
+ * The event is dated now rather than at the composite's block time: the diff
+ * only tells us it happened within the last hour. Keyed by token and day so
+ * a token composed, burned into an Infinity, and composed again on the same
+ * day is counted once — a rare enough case that undercounting it is better
+ * than the alternative of keying on the sync timestamp, where a retry would
+ * double-count every time.
+ */
+async function recordNewSingles(supabase: SupabaseLike): Promise<number> {
+  const { data: currentRows, error: currentErr } = await supabase
+    .from('all_checks')
+    .select('token_id')
+    .eq('checks_count', 1)
+    .eq('is_burned', false)
+  if (currentErr) throw currentErr
+
+  const { data: knownRows, error: knownErr } = await supabase
+    .from('checkmath_singles')
+    .select('token_id')
+  if (knownErr) throw knownErr
+
+  const known = new Set((knownRows ?? []).map((r: TokenIdRow) => r.token_id))
+  const fresh = (currentRows ?? [])
+    .map((r: TokenIdRow) => r.token_id)
+    .filter((id: number) => !known.has(id))
+  if (fresh.length === 0) return 0
+
+  const now = new Date()
+  const day = now.toISOString().slice(0, 10)
+  const inserted = await insertEvents(
+    supabase,
+    fresh.map((tokenId: number) => ({
+      kind: 'composite' as const,
+      token_id: tokenId,
+      occurred_at: now.toISOString(),
+      eth_price: null,
+      event_key: `composite:${tokenId}:${day}`,
+    })),
+  )
+
+  // Only after the events are safely written — if this ran first and the
+  // insert then failed, the tokens would be marked as seen and the
+  // composites would be lost for good.
+  const { error: trackErr } = await supabase
+    .from('checkmath_singles')
+    .upsert(fresh.map((token_id: number) => ({ token_id })), { onConflict: 'token_id', ignoreDuplicates: true })
+  if (trackErr) throw trackErr
+
+  return inserted
+}
+
+interface TokenIdRow { token_id: number }
+
+interface EventRow {
+  kind: 'sale' | 'composite'
+  token_id: number
+  occurred_at: string
+  eth_price: number | null
+  event_key: string
+}
+
+async function insertEvents(supabase: SupabaseLike, rows: EventRow[]): Promise<number> {
+  if (rows.length === 0) return 0
+  const { error } = await supabase
+    .from('checkmath_events')
+    .upsert(rows, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (error) throw error
+  return rows.length
+}
+
+/** OpenSea reports payment in the token's own base units. Only ETH/WETH counts. */
+function parsePaymentEth(payment: OpenSeaSaleEvent['payment']): number | null {
+  if (!payment?.quantity) return null
+  const symbol = (payment.symbol ?? 'ETH').toUpperCase()
+  if (symbol !== 'ETH' && symbol !== 'WETH') return null
+  const decimals = payment.decimals ?? 18
+  const value = Number(payment.quantity) / 10 ** decimals
+  return Number.isFinite(value) ? value : null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
