@@ -3,7 +3,7 @@ import { Footer } from '@checks-wiki/shared'
 const TOOLS = [
   {
     name: 'Single Check Calculator',
-    description: 'Find the cheapest way to acquire a specific Check.',
+    description: 'Find the cheapest way to acquire a single Check.',
     href: 'https://calc.checks.wiki',
     status: 'live' as const,
   },
