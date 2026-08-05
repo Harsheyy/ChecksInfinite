@@ -46,22 +46,49 @@ apps/works/        React + Vite UI (permutation browser) — explore.checks.wiki
       TreePanel.tsx          Merge tree detail view + like button + mint/buy flow
       FilterBar.tsx          Filters + price slider + source switcher
       Navbar.tsx             View toggle, wallet connect
+      SearchPage.tsx         Search by IDs / wallet / traits, plus the Patterns browser
+      PatternsBrowse.tsx     Pattern catalog + composer (layouts index from Supabase Storage)
+
+apps/checkmath/    React + Vite UI (Buy vs. Build calculator) — checkmath.checks.wiki
+  src/
+    useCheckmathSnapshot.ts       Latest hourly snapshot: cheapest single vs. optimal combination
+    useCheckmathHistory.ts        Daily price history + sale/composite event markers
+    components/                   Verdict, CheapestSingle, OptimalCombination,
+                                  SweepCalculator, PriceHistory
+
+apps/landing/      React + Vite landing page — checks.wiki
+packages/shared/   Supabase client + Footer shared across all three apps
 
 backend/           Node.js data pipeline (tsx + viem)
   scripts/
     backfill.ts                      Fetch all TokenStrategy checks → Supabase
     backfill-market-checks.ts        Fetch all market (non-TokenStrategy) Checks → Supabase
     backfill-market-prices.ts        One-time: populate OpenSea prices for market checks
+    backfill-prices.ts               One-time: populate on-chain prices + permutation costs
+    backfill-editions.ts             One-time: populate the editions_checks table
+    backfill-market-svg.ts           One-time: recompute stored SVGs for market checks
+    backfill-check-sales.ts          One-time: seed checkmath_events from historical sales
     populate-ranked-permutations.ts  Nightly (GitHub Actions): refresh Token Works pool
     populate-market-permutations.ts  Run when listings change: rebuild OpenSea permutation pool
+    hunt-diversity.ts                Offline search for diverse pattern recipes
+    build-layouts-index.ts           Build the pattern layouts index consumed by PatternsBrowse
+    upload-layouts-index.ts          Upload that index to Supabase Storage
 
 supabase/
   functions/
-    sync-tokenstr/        Hourly: reconcile TokenStrategy wallet + refresh prices via nftForSale()
-    sync-market-prices/   Hourly: refresh OpenSea listing prices for all market checks
+    sync-tokenstr/        Hourly (:05): reconcile TokenStrategy wallet + prices via nftForSale()
+    sync-market-prices/   Hourly (:15): refresh OpenSea listing prices for all market checks
+    sync-editions-prices/ Hourly (:20): refresh OpenSea listing prices for editions
+    sync-checkmath/       Hourly (:30): recompute the Checkmath snapshot + event markers
     tokenstr-webhook/     Alchemy webhook: real-time TokenStrategy transfer events
     checks-webhook/       Alchemy webhook: real-time burn/transfer events for all checks
-  migrations/             001–023: full DB schema history
+    credits-webhook/      Alchemy webhook: credits a wallet on inbound ETH transfer
+    siwe-nonce/           Issues a nonce for Sign-In With Ethereum
+    siwe-verify/          Verifies the SIWE signature and opens a session
+  migrations/             001–052: full DB schema history
+
+  All four hourly jobs are pg_cron entries calling the functions over pg_net;
+  their schedules live in migrations 025, 043 and 045.
 
 contracts/
   src/ChecksRecipeMinter.sol   Purchases 4 TokenStrategy checks + composites in one tx
@@ -82,6 +109,8 @@ contracts/
 | **OpenSea** | `all_permutations` table — listed market checks | Manual re-run of `populate-market` when listings change significantly |
 | **TokenStrategy prices** | `all_checks.eth_price` via `nftForSale()` on-chain | Hourly (`sync-tokenstr` edge function) |
 | **OpenSea prices** | `all_checks.eth_price` via OpenSea listings API | Hourly (`sync-market-prices` edge function) |
+| **Editions prices** | `editions_checks.eth_price` via OpenSea listings API | Hourly (`sync-editions-prices` edge function) |
+| **Checkmath** | `checkmath_snapshots` / `checkmath_singles` / `checkmath_events` | Hourly (`sync-checkmath` edge function) |
 | **Real-time transfers** | Alchemy webhooks → edge functions | Instant |
 
 ---
@@ -91,7 +120,7 @@ contracts/
 ### 1. Supabase
 
 1. Create a [Supabase](https://supabase.com) project.
-2. Run all migrations in order (`001` → `023`) via `supabase db push`.
+2. Run all migrations in order (`001` → `052`) via `supabase db push`.
 3. Deploy edge functions: `supabase functions deploy`.
 4. Note your **Project URL** and **anon key** (Settings → API).
 
@@ -133,12 +162,19 @@ Set in **Supabase Dashboard → Edge Functions → Secrets**:
 
 ### 5. Frontend
 
+The three apps are npm workspaces, so install once from the repo root.
+
 ```bash
-cd frontend
-cp .env.example .env
-# fill in VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
-npm install
-npm run dev
+npm install                       # from the repo root — installs all workspaces
+
+cp apps/works/.env.example apps/works/.env
+# fill in VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY, and for the works app also
+# VITE_ALCHEMY_API_KEY, VITE_WALLETCONNECT_PROJECT_ID,
+# VITE_CHECKS_RECIPE_MINTER_ADDRESS
+
+npm run dev -w apps/works         # permutation browser  — explore.checks.wiki
+npm run dev -w apps/checkmath     # Buy vs. Build calc   — checkmath.checks.wiki
+npm run dev -w apps/landing       # landing page         — checks.wiki
 ```
 
 ---

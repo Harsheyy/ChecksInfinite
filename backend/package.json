@@ -13,6 +13,10 @@
     "backfill-editions": "tsx --env-file=.env scripts/backfill-editions.ts",
     "backfill-market-svg": "tsx --env-file=.env scripts/backfill-market-svg.ts",
     "populate-market": "tsx --env-file=.env scripts/populate-market-permutations.ts",
+    "backfill-prices": "tsx --env-file=.env scripts/backfill-prices.ts",
+    "backfill-check-sales": "tsx --env-file=.env scripts/backfill-check-sales.ts",
+    "build-layouts-index": "tsx --env-file=.env scripts/build-layouts-index.ts",
+    "upload-layouts-index": "tsx --env-file=.env scripts/upload-layouts-index.ts",
     "hunt-diversity": "tsx --env-file=.env scripts/hunt-diversity.ts"
   },
   "dependencies": {

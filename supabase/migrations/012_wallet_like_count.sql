@@ -2,6 +2,25 @@
 -- Adds total_likes to connected_wallets and keeps it in sync via toggle_like.
 -- Safe to re-run: uses IF NOT EXISTS and CREATE OR REPLACE throughout.
 
+-- ── Base table ────────────────────────────────────────────────────────────────
+-- connected_wallets was created by hand in the dashboard and never written into
+-- a migration, so this file (the first one to touch it) used to open with an
+-- ALTER against a table that no migration had created — `supabase db push` on a
+-- fresh database failed here. Added 2026-08-05 during a drift audit; the shape
+-- below was read out of production with information_schema, minus the two
+-- columns that migrations 012 and 013 go on to add. Guarded with IF NOT EXISTS,
+-- so it is a no-op against production and against any already-migrated DB.
+
+CREATE TABLE IF NOT EXISTS connected_wallets (
+  address          text        PRIMARY KEY,
+  first_seen       timestamptz NOT NULL DEFAULT now(),
+  last_seen        timestamptz NOT NULL DEFAULT now(),
+  visit_count      integer     NOT NULL DEFAULT 0,
+  total_spent_eth  numeric     NOT NULL DEFAULT 0,
+  checks_purchased integer     NOT NULL DEFAULT 0,
+  ens_name         text
+);
+
 -- ── Add column ────────────────────────────────────────────────────────────────
 
 ALTER TABLE connected_wallets
