@@ -33,7 +33,7 @@ const RUN_SAMPLES          = process.env.HUNT_SAMPLES ? Number(process.env.HUNT_
 const RUN_MINUTES          = process.env.HUNT_MINUTES ? Number(process.env.HUNT_MINUTES) : Infinity
 const MIN_COLOR_DISTANCE   = 120
 const CLUSTER_THRESHOLD    = 90
-const MAX_RECIPES_PER_PATTERN = 3
+const MAX_RECIPES_PER_PATTERN = 10
 const OUT_FILE             = new URL('../hunt-diversity-results.json', import.meta.url).pathname
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -211,13 +211,7 @@ async function main() {
   // progress and starting the pattern census over from zero each time.
   try {
     const prior = JSON.parse(readFileSync(OUT_FILE, 'utf8')) as { sampled: number; entries: PatternEntry[] }
-    for (const entry of prior.entries) {
-      // Shrink recipes carried over from before MAX_RECIPES_PER_PATTERN was
-      // lowered — otherwise old entries stay bloated forever even though
-      // new ones respect the new, smaller cap.
-      if (entry.recipes.length > MAX_RECIPES_PER_PATTERN) entry.recipes = entry.recipes.slice(0, MAX_RECIPES_PER_PATTERN)
-      patterns.set(entry.patternKey, entry)
-    }
+    for (const entry of prior.entries) patterns.set(entry.patternKey, entry)
     sampled = prior.sampled ?? 0
     console.log(`Resuming from prior run: sampled=${sampled}, unique patterns=${patterns.size}`)
   } catch {
@@ -229,17 +223,12 @@ async function main() {
 
   const flush = () => {
     const allEntries = [...patterns.values()].sort((a, b) => a.recipeCount - b.recipeCount)
-    // Compact (no pretty-print indentation) — at 900k+ entries the
-    // indented form was doubling+ the string size and pushing
-    // JSON.stringify past V8's max string length (RangeError: Invalid
-    // string length), crashing the process every flush once the file
-    // crossed ~500MB.
     writeFileSync(OUT_FILE, JSON.stringify({
       note: 'Unbiased diversity census — no target, no overlap scoring. Every distinct pattern found, kept.',
       sampled,
       uniquePatternCount: allEntries.length,
       entries: allEntries,
-    }))
+    }, null, 2))
   }
 
   console.log(`Hunting for ALL distinct scatter patterns (no target)…`)
