@@ -49,7 +49,7 @@ apps/works/        React + Vite UI (permutation browser) — explore.checks.wiki
       SearchPage.tsx         Search by IDs / wallet / traits, plus the Patterns browser
       PatternsBrowse.tsx     Pattern catalog + composer (layouts index from Supabase Storage)
 
-apps/checkmath/    React + Vite UI (Buy vs. Build calculator) — checkmath.checks.wiki
+apps/checkmath/    React + Vite UI (Buy vs. Build calculator) — calc.checks.wiki
   src/
     useCheckmathSnapshot.ts       Latest hourly snapshot: cheapest single vs. optimal combination
     useCheckmathHistory.ts        Daily price history + sale/composite event markers
@@ -173,7 +173,7 @@ cp apps/works/.env.example apps/works/.env
 # VITE_CHECKS_RECIPE_MINTER_ADDRESS
 
 npm run dev -w apps/works         # permutation browser  — explore.checks.wiki
-npm run dev -w apps/checkmath     # Buy vs. Build calc   — checkmath.checks.wiki
+npm run dev -w apps/checkmath     # Buy vs. Build calc   — calc.checks.wiki
 npm run dev -w apps/landing       # landing page         — checks.wiki
 ```
 
