@@ -304,8 +304,11 @@ async function ethCall(rpcUrl: string, to: string, data: string): Promise<string
 function tokenURICalldata(tokenId: number): string {
   return '0xc87b56dd' + tokenId.toString(16).padStart(64, '0')
 }
+// getCheck(uint256) selector. Was 0x755edd17 — that's mintTo(address), so
+// every call reverted and refetchAndUpsert skipped every new token, freezing
+// the tokenstr row count while the wallet kept growing.
 function getCheckCalldata(tokenId: number): string {
-  return '0x755edd17' + tokenId.toString(16).padStart(64, '0')
+  return '0x9db797f0' + tokenId.toString(16).padStart(64, '0')
 }
 function ownerOfCalldata(tokenId: number): string {
   return '0x6352211e' + tokenId.toString(16).padStart(64, '0')

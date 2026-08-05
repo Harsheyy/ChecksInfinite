@@ -185,9 +185,9 @@ function tokenURICalldata(tokenId: number): string {
   return '0xc87b56dd' + tokenId.toString(16).padStart(64, '0')
 }
 
-// getCheck(uint256) = 0x755edd17
+// getCheck(uint256) = 0x9db797f0
 function getCheckCalldata(tokenId: number): string {
-  return '0x755edd17' + tokenId.toString(16).padStart(64, '0')
+  return '0x9db797f0' + tokenId.toString(16).padStart(64, '0')
 }
 
 // ownerOf(uint256) = 0x6352211e
