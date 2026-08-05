@@ -1,8 +1,8 @@
-# Checks Infinite — Codebase Reference
+# Checks Wiki — Codebase Reference
 
 ## Project Overview
 
-Checks Infinite is a tool for exploring composite permutations of [Checks VV](https://checks.art) NFTs. Given a set of Checks tokens, it computes every valid 2-level composite tree (A+B → L1a, C+D → L1b, L1a+L1b → ABCD) and displays the results in an infinite scrollable grid. The app supports two modes:
+Checks Wiki is a tool for exploring composite permutations of [Checks VV](https://checks.art) NFTs. Given a set of Checks tokens, it computes every valid 2-level composite tree (A+B → L1a, C+D → L1b, L1a+L1b → ABCD) and displays the results in an infinite scrollable grid. The app supports two modes:
 
 - **Chain mode** — user enters token IDs; data is fetched live from Ethereum via Alchemy
 - **DB mode** — permutations are precomputed and stored in Supabase; the frontend queries and renders client-side SVGs
@@ -14,7 +14,7 @@ The inventory source is the **TokenStrategy wallet** (`0x2090Dc81F42f6ddD8dEaCE0
 ## Directory Structure
 
 ```
-Infinite/
+ChecksWiki/
 ├── frontend/          React app (Vite + TypeScript + wagmi)
 │   └── src/
 │       ├── App.tsx                     Root component, mode switching
@@ -321,7 +321,7 @@ Phase 2 (parallel multicall):
 **`loadRandom(force?)`** — loads a random 2500 permutations:
 - Counts total rows, picks a random offset, fetches 2500 rows ordered by `rand_key` (fast index scan)
 - Selects `total_cost` alongside attribute columns
-- Results cached in sessionStorage (`checks-infinite-perms-v2`)
+- Results cached in sessionStorage (`checks-wiki-perms-v3`)
 - `force=true` bypasses cache
 
 **`shuffle()`** — calls `loadRandom(true)`: fetches a brand new random 2500 from the pool.

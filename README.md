@@ -1,4 +1,4 @@
-# Checks Infinite
+# Checks Wiki
 
 Browse every possible two-step composite from the [Checks VV](https://checks.art) NFT collection. Given four tokens (A, B, C, D) the app simulates the on-chain merge tree:
 
