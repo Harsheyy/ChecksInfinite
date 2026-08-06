@@ -238,6 +238,24 @@ Deno.serve(async (req: Request) => {
       events.errors.push(`composites: ${errMsg(err)}`)
     }
 
+    // ── 8. Roll up today ────────────────────────────────────────────────────────
+    // Runs after the events above so today's sale count and sale low are
+    // included rather than picked up an hour late. The rollup recomputes the
+    // whole day from scratch, so re-running it is always safe.
+    //
+    // Best-effort for the same reason as the events: checkmath_daily is a
+    // derived cache, and a nightly cron re-rolls yesterday regardless — so a
+    // failure here costs at most one hour of freshness on today's point, never
+    // the snapshot itself.
+    let rolledUp = true
+    const today = new Date().toISOString().slice(0, 10) // UTC, matches the rollup's bucketing
+    const { error: rollupErr } = await supabase.rpc('rollup_checkmath_day', { p_day: today })
+    if (rollupErr) {
+      console.error('sync-checkmath: daily rollup failed:', rollupErr)
+      rolledUp = false
+      events.errors.push(`rollup: ${rollupErr.message}`)
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -247,6 +265,7 @@ Deno.serve(async (req: Request) => {
         editionsSweep,
         tokenworksSweep,
         events,
+        rolledUp,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     )

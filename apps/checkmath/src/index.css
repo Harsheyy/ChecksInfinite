@@ -412,14 +412,37 @@
  * end labels rather than a legend or the page's accent. */
 .cm-chart { overflow-x: auto; }
 
-/* The SVG scales with its box, so its text scales too. Below this floor the
- * axis labels drop under ~10px and stop being readable — so the chart
- * scrolls rather than shrinking. */
+/* Positioning context for the tooltip, and the carrier of the width floor:
+ * below it the axis labels drop under ~10px and stop being readable, so the
+ * chart scrolls rather than shrinking. The floor lives here rather than on the
+ * SVG so the tooltip's percentage offsets resolve against the same box the
+ * chart is drawn in. */
+.cm-chart-inner {
+  position: relative;
+  min-width: 660px;
+  touch-action: pan-x pan-y;
+}
+
+/* The SVG scales with its box, so its text scales too. */
 .cm-chart-svg {
   display: block;
   width: 100%;
-  min-width: 660px;
   height: auto;
+}
+
+/* The one line of prose above the chart: the answer, not the method. */
+.cm-chart-verdict {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0 0 1rem;
+}
+
+/* Marks label themselves in place, so the chart needs no written key. */
+.cm-chart-mark-label {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.02em;
 }
 
 .cm-chart-tick {
@@ -435,46 +458,75 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cm-chart-summary {
-  color: var(--text-dim);
-  font-size: 0.82rem;
-  line-height: 1.55;
-  margin-top: 1.25rem;
+/* Hover/tap readout. Pinned to the top of the plot rather than following the
+ * cursor: the values it reports sit at wildly different heights, and a tip
+ * that chased them would jitter on every crossover. */
+.cm-chart-tip {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  width: 210px;
+  padding: 0.55rem 0.65rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-interactive);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  pointer-events: none; /* never eat the pointer events that drive it */
+  z-index: 1;
 }
 
-/* A written key rather than a boxed legend — the two lines label themselves
- * at their ends, so this only has to explain the two event glyphs. */
-.cm-chart-key {
+.cm-tip-day {
+  color: var(--text);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.35rem;
+}
+
+.cm-tip-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.cm-tip-row span:last-child { color: var(--text); }
+
+.cm-tip-note {
+  color: var(--text-faint);
+  margin: 0.35rem 0 0;
+}
+
+.cm-tip-event {
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  margin: 0.4rem 0 0;
+  padding-top: 0.35rem;
+}
+
+/* Everything the prose above and below the chart used to say, folded away.
+ * The chart answers the question; this answers "how do you know". */
+.cm-chart-method {
   color: var(--text-faint);
   font-size: 0.76rem;
   line-height: 1.6;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
-.cm-key-sale,
-.cm-key-composite {
-  display: inline-block;
-  flex: none;
-  margin-right: 0.4rem;
+.cm-chart-method summary {
+  color: var(--text-dim);
+  cursor: pointer;
+  width: fit-content;
 }
 
-.cm-key-sale {
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid #eeeeee;
-  border-radius: 50%;
+.cm-chart-method summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.cm-key-composite {
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 7px solid #a8a8a8;
-}
+.cm-chart-method p { margin: 0.5rem 0 0; }
 
 /* ─── Loading / error ────────────────────────────────────── */
 

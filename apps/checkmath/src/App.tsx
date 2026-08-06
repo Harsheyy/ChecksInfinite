@@ -96,6 +96,7 @@ export default function App() {
               days={history.days}
               loading={history.loading}
               error={history.error}
+              current={snapshot}
             />
 
             <SweepCalculator
