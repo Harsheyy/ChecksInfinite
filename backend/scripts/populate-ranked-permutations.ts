@@ -82,6 +82,22 @@ function isEligible(row: CheckRow): boolean {
     (row.gradient !== null && row.gradient !== 'None')
 }
 
+/**
+ * The engine needs a decoded check_struct. The three edge functions currently
+ * write `{ _raw: "0x…" }` — decodeGetCheck() never decoded anything — so rows
+ * they touch have no `stored` key and blow up checkStructFromJSON with
+ * "Cannot read properties of undefined (reading 'composites')".
+ *
+ * That took the whole nightly run down on 2026-08-06 and, because the run
+ * truncates first, left the Explore feed with an empty table. Skipping these
+ * rows keeps one bad token from costing the entire feed. It is a guard, not
+ * the fix: the real fix is to make decodeGetCheck decode.
+ */
+function hasUsableStruct(row: CheckRow): boolean {
+  const s = row.check_struct as { stored?: unknown } | null
+  return !!s && typeof s === 'object' && s.stored !== undefined
+}
+
 // ─── Weighted shuffle — gradient has primary emphasis ─────────────────────────
 
 const BAND_WEIGHT: Record<string, number> = {
@@ -151,8 +167,13 @@ function computePermutation(
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Rows go to staging, never straight to `permutations` — the live table is
+ * replaced in one transaction by swap_permutations() only after a full run
+ * succeeds. See migration 054.
+ */
 async function flushBatch(batch: PermutationRow[]) {
-  const { error } = await supabase.from('permutations').insert(batch)
+  const { error } = await supabase.from('permutations_staging').insert(batch)
   if (error) throw error
 }
 
@@ -188,10 +209,13 @@ async function main() {
   let totalPerms = 0
 
   try {
-    console.log('Truncating existing permutations…')
-    const { error: truncErr } = await supabase.rpc('truncate_permutations')
+    // Clear staging only. The live `permutations` table keeps serving the old
+    // set for the whole run and is replaced by swap_permutations() at the end,
+    // so a crash here costs nothing but a stale day.
+    console.log('Clearing staging table…')
+    const { error: truncErr } = await supabase.rpc('truncate_permutations_staging')
     if (truncErr) throw truncErr
-    console.log('Truncated.')
+    console.log('Staging cleared.')
 
     console.log('Loading tokenstr checks…')
     const { data: rawRows, error } = await supabase
@@ -203,13 +227,30 @@ async function main() {
 
     if (error) throw error
 
-    const allRows = rawRows as CheckRow[]
-    const rows    = allRows.filter(isEligible)
+    const allRows  = rawRows as CheckRow[]
+    const usable   = allRows.filter(hasUsableStruct)
+    const skipped  = allRows.filter(row => !hasUsableStruct(row))
+    const rows     = usable.filter(isEligible)
+
+    if (skipped.length > 0) {
+      // Loud, and with the ids, so this can't rot unnoticed the way it did.
+      console.warn(
+        `WARNING: skipping ${skipped.length} token(s) with an undecoded check_struct — ` +
+        `these need decodeGetCheck() fixed and a backfill: ` +
+        skipped.map(r => r.token_id).join(', '),
+      )
+    }
+
     console.log(`${allRows.length} tokenstr checks → ${rows.length} eligible (low-band or gradient).`)
 
     if (rows.length === 0) {
-      await finishLog(logId, 'done', 0)
-      return
+      // Don't swap — the live table keeps yesterday's rows. An empty eligible
+      // set is a fault upstream (bad structs, a failed token sync), not a
+      // legitimate "today there is nothing", so it fails loudly rather than
+      // logging a green run over a silently broken feed.
+      console.error('No eligible tokens with a usable check_struct — leaving the live feed untouched.')
+      await finishLog(logId, 'error', 0, 'no eligible tokens; skipped swap')
+      process.exit(1)
     }
 
     // Group by checks_count
@@ -296,7 +337,14 @@ async function main() {
     }
 
     await finishLog(logId, 'done', totalPerms)
-    console.log(`\nFinished. ${totalPerms.toLocaleString()} total permutations stored.`)
+    // Publish. Everything above touched staging only; this is the first and
+    // only moment the live table changes, and it changes in one transaction.
+    console.log('\nSwapping staging into permutations…')
+    const { data: swapped, error: swapErr } = await supabase.rpc('swap_permutations')
+    if (swapErr) throw swapErr
+    console.log(`Swapped. ${Number(swapped).toLocaleString()} rows now live.`)
+
+    console.log(`Finished. ${totalPerms.toLocaleString()} total permutations stored.`)
   } catch (err) {
     await finishLog(logId, 'error', totalPerms, String(err))
     console.error('Script failed:', err)
