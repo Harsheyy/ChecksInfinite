@@ -59,9 +59,30 @@
 }
 
 .landing-card.disabled {
-  opacity: 0.5;
   pointer-events: none;
   cursor: default;
+}
+
+.landing-card-veil {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* An unreleased tool shows its shape but not its detail: the name and
+ * description go out of focus and only the badge stays legible. The blur is
+ * doing the work the old blanket opacity: 0.5 couldn't — that dimmed the badge
+ * along with everything else, so the one line worth reading was the faintest
+ * thing on the card.
+ *
+ * user-select is off because blurred text is still real text underneath, and
+ * inviting someone to drag-select it would give away what the blur is for. */
+.landing-card.disabled .landing-card-veil {
+  filter: blur(5px);
+  opacity: 0.55;
+  user-select: none;
+  /* filter bleeds past the box — keep the fog off the sharp badge below. */
+  margin-bottom: 0.4rem;
 }
 
 .landing-card-name {
@@ -79,4 +100,10 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 0.25rem;
+}
+
+/* Now the only readable line on the card, so it carries real contrast
+ * (7.5:1) rather than the #777 it inherited as a tertiary footnote. */
+.landing-card.disabled .landing-card-badge {
+  color: #a0a0a0;
 }
