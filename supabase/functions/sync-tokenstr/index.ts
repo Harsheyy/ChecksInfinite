@@ -347,8 +347,67 @@ function decodeTokenURIAttrs(abiEncodedString: string): Record<string, string> {
   return result
 }
 
-function decodeGetCheck(hex: string): Record<string, unknown> {
-  return { _raw: hex }
+/**
+ * Decode getCheck(uint256) into the shape the permutation engine expects
+ * (CheckStructJSON in backend/lib/engine.ts).
+ *
+ * This returned `{ _raw: hex }` until 2026-08-06, with a comment claiming the
+ * backend would decode it later. Nothing ever did, so every token written here
+ * landed in all_checks with no `stored` key — and the nightly permutations run
+ * died on the first one it met, emptying the Explore feed.
+ *
+ * Every component of the returned tuple is a static type, so the encoding is
+ * 30 flat 32-byte words with no head/tail offsets. Verified word-for-word
+ * against viem's decodeFunctionResult on live tokens before shipping.
+ *
+ * seed is a uint256 and is serialized as a decimal string to match
+ * checkStructToJSON, so it survives jsonb without precision loss.
+ */
+function decodeGetCheck(hexResult: string): Record<string, unknown> {
+  const hex = hexResult.startsWith('0x') ? hexResult.slice(2) : hexResult
+
+  const WORDS = 30
+  if (hex.length < WORDS * 64) {
+    // Loud rather than storing something the engine can't read. Callers run
+    // this under Promise.allSettled, so one bad token can't stop the sync.
+    throw new Error(`getCheck returned ${hex.length / 2} bytes, expected at least ${WORDS * 32}`)
+  }
+
+  const word = (i: number) => hex.slice(i * 64, i * 64 + 64)
+  const num  = (i: number) => parseInt(word(i), 16)
+  const flag = (i: number) => BigInt('0x' + word(i)) !== 0n
+
+  let i = 0
+  const composites: number[] = []
+  for (let k = 0; k < 6; k++) composites.push(num(i++))
+  const colorBands: number[] = []
+  for (let k = 0; k < 5; k++) colorBands.push(num(i++))
+  const gradients: number[] = []
+  for (let k = 0; k < 5; k++) gradients.push(num(i++))
+
+  const stored = {
+    composites,
+    colorBands,
+    gradients,
+    divisorIndex: num(i++),
+    epoch:        num(i++),
+    seed:         num(i++),
+    day:          num(i++),
+  }
+
+  return {
+    stored,
+    isRevealed:    flag(i++),
+    seed:          BigInt('0x' + word(i++)).toString(),
+    checksCount:   num(i++),
+    hasManyChecks: flag(i++),
+    composite:     num(i++),
+    isRoot:        flag(i++),
+    colorBand:     num(i++),
+    gradient:      num(i++),
+    direction:     num(i++),
+    speed:         num(i++),
+  }
 }
 
 function hexToUtf8(hex: string): string {
