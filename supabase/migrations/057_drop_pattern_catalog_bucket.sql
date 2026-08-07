@@ -1,0 +1,29 @@
+-- supabase/migrations/057_drop_pattern_catalog_bucket.sql
+-- Retire the pattern-catalog storage bucket, superseded by migration 056.
+--
+-- The bucket held two objects, both unreferenced once 056 shipped:
+--   layouts.json   38.9 MB, the capped pattern index the Patterns tab used to
+--                  download and parse in full; replaced by the pattern_layouts
+--                  and pattern_variations tables
+--   patterns.json  0.3 MB, orphaned since usePatternCatalog.ts and
+--                  build-pattern-catalog.ts were deleted in f8953d2
+--
+-- Both objects and the bucket itself were deleted from production on
+-- 2026-08-07 through the Storage API, after the frontend that stopped fetching
+-- them was confirmed live. That step is NOT repeated here: storage.objects and
+-- storage.buckets carry a storage.protect_delete() trigger that rejects
+-- DELETE outright ("Direct deletion from storage tables is not allowed"), so a
+-- migration cannot do it. The API call was:
+--
+--   DELETE /storage/v1/object/pattern-catalog  {"prefixes":[...]}
+--   DELETE /storage/v1/bucket/pattern-catalog
+--
+-- What is left to clean up in SQL is the RLS policy, which 029 created
+-- alongside the bucket and which outlives it as a rule against a bucket_id
+-- nothing can write to.
+--
+-- Note for a rebuilt database: 029_pattern_catalog_bucket.sql still runs and
+-- recreates an empty bucket, which this migration then leaves policy-less and
+-- unused. Harmless, and preferable to editing an applied migration.
+
+DROP POLICY IF EXISTS "public read pattern-catalog" ON storage.objects;
