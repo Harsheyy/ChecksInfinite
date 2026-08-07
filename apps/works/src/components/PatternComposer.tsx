@@ -6,16 +6,9 @@
 // layout cards. Clicking one goes straight to every real recipe across
 // all of that layout's color variations — no separate "pick a color pair"
 // screen in between.
-import { useMemo } from 'react'
 import { usePatternLayouts, type PatternLayout } from '../usePatternLayouts'
 
 const GRID_CELLS = 20
-
-function overlapCount(cellsA: number[], cellsB: number[]): number {
-  let n = 0
-  for (const c of cellsA) if (cellsB.includes(c)) n++
-  return n
-}
 
 function LayoutSwatch({ cells, highlight }: { cells: number[]; highlight?: number[] }) {
   return (
@@ -43,7 +36,6 @@ interface LayoutCardProps {
 }
 
 function LayoutCard({ layout, selected, isExact, onClick }: LayoutCardProps) {
-  const overlap = overlapCount(layout.cells, selected)
   return (
     <div
       className={`pattern-card${isExact ? ' pattern-card--exact' : ''}`}
@@ -55,7 +47,7 @@ function LayoutCard({ layout, selected, isExact, onClick }: LayoutCardProps) {
       {isExact ? (
         <span className="pattern-card-badge">★ exact</span>
       ) : (
-        <span className="pattern-card-overlap">{overlap}/{selected.length} match</span>
+        <span className="pattern-card-overlap">{layout.overlap}/{selected.length} match</span>
       )}
       <LayoutSwatch cells={layout.cells} highlight={selected} />
       <div className="pattern-card-meta">
@@ -72,30 +64,21 @@ interface PatternComposerProps {
 }
 
 export function PatternComposer({ selected, onSelectLayout }: PatternComposerProps) {
-  const { layouts, loading, error } = usePatternLayouts(true)
-
-  const { exact, related } = useMemo(() => {
-    if (layouts.length === 0) return { exact: [] as PatternLayout[], related: [] as PatternLayout[] }
-    const exactMatches = layouts.filter(l => l.cells.length === selected.length && overlapCount(l.cells, selected) === selected.length)
-    if (exactMatches.length > 0) return { exact: exactMatches, related: [] as PatternLayout[] }
-    const relatedMatches = layouts
-      .map(l => ({ l, overlap: overlapCount(l.cells, selected) }))
-      .filter(r => r.overlap > 0)
-      .sort((a, b) => b.overlap - a.overlap || (a.l.cells.length - selected.length) - (b.l.cells.length - selected.length))
-      .slice(0, 60)
-      .map(r => r.l)
-    return { exact: [] as PatternLayout[], related: relatedMatches }
-  }, [layouts, selected])
+  // search_pattern_layouts does the matching and ranking against the full
+  // library — it returns exact matches alone when any exist, otherwise the
+  // closest layouts sharing a painted cell.
+  const { layouts, loading, error } = usePatternLayouts(selected, true)
+  const hasExact = layouts.length > 0 && layouts[0].isExact
 
   const resultsTitle = (() => {
     if (loading) return 'Searching…'
     if (error) return error
-    if (exact.length > 0) return `★ Exact match — this pattern exists (${exact.length} layout${exact.length === 1 ? '' : 's'})`
-    if (related.length === 0) return 'No known layout touches those cells yet'
+    if (hasExact) return `★ Exact match — this pattern exists (${layouts.length} layout${layouts.length === 1 ? '' : 's'})`
+    if (layouts.length === 0) return 'No known layout touches those cells yet'
     return 'No exact match yet — closest layouts sharing your selected cells'
   })()
 
-  const list = exact.length > 0 ? exact : related
+  const list = layouts
 
   return (
     <div className="pattern-composer-results">
@@ -103,19 +86,19 @@ export function PatternComposer({ selected, onSelectLayout }: PatternComposerPro
         <span className="filter-count pattern-recipe-count">{resultsTitle}</span>
       </div>
       {list.length > 0 && (
-        <p className="pattern-disclaimer">Showing a small sample of what's possible — not every layout or recipe that exists.</p>
+        <p className="pattern-disclaimer">Every layout found so far that touches your selection — hunting is ongoing, so more exist than have been found.</p>
       )}
       {!loading && list.length === 0 && !error && (
         <div className="pattern-status">Nothing found — try a different selection.</div>
       )}
       {list.length > 0 && (
         <div className="pattern-card-grid">
-          {list.map((l, i) => (
+          {list.map(l => (
             <LayoutCard
-              key={l.cells.join(',') + i}
+              key={l.cellsKey}
               layout={l}
               selected={selected}
-              isExact={exact.length > 0}
+              isExact={l.isExact}
               onClick={() => onSelectLayout(l)}
             />
           ))}

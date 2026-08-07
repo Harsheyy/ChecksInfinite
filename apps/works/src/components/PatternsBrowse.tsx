@@ -140,7 +140,7 @@ export function PatternsBrowse({ tabs, getLikeInfo, bgSvgs }: PatternsBrowseProp
           <button type="button" className="search-fixed-bar__edit" onClick={() => setSelected(null)}>← Back</button>
           <div className="search-fixed-bar__spacer" />
           <span className="filter-count pattern-recipe-count">
-            {selected.minoritySize}-check minority · {selected.variety === 1 ? '1 color pair' : `${selected.variety}+ color pairs`} · {recipes.length} of {selected.totalRecipes}+ known recipes shown
+            {selected.minoritySize}-check minority · {selected.variety === 1 ? '1 color pair' : `${selected.variety} color pairs`} · {recipes.length >= selected.totalRecipes ? `all ${selected.totalRecipes} known recipes` : `${recipes.length} of ${selected.totalRecipes} known recipes`}
           </span>
         </div>
         {recipesLoading ? (

@@ -71,8 +71,7 @@ backend/           Node.js data pipeline (tsx + viem)
     populate-ranked-permutations.ts  Nightly (GitHub Actions): refresh Token Works pool
     populate-market-permutations.ts  Run when listings change: rebuild OpenSea permutation pool
     hunt-diversity.ts                Offline search for diverse pattern recipes
-    build-layouts-index.ts           Build the pattern layouts index consumed by PatternsBrowse
-    upload-layouts-index.ts          Upload that index to Supabase Storage
+    build-pattern-library.ts         Merge every hunt's results into pattern_layouts/pattern_variations
 
 supabase/
   functions/
